@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
@@ -43,7 +43,7 @@ export { validateSeverity, sanitizePath, sanitizeImageName } from "./handlers.js
 // =============================================================================
 // MCP Server Setup
 // =============================================================================
-const server = new Server(
+const mcpServer = new McpServer(
   {
     name: "cicd-security-mcp-server",
     version: "1.0.0",
@@ -55,6 +55,9 @@ const server = new Server(
     },
   }
 );
+
+// Access the underlying server for low-level request handlers
+const server = mcpServer.server;
 
 // =============================================================================
 // Tool Definitions
@@ -701,7 +704,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // =============================================================================
 const transport = new StdioServerTransport();
 try {
-  await server.connect(transport);
+  await mcpServer.connect(transport);
   console.error("CI/CD Security MCP Server running on stdio");
 } catch (error) {
   console.error(error);
