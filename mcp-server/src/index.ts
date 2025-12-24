@@ -41,456 +41,456 @@ import {
 export { validateSeverity, sanitizePath, sanitizeImageName } from "./handlers.js";
 
 // =============================================================================
-// MCP Server Setup
+// Tool Definitions (exported for testing)
 // =============================================================================
-const mcpServer = new McpServer(
+export const toolDefinitions = [
+  // Trivy Tools
   {
-    name: "cicd-security-mcp-server",
-    version: "1.0.0",
+    name: "trivy_scan_path",
+    description: "Scan a local file path for vulnerabilities using Trivy. Detects vulnerabilities in dependencies (npm, pip, go, etc.) and secrets.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
+        },
+      },
+      required: ["path"],
+    },
   },
   {
-    capabilities: {
-      tools: {},
-      resources: {},
+    name: "trivy_scan_image",
+    description: "Scan a Docker image for vulnerabilities using Trivy",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
+        },
+      },
+      required: ["image"],
     },
-  }
-);
+  },
 
-// Access the underlying server for low-level request handlers
-const server = mcpServer.server;
+  // SonarQube Tools
+  {
+    name: "sonar_list_projects",
+    description: "List all projects in SonarQube",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "sonar_get_issues",
+    description: "Get code issues (bugs, vulnerabilities, code smells) for a SonarQube project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectKey: {
+          type: "string",
+          description: "The SonarQube project key",
+        },
+        types: {
+          type: "string",
+          description: "Issue types to filter (VULNERABILITY, BUG, CODE_SMELL)",
+        },
+      },
+      required: ["projectKey"],
+    },
+  },
+  {
+    name: "sonar_get_security_hotspots",
+    description: "Get security hotspots for a SonarQube project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectKey: {
+          type: "string",
+          description: "The SonarQube project key",
+        },
+      },
+      required: ["projectKey"],
+    },
+  },
+  {
+    name: "sonar_get_metrics",
+    description: "Get quality metrics (bugs, vulnerabilities, coverage, etc.) for a SonarQube project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectKey: {
+          type: "string",
+          description: "The SonarQube project key",
+        },
+      },
+      required: ["projectKey"],
+    },
+  },
 
-// =============================================================================
-// Tool Definitions
-// =============================================================================
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      // Trivy Tools
-      {
-        name: "trivy_scan_path",
-        description: "Scan a local file path for vulnerabilities using Trivy. Detects vulnerabilities in dependencies (npm, pip, go, etc.) and secrets.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            path: {
-              type: "string",
-              description: "Absolute path to the directory to scan",
-            },
-            severity: {
-              type: "string",
-              description: "Severity levels to report (default: HIGH,CRITICAL)",
-              default: "HIGH,CRITICAL",
-            },
-          },
-          required: ["path"],
+  // Dependency-Track Tools
+  {
+    name: "dtrack_list_projects",
+    description: "List all projects in Dependency-Track",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "dtrack_get_vulnerabilities",
+    description: "Get vulnerabilities for a Dependency-Track project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectUuid: {
+          type: "string",
+          description: "The project UUID (get from dtrack_list_projects)",
         },
       },
-      {
-        name: "trivy_scan_image",
-        description: "Scan a Docker image for vulnerabilities using Trivy",
-        inputSchema: {
-          type: "object",
-          properties: {
-            image: {
-              type: "string",
-              description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
-            },
-            severity: {
-              type: "string",
-              description: "Severity levels to report (default: HIGH,CRITICAL)",
-              default: "HIGH,CRITICAL",
-            },
-          },
-          required: ["image"],
+      required: ["projectUuid"],
+    },
+  },
+  {
+    name: "dtrack_get_findings",
+    description: "Get all security findings for a Dependency-Track project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectUuid: {
+          type: "string",
+          description: "The project UUID",
         },
       },
+      required: ["projectUuid"],
+    },
+  },
+  {
+    name: "dtrack_get_components",
+    description: "Get all components (dependencies) for a Dependency-Track project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectUuid: {
+          type: "string",
+          description: "The project UUID",
+        },
+      },
+      required: ["projectUuid"],
+    },
+  },
 
-      // SonarQube Tools
-      {
-        name: "sonar_list_projects",
-        description: "List all projects in SonarQube",
-        inputSchema: {
-          type: "object",
-          properties: {},
+  // Gitea Tools
+  {
+    name: "gitea_list_repos",
+    description: "List all repositories in Gitea for the current user",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "gitea_get_repo",
+    description: "Get details of a specific Gitea repository",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
         },
       },
-      {
-        name: "sonar_get_issues",
-        description: "Get code issues (bugs, vulnerabilities, code smells) for a SonarQube project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectKey: {
-              type: "string",
-              description: "The SonarQube project key",
-            },
-            types: {
-              type: "string",
-              description: "Issue types to filter (VULNERABILITY, BUG, CODE_SMELL)",
-            },
-          },
-          required: ["projectKey"],
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "gitea_get_branches",
+    description: "List branches of a Gitea repository",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
         },
       },
-      {
-        name: "sonar_get_security_hotspots",
-        description: "Get security hotspots for a SonarQube project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectKey: {
-              type: "string",
-              description: "The SonarQube project key",
-            },
-          },
-          required: ["projectKey"],
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "gitea_get_commits",
+    description: "Get recent commits for a Gitea repository",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        limit: {
+          type: "number",
+          description: "Number of commits to retrieve (default: 10)",
+          default: 10,
         },
       },
-      {
-        name: "sonar_get_metrics",
-        description: "Get quality metrics (bugs, vulnerabilities, coverage, etc.) for a SonarQube project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectKey: {
-              type: "string",
-              description: "The SonarQube project key",
-            },
-          },
-          required: ["projectKey"],
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "gitea_create_repo",
+    description: "Create a new repository in Gitea",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Repository name",
+        },
+        description: {
+          type: "string",
+          description: "Repository description",
+        },
+        private: {
+          type: "boolean",
+          description: "Whether the repository is private",
+          default: false,
         },
       },
+      required: ["name"],
+    },
+  },
+  {
+    name: "gitea_migrate_repo",
+    description: "Migrate a repository from GitHub to Gitea",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cloneUrl: {
+          type: "string",
+          description: "GitHub clone URL (e.g., https://github.com/user/repo.git)",
+        },
+        repoName: {
+          type: "string",
+          description: "Name for the new repository in Gitea",
+        },
+        authToken: {
+          type: "string",
+          description: "GitHub personal access token (required for private repos)",
+        },
+      },
+      required: ["cloneUrl", "repoName"],
+    },
+  },
 
-      // Dependency-Track Tools
-      {
-        name: "dtrack_list_projects",
-        description: "List all projects in Dependency-Track",
-        inputSchema: {
-          type: "object",
-          properties: {},
+  // Drone CI Tools
+  {
+    name: "drone_list_repos",
+    description: "List all repositories synced with Drone CI",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "drone_get_builds",
+    description: "Get build history for a Drone CI repository",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
         },
       },
-      {
-        name: "dtrack_get_vulnerabilities",
-        description: "Get vulnerabilities for a Dependency-Track project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectUuid: {
-              type: "string",
-              description: "The project UUID (get from dtrack_list_projects)",
-            },
-          },
-          required: ["projectUuid"],
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "drone_get_build",
+    description: "Get details of a specific Drone CI build",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        build: {
+          type: "number",
+          description: "Build number",
         },
       },
-      {
-        name: "dtrack_get_findings",
-        description: "Get all security findings for a Dependency-Track project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectUuid: {
-              type: "string",
-              description: "The project UUID",
-            },
-          },
-          required: ["projectUuid"],
+      required: ["owner", "repo", "build"],
+    },
+  },
+  {
+    name: "drone_get_build_logs",
+    description: "Get logs for a Drone CI build step",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        build: {
+          type: "number",
+          description: "Build number",
+        },
+        stage: {
+          type: "number",
+          description: "Stage number (default: 1)",
+          default: 1,
+        },
+        step: {
+          type: "number",
+          description: "Step number (default: 1)",
+          default: 1,
         },
       },
-      {
-        name: "dtrack_get_components",
-        description: "Get all components (dependencies) for a Dependency-Track project",
-        inputSchema: {
-          type: "object",
-          properties: {
-            projectUuid: {
-              type: "string",
-              description: "The project UUID",
-            },
-          },
-          required: ["projectUuid"],
+      required: ["owner", "repo", "build"],
+    },
+  },
+  {
+    name: "drone_trigger_build",
+    description: "Trigger a new build in Drone CI",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        branch: {
+          type: "string",
+          description: "Branch to build (default: main)",
+          default: "main",
         },
       },
+      required: ["owner", "repo"],
+    },
+  },
 
-      // Gitea Tools
-      {
-        name: "gitea_list_repos",
-        description: "List all repositories in Gitea for the current user",
-        inputSchema: {
-          type: "object",
-          properties: {},
+  // Registry Tools
+  {
+    name: "registry_list_images",
+    description: "List all images in the local Docker registry",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "registry_get_tags",
+    description: "Get all tags for an image in the local Docker registry",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Image name",
         },
       },
-      {
-        name: "gitea_get_repo",
-        description: "Get details of a specific Gitea repository",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-          },
-          required: ["owner", "repo"],
-        },
-      },
-      {
-        name: "gitea_get_branches",
-        description: "List branches of a Gitea repository",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-          },
-          required: ["owner", "repo"],
-        },
-      },
-      {
-        name: "gitea_get_commits",
-        description: "Get recent commits for a Gitea repository",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-            limit: {
-              type: "number",
-              description: "Number of commits to retrieve (default: 10)",
-              default: 10,
-            },
-          },
-          required: ["owner", "repo"],
-        },
-      },
-      {
-        name: "gitea_create_repo",
-        description: "Create a new repository in Gitea",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: {
-              type: "string",
-              description: "Repository name",
-            },
-            description: {
-              type: "string",
-              description: "Repository description",
-            },
-            private: {
-              type: "boolean",
-              description: "Whether the repository is private",
-              default: false,
-            },
-          },
-          required: ["name"],
-        },
-      },
-      {
-        name: "gitea_migrate_repo",
-        description: "Migrate a repository from GitHub to Gitea",
-        inputSchema: {
-          type: "object",
-          properties: {
-            cloneUrl: {
-              type: "string",
-              description: "GitHub clone URL (e.g., https://github.com/user/repo.git)",
-            },
-            repoName: {
-              type: "string",
-              description: "Name for the new repository in Gitea",
-            },
-            authToken: {
-              type: "string",
-              description: "GitHub personal access token (required for private repos)",
-            },
-          },
-          required: ["cloneUrl", "repoName"],
-        },
-      },
+      required: ["image"],
+    },
+  },
 
-      // Drone CI Tools
-      {
-        name: "drone_list_repos",
-        description: "List all repositories synced with Drone CI",
-        inputSchema: {
-          type: "object",
-          properties: {},
+  // Combined Tools
+  {
+    name: "security_scan_all",
+    description: "Run a comprehensive security scan using all available tools (Trivy, SonarQube findings, Dependency-Track)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Path to scan with Trivy",
+        },
+        sonarProjectKey: {
+          type: "string",
+          description: "SonarQube project key (optional)",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID (optional)",
         },
       },
-      {
-        name: "drone_get_builds",
-        description: "Get build history for a Drone CI repository",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-          },
-          required: ["owner", "repo"],
-        },
-      },
-      {
-        name: "drone_get_build",
-        description: "Get details of a specific Drone CI build",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-            build: {
-              type: "number",
-              description: "Build number",
-            },
-          },
-          required: ["owner", "repo", "build"],
-        },
-      },
-      {
-        name: "drone_get_build_logs",
-        description: "Get logs for a Drone CI build step",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-            build: {
-              type: "number",
-              description: "Build number",
-            },
-            stage: {
-              type: "number",
-              description: "Stage number (default: 1)",
-              default: 1,
-            },
-            step: {
-              type: "number",
-              description: "Step number (default: 1)",
-              default: 1,
-            },
-          },
-          required: ["owner", "repo", "build"],
-        },
-      },
-      {
-        name: "drone_trigger_build",
-        description: "Trigger a new build in Drone CI",
-        inputSchema: {
-          type: "object",
-          properties: {
-            owner: {
-              type: "string",
-              description: "Repository owner",
-            },
-            repo: {
-              type: "string",
-              description: "Repository name",
-            },
-            branch: {
-              type: "string",
-              description: "Branch to build (default: main)",
-              default: "main",
-            },
-          },
-          required: ["owner", "repo"],
-        },
-      },
-
-      // Registry Tools
-      {
-        name: "registry_list_images",
-        description: "List all images in the local Docker registry",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "registry_get_tags",
-        description: "Get all tags for an image in the local Docker registry",
-        inputSchema: {
-          type: "object",
-          properties: {
-            image: {
-              type: "string",
-              description: "Image name",
-            },
-          },
-          required: ["image"],
-        },
-      },
-
-      // Combined Tools
-      {
-        name: "security_scan_all",
-        description: "Run a comprehensive security scan using all available tools (Trivy, SonarQube findings, Dependency-Track)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            path: {
-              type: "string",
-              description: "Path to scan with Trivy",
-            },
-            sonarProjectKey: {
-              type: "string",
-              description: "SonarQube project key (optional)",
-            },
-            dtrackProjectUuid: {
-              type: "string",
-              description: "Dependency-Track project UUID (optional)",
-            },
-          },
-          required: ["path"],
-        },
-      },
-    ],
-  };
-});
+      required: ["path"],
+    },
+  },
+];
 
 // =============================================================================
-// Tool Handlers
+// Resource Definitions (exported for testing)
 // =============================================================================
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+export const resourceDefinitions = [
+  {
+    uri: "cicd://status",
+    name: "CI/CD Platform Status",
+    description: "Current status of all CI/CD services",
+    mimeType: "application/json",
+  },
+  {
+    uri: "cicd://config",
+    name: "CI/CD Configuration",
+    description: "Current MCP server configuration (URLs and settings)",
+    mimeType: "application/json",
+  },
+];
 
+// =============================================================================
+// Handler Functions (exported for testing)
+// =============================================================================
+export function handleListTools() {
+  return { tools: toolDefinitions };
+}
+
+export async function handleCallTool(name: string, args?: Record<string, unknown>): Promise<{
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+}> {
   try {
-    let result: any;
+    let result: unknown;
 
     switch (name) {
       // Trivy
@@ -621,44 +621,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         },
       ],
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({ error: error.message }, null, 2),
+          text: JSON.stringify({ error: errorMessage }, null, 2),
         },
       ],
       isError: true,
     };
   }
-});
+}
 
-// =============================================================================
-// Resource Definitions
-// =============================================================================
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  return {
-    resources: [
-      {
-        uri: "cicd://status",
-        name: "CI/CD Platform Status",
-        description: "Current status of all CI/CD services",
-        mimeType: "application/json",
-      },
-      {
-        uri: "cicd://config",
-        name: "CI/CD Configuration",
-        description: "Current MCP server configuration (URLs and settings)",
-        mimeType: "application/json",
-      },
-    ],
-  };
-});
+export function handleListResources() {
+  return { resources: resourceDefinitions };
+}
 
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  const { uri } = request.params;
-
+export async function handleReadResource(uri: string): Promise<{
+  contents: Array<{ uri: string; mimeType: string; text: string }>;
+}> {
   if (uri === "cicd://status") {
     const status = await checkPlatformStatus();
     return {
@@ -697,6 +680,36 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   }
 
   throw new Error(`Unknown resource: ${uri}`);
+}
+
+// =============================================================================
+// MCP Server Setup (only runs when module is executed directly)
+// =============================================================================
+const mcpServer = new McpServer(
+  {
+    name: "cicd-security-mcp-server",
+    version: "1.0.0",
+  },
+  {
+    capabilities: {
+      tools: {},
+      resources: {},
+    },
+  }
+);
+
+// Access the underlying server for low-level request handlers
+const server = mcpServer.server;
+
+// Register handlers using exported functions
+server.setRequestHandler(ListToolsRequestSchema, async () => handleListTools());
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  return handleCallTool(name, args as Record<string, unknown>);
+});
+server.setRequestHandler(ListResourcesRequestSchema, async () => handleListResources());
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  return handleReadResource(request.params.uri);
 });
 
 // =============================================================================

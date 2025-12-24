@@ -9,10 +9,13 @@ import { tools, executeTool } from "./tools.js";
 // Load environment variables
 dotenvConfig();
 
+// Export for testing
+export { tools, executeTool } from "./tools.js";
+
 // =============================================================================
 // Agent Configuration
 // =============================================================================
-const SYSTEM_PROMPT = `You are a CI/CD Security Agent with access to a complete local development platform. You can help users with:
+export const SYSTEM_PROMPT = `You are a CI/CD Security Agent with access to a complete local development platform. You can help users with:
 
 ## Your Capabilities
 
@@ -54,13 +57,18 @@ Always provide actionable insights and recommendations based on the findings.`;
 // =============================================================================
 // Agent Class
 // =============================================================================
-class CICDSecurityAgent {
+export class CICDSecurityAgent {
   private readonly client: Anthropic;
   private conversationHistory: Anthropic.MessageParam[] = [];
   private readonly model = "claude-sonnet-4-20250514";
 
-  constructor() {
-    this.client = new Anthropic();
+  constructor(client?: Anthropic) {
+    this.client = client ?? new Anthropic();
+  }
+
+  // Expose for testing
+  getConversationHistory(): Anthropic.MessageParam[] {
+    return [...this.conversationHistory];
   }
 
   async chat(userMessage: string): Promise<string> {
@@ -200,6 +208,76 @@ async function interactiveMode() {
 }
 
 // =============================================================================
+// Command Handlers (exported for testing)
+// =============================================================================
+export async function handleScanCommand(path: string, severity: string, agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(
+    `Scan the directory "${path}" for security vulnerabilities. Report severity ${severity} and above. Provide a summary of findings with recommendations.`
+  );
+}
+
+export async function handleScanImageCommand(image: string, agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(
+    `Scan the Docker image "${image}" for security vulnerabilities. Provide a summary of findings with severity levels and recommendations.`
+  );
+}
+
+export async function handleStatusCommand(agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(
+    "Check the health status of all CI/CD platform services and report which ones are available."
+  );
+}
+
+export async function handleReposCommand(agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(
+    "List all repositories in Gitea with their details."
+  );
+}
+
+export async function handleBuildsCommand(owner: string, repo: string, agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(
+    `Show the recent CI/CD builds for the repository ${owner}/${repo}. Include build status, duration, and any failures.`
+  );
+}
+
+export async function handleSecurityReportCommand(path: string, agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(
+    `Generate a comprehensive security report for "${path}".
+    1. First scan with Trivy for dependency vulnerabilities
+    2. Check if there's a SonarQube project and get its issues
+    3. Check Dependency-Track for any tracked vulnerabilities
+    4. Provide an executive summary with:
+       - Total vulnerabilities by severity
+       - Top 5 critical issues to fix
+       - Recommendations for remediation`
+  );
+}
+
+export async function handleMigrateCommand(
+  githubUrl: string,
+  repoName: string,
+  hasToken: boolean,
+  agent?: CICDSecurityAgent
+): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  const tokenInfo = hasToken ? " using the provided auth token" : "";
+  return instance.runSingleQuery(
+    `Migrate the GitHub repository "${githubUrl}" to Gitea with the name "${repoName}"${tokenInfo}. Preserve issues, PRs, and releases. After migration, report the new repository URL.`
+  );
+}
+
+export async function handleAskCommand(question: string, agent?: CICDSecurityAgent): Promise<string> {
+  const instance = agent ?? new CICDSecurityAgent();
+  return instance.runSingleQuery(question);
+}
+
+// =============================================================================
 // CLI Commands
 // =============================================================================
 program
@@ -219,11 +297,8 @@ program
   .description("Scan a directory for vulnerabilities")
   .option("-s, --severity <levels>", "Severity levels", "HIGH,CRITICAL")
   .action(async (path: string, options) => {
-    const agent = new CICDSecurityAgent();
     console.log(`\n🔍 Scanning ${path} for vulnerabilities...\n`);
-    const response = await agent.runSingleQuery(
-      `Scan the directory "${path}" for security vulnerabilities. Report severity ${options.severity} and above. Provide a summary of findings with recommendations.`
-    );
+    const response = await handleScanCommand(path, options.severity);
     console.log(response);
   });
 
@@ -231,11 +306,8 @@ program
   .command("scan-image <image>")
   .description("Scan a Docker image for vulnerabilities")
   .action(async (image: string) => {
-    const agent = new CICDSecurityAgent();
     console.log(`\n🐳 Scanning image ${image}...\n`);
-    const response = await agent.runSingleQuery(
-      `Scan the Docker image "${image}" for security vulnerabilities. Provide a summary of findings with severity levels and recommendations.`
-    );
+    const response = await handleScanImageCommand(image);
     console.log(response);
   });
 
@@ -243,11 +315,8 @@ program
   .command("status")
   .description("Check CI/CD platform status")
   .action(async () => {
-    const agent = new CICDSecurityAgent();
     console.log("\n🔍 Checking platform status...\n");
-    const response = await agent.runSingleQuery(
-      "Check the health status of all CI/CD platform services and report which ones are available."
-    );
+    const response = await handleStatusCommand();
     console.log(response);
   });
 
@@ -255,11 +324,8 @@ program
   .command("repos")
   .description("List all repositories")
   .action(async () => {
-    const agent = new CICDSecurityAgent();
     console.log("\n📚 Fetching repositories...\n");
-    const response = await agent.runSingleQuery(
-      "List all repositories in Gitea with their details."
-    );
+    const response = await handleReposCommand();
     console.log(response);
   });
 
@@ -267,11 +333,8 @@ program
   .command("builds <owner> <repo>")
   .description("Show recent builds for a repository")
   .action(async (owner: string, repo: string) => {
-    const agent = new CICDSecurityAgent();
     console.log(`\n🏗️ Fetching builds for ${owner}/${repo}...\n`);
-    const response = await agent.runSingleQuery(
-      `Show the recent CI/CD builds for the repository ${owner}/${repo}. Include build status, duration, and any failures.`
-    );
+    const response = await handleBuildsCommand(owner, repo);
     console.log(response);
   });
 
@@ -279,19 +342,9 @@ program
   .command("security-report [path]")
   .description("Generate a comprehensive security report")
   .action(async (path?: string) => {
-    const agent = new CICDSecurityAgent();
     const targetPath = path || process.cwd();
     console.log(`\n📊 Generating security report for ${targetPath}...\n`);
-    const response = await agent.runSingleQuery(
-      `Generate a comprehensive security report for "${targetPath}".
-      1. First scan with Trivy for dependency vulnerabilities
-      2. Check if there's a SonarQube project and get its issues
-      3. Check Dependency-Track for any tracked vulnerabilities
-      4. Provide an executive summary with:
-         - Total vulnerabilities by severity
-         - Top 5 critical issues to fix
-         - Recommendations for remediation`
-    );
+    const response = await handleSecurityReportCommand(targetPath);
     console.log(response);
   });
 
@@ -300,12 +353,8 @@ program
   .description("Migrate a repository from GitHub to Gitea")
   .option("-t, --token <token>", "GitHub personal access token (for private repos)")
   .action(async (githubUrl: string, repoName: string, options) => {
-    const agent = new CICDSecurityAgent();
     console.log(`\n📦 Migrating ${githubUrl} to Gitea as ${repoName}...\n`);
-    const tokenInfo = options.token ? ` using the provided auth token` : "";
-    const response = await agent.runSingleQuery(
-      `Migrate the GitHub repository "${githubUrl}" to Gitea with the name "${repoName}"${tokenInfo}. Preserve issues, PRs, and releases. After migration, report the new repository URL.`
-    );
+    const response = await handleMigrateCommand(githubUrl, repoName, !!options.token);
     console.log(response);
   });
 
@@ -313,10 +362,9 @@ program
   .command("ask <question...>")
   .description("Ask a single question")
   .action(async (questionParts: string[]) => {
-    const agent = new CICDSecurityAgent();
     const question = questionParts.join(" ");
     console.log("\n🤖 Processing...\n");
-    const response = await agent.runSingleQuery(question);
+    const response = await handleAskCommand(question);
     console.log(response);
   });
 
@@ -325,4 +373,8 @@ program.action(async () => {
   await interactiveMode();
 });
 
-program.parse();
+// Only run CLI when executed directly (not when imported)
+const isMainModule = process.argv[1]?.includes('index') && !process.argv[1]?.includes('.test.');
+if (isMainModule) {
+  program.parse();
+}
