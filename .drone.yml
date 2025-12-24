@@ -12,13 +12,22 @@ steps:
       - git clone http://gitea:3000/localadmin/ci-co.git .
       - git checkout $DRONE_COMMIT
 
+  - name: install-shared
+    image: node:20-alpine
+    commands:
+      - cd shared
+      - npm install
+      - npm run build
+    depends_on:
+      - clone
+
   - name: install-mcp-server
     image: node:20-alpine
     commands:
       - cd mcp-server
       - npm install
     depends_on:
-      - clone
+      - install-shared
 
   - name: install-cicd-agent
     image: node:20-alpine
@@ -26,7 +35,7 @@ steps:
       - cd cicd-agent
       - npm install
     depends_on:
-      - clone
+      - install-shared
 
   - name: test-mcp-server
     image: node:20-alpine
@@ -78,7 +87,7 @@ steps:
         -Dsonar.host.url=http://sonarqube:9000
         -Dsonar.projectKey=ci-co
         -Dsonar.projectName=ci-co
-        -Dsonar.sources=mcp-server/src,cicd-agent/src
+        -Dsonar.sources=mcp-server/src,cicd-agent/src,shared/src
         -Dsonar.tests=mcp-server/src,cicd-agent/src
         -Dsonar.test.inclusions=**/*.test.ts
         -Dsonar.exclusions=**/*.test.ts
