@@ -21,6 +21,14 @@ steps:
     depends_on:
       - clone
 
+  - name: test-shared
+    image: node:20-alpine
+    commands:
+      - cd shared
+      - npm run test:coverage
+    depends_on:
+      - install-shared
+
   - name: install-mcp-server
     image: node:20-alpine
     commands:
@@ -88,15 +96,16 @@ steps:
         -Dsonar.projectKey=ci-co
         -Dsonar.projectName=ci-co
         -Dsonar.sources=mcp-server/src,cicd-agent/src,shared/src
-        -Dsonar.tests=mcp-server/src,cicd-agent/src
+        -Dsonar.tests=mcp-server/src,cicd-agent/src,shared/src
         -Dsonar.test.inclusions=**/*.test.ts
         -Dsonar.exclusions=**/*.test.ts
-        -Dsonar.javascript.lcov.reportPaths=mcp-server/coverage/lcov.info,cicd-agent/coverage/lcov.info
+        -Dsonar.javascript.lcov.reportPaths=mcp-server/coverage/lcov.info,cicd-agent/coverage/lcov.info,shared/coverage/lcov.info
         -Dsonar.sourceEncoding=UTF-8
         -Dsonar.token=$SONAR_TOKEN
     depends_on:
       - build-mcp-server
       - build-cicd-agent
+      - test-shared
 
 trigger:
   branch:
