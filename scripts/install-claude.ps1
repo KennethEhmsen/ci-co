@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
-$Version = "1.0.0"
+$Version = "1.1.0"
 $McpServerName = "cicd-security"
 $ClaudeConfigDir = "$env:USERPROFILE\.claude"
 
