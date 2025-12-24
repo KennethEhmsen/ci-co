@@ -1,0 +1,525 @@
+# =============================================================================
+# LOCAL CI/CD PLATFORM - SECURE SETUP
+# =============================================================================
+#
+# PREREQUISITES:
+#   1. Copy .env.example to .env
+#   2. Update the passwords in .env (or use the defaults for local dev)
+#
+# USAGE:
+#   docker compose up -d
+#
+# Then wait ~60 seconds and everything is ready!
+#
+# ACCESS:
+#   Gitea:        http://localhost:3000  (see GITEA_ADMIN_USER/PASSWORD in .env)
+#   Drone CI:     http://localhost:8085  (login via Gitea)
+#   Registry UI:  http://localhost:5001
+#   SonarQube:    http://localhost:9000  (admin / admin - change on first login)
+#   Dep-Track:    http://localhost:8082  (admin / admin - change on first login)
+#   Trivy:        http://localhost:4954  (API only)
+#
+# =============================================================================
+
+networks:
+  ci-cd-network:
+    driver: bridge
+
+volumes:
+  gitea-data:
+  postgres-data:
+  drone-data:
+  registry-data:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:
+  sonarqube-db-data:
+  trivy-cache:
+  dependency-track-data:
+  dependency-track-db-data:
+
+services:
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ci-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gitea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-gitea}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - ci-cd-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitea"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ===========================================================================
+  # Gitea - Git Server (Auto-configured, no wizard!)
+  # ===========================================================================
+  gitea:
+    image: gitea/gitea:1.21
+    container_name: ci-gitea
+    restart: unless-stopped
+    environment:
+      # Database
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=postgres:5432
+      - GITEA__database__NAME=${POSTGRES_DB:-gitea}
+      - GITEA__database__USER=${POSTGRES_USER:-gitea}
+      - GITEA__database__PASSWD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # Server
+      - GITEA__server__DOMAIN=${GITEA_DOMAIN:-localhost}
+      - GITEA__server__SSH_DOMAIN=${GITEA_DOMAIN:-localhost}
+      - GITEA__server__ROOT_URL=http://${GITEA_DOMAIN:-localhost}:3000/
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__SSH_LISTEN_PORT=22
+      - GITEA__server__LFS_START_SERVER=true
+      - GITEA__server__OFFLINE_MODE=true
+      # CRITICAL: Skip install wizard
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__security__SECRET_KEY=${GITEA_SECRET_KEY:?GITEA_SECRET_KEY is required}
+      - GITEA__security__INTERNAL_TOKEN=${GITEA_INTERNAL_TOKEN:?GITEA_INTERNAL_TOKEN is required}
+      # Service
+      - GITEA__service__DISABLE_REGISTRATION=false
+      - GITEA__service__REQUIRE_SIGNIN_VIEW=false
+      - GITEA__service__REGISTER_EMAIL_CONFIRM=false
+      - GITEA__service__ENABLE_NOTIFY_MAIL=false
+      # Webhooks for Drone
+      - GITEA__webhook__ALLOWED_HOST_LIST=*
+      - GITEA__webhook__SKIP_TLS_VERIFY=true
+      # OAuth2
+      - GITEA__oauth2__ENABLE=true
+      # Disable unnecessary features
+      - GITEA__mailer__ENABLED=false
+      - GITEA__openid__ENABLE_OPENID_SIGNIN=false
+      # User
+      - USER_UID=1000
+      - USER_GID=1000
+    volumes:
+      - gitea-data:/data
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    networks:
+      - ci-cd-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  # ===========================================================================
+  # Gitea Auto-Setup (creates admin + OAuth app for Drone)
+  # Uses the Gitea API to register the first user via open registration
+  # ===========================================================================
+  gitea-init:
+    image: alpine:latest
+    container_name: ci-gitea-init
+    environment:
+      - GITEA_ADMIN_USER=${GITEA_ADMIN_USER:-localadmin}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-admin123}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-admin@localhost.local}
+    networks:
+      - ci-cd-network
+    volumes:
+      - gitea-data:/data
+    depends_on:
+      gitea:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        apk add --no-cache curl jq
+
+        echo ""
+        echo "============================================"
+        echo "  GITEA AUTO-SETUP"
+        echo "============================================"
+        echo ""
+
+        # Wait for Gitea to be ready
+        echo "Waiting for Gitea API..."
+        sleep 5
+
+        # Check if already configured with valid OAuth
+        if [ -f /data/drone_oauth_config ] && ! grep -q "pending" /data/drone_oauth_config 2>/dev/null; then
+          echo "Already configured!"
+          cat /data/drone_oauth_config
+          exit 0
+        fi
+
+        # Step 1: Create admin user via registration API
+        echo "[1/3] Creating admin user..."
+
+        ADMIN_USER="$${GITEA_ADMIN_USER:-localadmin}"
+        ADMIN_PASS="$${GITEA_ADMIN_PASSWORD:-admin123}"
+        ADMIN_EMAIL="$${GITEA_ADMIN_EMAIL:-admin@localhost.local}"
+
+        # Check if user already exists
+        if curl -sf -u "$$ADMIN_USER:$$ADMIN_PASS" "http://gitea:3000/api/v1/user" > /dev/null 2>&1; then
+          echo "      Admin user already exists!"
+        else
+          echo "      Registering $$ADMIN_USER user..."
+          # Use Gitea's user registration endpoint (first user becomes admin)
+          REGISTER_RESULT=$$(curl -sf -X POST "http://gitea:3000/user/sign_up" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "user_name=$$ADMIN_USER&email=$$(echo $$ADMIN_EMAIL | sed 's/@/%40/g')&password=$$ADMIN_PASS&retype=$$ADMIN_PASS" 2>&1 || echo "registration_attempted")
+
+          # Wait a moment for user creation to complete
+          sleep 3
+
+          # Verify user was created by testing login
+          if curl -sf -u "$$ADMIN_USER:$$ADMIN_PASS" "http://gitea:3000/api/v1/user" > /dev/null 2>&1; then
+            echo "      User created successfully!"
+          else
+            echo "      Trying alternative registration method..."
+            # Try JSON API registration
+            curl -sf -X POST "http://gitea:3000/api/v1/admin/users" \
+              -H "Content-Type: application/json" \
+              -d "{\"username\":\"$$ADMIN_USER\",\"email\":\"$$ADMIN_EMAIL\",\"password\":\"$$ADMIN_PASS\",\"must_change_password\":false}" 2>/dev/null || true
+            sleep 2
+          fi
+        fi
+
+        # Step 2: Get access token
+        echo ""
+        echo "[2/3] Setting up OAuth for Drone CI..."
+
+        # Retry loop for getting token (user creation may take a moment)
+        RETRY=0
+        MAX_RETRY=10
+        TOKEN=""
+        while [ $$RETRY -lt $$MAX_RETRY ] && [ -z "$$TOKEN" ]; do
+          echo "      Getting API token (attempt $$((RETRY+1))/$$MAX_RETRY)..."
+
+          # First delete any existing token with same name
+          curl -sf -X DELETE "http://gitea:3000/api/v1/users/$$ADMIN_USER/tokens/drone-setup" \
+            -u "$$ADMIN_USER:$$ADMIN_PASS" 2>/dev/null || true
+
+          TOKEN_RESULT=$$(curl -sf -X POST "http://gitea:3000/api/v1/users/$$ADMIN_USER/tokens" \
+            -u "$$ADMIN_USER:$$ADMIN_PASS" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"drone-setup","scopes":["all"]}' 2>/dev/null || echo "{}")
+
+          TOKEN=$$(echo "$$TOKEN_RESULT" | jq -r '.sha1 // empty')
+
+          if [ -z "$$TOKEN" ]; then
+            RETRY=$$((RETRY+1))
+            sleep 3
+          fi
+        done
+
+        if [ -z "$$TOKEN" ]; then
+          echo "      Could not get token after $$MAX_RETRY attempts"
+          echo "      Please register user manually at http://localhost:3000"
+          echo "      Username: $$ADMIN_USER  Password: [see GITEA_ADMIN_PASSWORD env var]"
+          echo "DRONE_GITEA_CLIENT_ID=pending" > /data/drone_oauth_config
+          echo "DRONE_GITEA_CLIENT_SECRET=pending" >> /data/drone_oauth_config
+          exit 0
+        fi
+
+        echo "      Got API token!"
+
+        # Step 3: Create OAuth app (delete existing first if any)
+        echo "      Creating OAuth application..."
+
+        # Try to delete existing OAuth app first
+        EXISTING_APPS=$$(curl -sf "http://gitea:3000/api/v1/user/applications/oauth2" \
+          -H "Authorization: token $$TOKEN" 2>/dev/null || echo "[]")
+        DRONE_APP_ID=$$(echo "$$EXISTING_APPS" | jq -r '.[] | select(.name=="drone") | .id // empty')
+        if [ -n "$$DRONE_APP_ID" ]; then
+          echo "      Removing existing OAuth app..."
+          curl -sf -X DELETE "http://gitea:3000/api/v1/user/applications/oauth2/$$DRONE_APP_ID" \
+            -H "Authorization: token $$TOKEN" 2>/dev/null || true
+        fi
+
+        OAUTH_RESULT=$$(curl -sf -X POST "http://gitea:3000/api/v1/user/applications/oauth2" \
+          -H "Authorization: token $$TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{"name":"drone","redirect_uris":["http://localhost:8085/login"],"confidential_client":true}' 2>/dev/null || echo "{}")
+
+        CLIENT_ID=$$(echo "$$OAUTH_RESULT" | jq -r '.client_id // empty')
+        CLIENT_SECRET=$$(echo "$$OAUTH_RESULT" | jq -r '.client_secret // empty')
+
+        if [ -n "$$CLIENT_ID" ] && [ -n "$$CLIENT_SECRET" ]; then
+          echo "      OAuth app created!"
+          echo "      Client ID: $$CLIENT_ID"
+          echo "DRONE_GITEA_CLIENT_ID=$$CLIENT_ID" > /data/drone_oauth_config
+          echo "DRONE_GITEA_CLIENT_SECRET=$$CLIENT_SECRET" >> /data/drone_oauth_config
+        else
+          echo "      ERROR: OAuth creation failed"
+          echo "      Response: $$OAUTH_RESULT"
+          echo "DRONE_GITEA_CLIENT_ID=pending" > /data/drone_oauth_config
+          echo "DRONE_GITEA_CLIENT_SECRET=pending" >> /data/drone_oauth_config
+        fi
+
+        # Cleanup token
+        curl -sf -X DELETE "http://gitea:3000/api/v1/users/$$ADMIN_USER/tokens/drone-setup" \
+          -u "$$ADMIN_USER:$$ADMIN_PASS" 2>/dev/null || true
+
+        echo ""
+        echo "[3/3] Setup complete!"
+        echo ""
+        echo "============================================"
+        echo "  ACCESS YOUR CI/CD PLATFORM"
+        echo "============================================"
+        echo ""
+        echo "  Gitea:    http://localhost:3000  ($$ADMIN_USER / [see .env])"
+        echo "  Drone:    http://localhost:8085  (login via Gitea)"
+        echo "  Registry: http://localhost:5001"
+        echo ""
+        echo "============================================"
+
+  # ===========================================================================
+  # Drone CI Server
+  # ===========================================================================
+  drone-server:
+    image: drone/drone:2
+    container_name: ci-drone-server
+    restart: unless-stopped
+    environment:
+      DRONE_RPC_SECRET: ${DRONE_RPC_SECRET:?DRONE_RPC_SECRET is required}
+      DRONE_GITEA_SERVER: http://gitea:3000
+      DRONE_SERVER_HOST: localhost:8085
+      DRONE_SERVER_PROTO: http
+      DRONE_DATABASE_DRIVER: sqlite3
+      DRONE_DATABASE_DATASOURCE: /data/database.sqlite
+      DRONE_USER_CREATE: username:${GITEA_ADMIN_USER:-localadmin},admin:true
+      DRONE_LOGS_DEBUG: "true"
+      DRONE_GIT_ALWAYS_AUTH: "false"
+    volumes:
+      - drone-data:/data
+      - gitea-data:/gitea-data:ro
+    ports:
+      - "8085:80"
+    networks:
+      - ci-cd-network
+    depends_on:
+      gitea:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "============================================"
+        echo "  DRONE CI STARTUP"
+        echo "============================================"
+        echo ""
+        echo "Waiting for Gitea OAuth configuration..."
+
+        # Wait for gitea-init to complete
+        ATTEMPTS=0
+        MAX_ATTEMPTS=90
+        while [ $$ATTEMPTS -lt $$MAX_ATTEMPTS ]; do
+          if [ -f /gitea-data/drone_oauth_config ]; then
+            # Check if config has real values (not pending)
+            if ! grep -q "pending" /gitea-data/drone_oauth_config 2>/dev/null; then
+              echo "Found OAuth configuration!"
+              break
+            fi
+          fi
+          ATTEMPTS=$$((ATTEMPTS + 1))
+          echo "  Waiting... ($$ATTEMPTS/$$MAX_ATTEMPTS)"
+          sleep 2
+        done
+
+        # Load OAuth config
+        if [ -f /gitea-data/drone_oauth_config ]; then
+          echo "Loading OAuth configuration..."
+          . /gitea-data/drone_oauth_config
+          export DRONE_GITEA_CLIENT_ID
+          export DRONE_GITEA_CLIENT_SECRET
+          echo "  Client ID: $$DRONE_GITEA_CLIENT_ID"
+        else
+          echo "WARNING: No OAuth config found!"
+          echo "You may need to configure Drone manually."
+        fi
+
+        echo ""
+        echo "Starting Drone CI server..."
+        echo ""
+
+        # Start Drone
+        exec /bin/drone-server
+
+  # ===========================================================================
+  # Drone Docker Runner
+  # ===========================================================================
+  drone-runner:
+    image: drone/drone-runner-docker:latest
+    container_name: ci-drone-runner
+    restart: unless-stopped
+    environment:
+      DRONE_RPC_SECRET: ${DRONE_RPC_SECRET:?DRONE_RPC_SECRET is required}
+      DRONE_RPC_PROTO: http
+      DRONE_RPC_HOST: drone-server
+      DRONE_RUNNER_CAPACITY: 2
+      DRONE_RUNNER_NAME: local-runner
+      DRONE_RUNNER_NETWORKS: ci-co_ci-cd-network
+      DRONE_DEBUG: "true"
+      DOCKER_API_VERSION: "1.45"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ci-cd-network
+    depends_on:
+      - drone-server
+
+  # ===========================================================================
+  # Docker Registry
+  # ===========================================================================
+  registry:
+    image: registry:2
+    container_name: ci-registry
+    restart: unless-stopped
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - registry-data:/var/lib/registry
+    ports:
+      - "5000:5000"
+    networks:
+      - ci-cd-network
+
+  # ===========================================================================
+  # Registry Web UI
+  # ===========================================================================
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    container_name: ci-registry-ui
+    restart: unless-stopped
+    environment:
+      - REGISTRY_TITLE=Local Docker Registry
+      - REGISTRY_URL=http://registry:5000
+      - SINGLE_REGISTRY=true
+      - DELETE_IMAGES=true
+    ports:
+      - "5001:80"
+    networks:
+      - ci-cd-network
+    depends_on:
+      - registry
+
+  # ===========================================================================
+  # SonarQube - Code Quality & Security Analysis
+  # ===========================================================================
+  sonarqube-db:
+    image: postgres:15-alpine
+    container_name: ci-sonarqube-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SONARQUBE_DB_USER:-sonar}
+      POSTGRES_PASSWORD: ${SONARQUBE_DB_PASSWORD:?SONARQUBE_DB_PASSWORD is required}
+      POSTGRES_DB: ${SONARQUBE_DB_NAME:-sonarqube}
+    volumes:
+      - sonarqube-db-data:/var/lib/postgresql/data
+    networks:
+      - ci-cd-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: ci-sonarqube
+    restart: unless-stopped
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/${SONARQUBE_DB_NAME:-sonarqube}
+      - SONAR_JDBC_USERNAME=${SONARQUBE_DB_USER:-sonar}
+      - SONAR_JDBC_PASSWORD=${SONARQUBE_DB_PASSWORD:?SONARQUBE_DB_PASSWORD is required}
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    ports:
+      - "9000:9000"
+    networks:
+      - ci-cd-network
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # ===========================================================================
+  # Trivy - Container Vulnerability Scanner (runs as service for caching)
+  # ===========================================================================
+  trivy-server:
+    image: aquasec/trivy:latest
+    container_name: ci-trivy-server
+    restart: unless-stopped
+    command: ["server", "--listen", "0.0.0.0:4954"]
+    volumes:
+      - trivy-cache:/root/.cache/trivy
+    ports:
+      - "4954:4954"
+    networks:
+      - ci-cd-network
+    environment:
+      - TRIVY_CACHE_DIR=/root/.cache/trivy
+
+  # ===========================================================================
+  # Dependency-Track - Software Composition Analysis (SBOM)
+  # ===========================================================================
+  dependency-track-apiserver:
+    image: dependencytrack/apiserver:latest
+    container_name: ci-dependency-track-api
+    restart: unless-stopped
+    environment:
+      - ALPINE_DATABASE_MODE=external
+      - ALPINE_DATABASE_URL=jdbc:postgresql://dependency-track-db:5432/${DTRACK_DB_NAME:-dtrack}
+      - ALPINE_DATABASE_DRIVER=org.postgresql.Driver
+      - ALPINE_DATABASE_USERNAME=${DTRACK_DB_USER:-dtrack}
+      - ALPINE_DATABASE_PASSWORD=${DTRACK_DB_PASSWORD:?DTRACK_DB_PASSWORD is required}
+    volumes:
+      - dependency-track-data:/data
+    ports:
+      - "8081:8080"
+    networks:
+      - ci-cd-network
+    depends_on:
+      - dependency-track-db
+
+  dependency-track-db:
+    image: postgres:15-alpine
+    container_name: ci-dependency-track-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DTRACK_DB_USER:-dtrack}
+      POSTGRES_PASSWORD: ${DTRACK_DB_PASSWORD:?DTRACK_DB_PASSWORD is required}
+      POSTGRES_DB: ${DTRACK_DB_NAME:-dtrack}
+    volumes:
+      - dependency-track-db-data:/var/lib/postgresql/data
+    networks:
+      - ci-cd-network
+
+  dependency-track-frontend:
+    image: dependencytrack/frontend:latest
+    container_name: ci-dependency-track-ui
+    restart: unless-stopped
+    environment:
+      - API_BASE_URL=http://localhost:8081
+    ports:
+      - "8082:8080"
+    networks:
+      - ci-cd-network
+    depends_on:
+      - dependency-track-apiserver
