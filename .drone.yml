@@ -51,6 +51,23 @@ steps:
     depends_on:
       - clone
 
+  - name: sonarqube-analysis
+    image: sonarsource/sonar-scanner-cli:latest
+    environment:
+      SONAR_TOKEN:
+        from_secret: sonar_token
+    commands:
+      - sonar-scanner
+        -Dsonar.host.url=http://sonarqube:9000
+        -Dsonar.projectKey=ci-co
+        -Dsonar.projectName=ci-co
+        -Dsonar.sources=mcp-server/src,cicd-agent/src
+        -Dsonar.sourceEncoding=UTF-8
+        -Dsonar.login=$SONAR_TOKEN
+    depends_on:
+      - build-mcp-server
+      - build-cicd-agent
+
 trigger:
   branch:
     - main
