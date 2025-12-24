@@ -259,6 +259,23 @@ Once installed, you can ask Claude Code things like:
 - "Show me the latest build results"
 - "List security issues in SonarQube"
 
+### Uninstall from Claude Code
+
+```powershell
+.\scripts\uninstall-claude.ps1
+```
+
+This removes:
+- MCP server from Claude Code configuration
+- cicd-agent from PATH
+- npm global links
+- Built files (dist/ directories)
+
+**Keep built files:**
+```powershell
+.\scripts\uninstall-claude.ps1 -KeepBuilds
+```
+
 ---
 
 ## Troubleshooting
@@ -307,10 +324,11 @@ ci-co/
 ├── cicd-agent/            # CLI security agent
 ├── shared/                # Shared library
 └── scripts/
-    ├── install-claude.ps1 # Claude Code installer
-    ├── backup.ps1         # Backup data
-    ├── restore.ps1        # Restore data
-    └── status.ps1         # Check status
+    ├── install-claude.ps1   # Claude Code installer
+    ├── uninstall-claude.ps1 # Claude Code uninstaller
+    ├── backup.ps1           # Backup data
+    ├── restore.ps1          # Restore data
+    └── status.ps1           # Check status
 ```
 
 ---
