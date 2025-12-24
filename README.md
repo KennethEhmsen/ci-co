@@ -1,10 +1,9 @@
 # Local CI/CD Platform
 
-[![Build Status](http://localhost:8085/api/badges/localadmin/ci-co/status.svg)](http://localhost:8085/localadmin/ci-co)
-[![Quality Gate Status](http://localhost:9000/api/project_badges/measure?project=ci-co&metric=alert_status)](http://localhost:9000/dashboard?id=ci-co)
-[![Coverage](http://localhost:9000/api/project_badges/measure?project=ci-co&metric=coverage)](http://localhost:9000/component_measures?id=ci-co&metric=coverage)
-[![Duplicated Lines (%)](http://localhost:9000/api/project_badges/measure?project=ci-co&metric=duplicated_lines_density)](http://localhost:9000/component_measures?id=ci-co&metric=duplicated_lines_density)
+[![GitHub release](https://img.shields.io/github/v/release/KennethEhmsen/ci-co)](https://github.com/KennethEhmsen/ci-co/releases)
+[![GitHub stars](https://img.shields.io/github/stars/KennethEhmsen/ci-co)](https://github.com/KennethEhmsen/ci-co/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-Required-blue)](https://www.docker.com/products/docker-desktop)
 
 A complete, self-hosted CI/CD platform with **security scanning** that runs entirely on your local machine with Docker Desktop. **One-click install - no manual configuration required!**
 
