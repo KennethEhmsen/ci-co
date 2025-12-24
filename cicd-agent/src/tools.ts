@@ -1,9 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
-  // Validation (re-export for tests)
-  validateSeverity as sharedValidateSeverity,
-  sanitizePath as sharedSanitizePath,
-  sanitizeImageName as sharedSanitizeImageName,
   // Handlers
   trivyScanPath,
   trivyScanImage,
@@ -31,13 +27,8 @@ import {
   checkPlatformStatus,
 } from "@cicd/shared";
 
-// Re-export validation functions for tests
-export const validateSeverity = sharedValidateSeverity;
-export const sanitizePath = sharedSanitizePath;
-export const sanitizeImageName = sharedSanitizeImageName;
-
-// Re-export config from shared
-export { config } from "@cicd/shared";
+// Re-export validation functions and config for tests
+export { validateSeverity, sanitizePath, sanitizeImageName, config } from "@cicd/shared";
 
 // =============================================================================
 // Tool Handler Map
