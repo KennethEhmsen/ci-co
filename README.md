@@ -215,6 +215,52 @@ docker push localhost:5000/my-app:latest
 
 ---
 
+## Claude Code Integration
+
+This platform includes an MCP server that integrates with [Claude Code](https://claude.ai/download), giving you AI-assisted security scanning directly in your terminal.
+
+### Install into Claude Code
+
+```powershell
+.\scripts\install-claude.ps1
+```
+
+The installer will:
+- Check if Claude Code is installed
+- Detect existing installations and compare versions
+- Build and configure the MCP server automatically
+- Skip installation if already at the latest version
+
+**Force reinstall:**
+```powershell
+.\scripts\install-claude.ps1 -Force
+```
+
+### Available Tools in Claude Code
+
+After installation, restart Claude Code and these tools become available:
+
+| Tool | Description |
+|------|-------------|
+| `trivy_scan_path` | Scan local paths for vulnerabilities |
+| `trivy_scan_image` | Scan Docker images |
+| `sonar_list_projects` | List SonarQube projects |
+| `sonar_get_issues` | Get code quality issues |
+| `gitea_list_repos` | List Gitea repositories |
+| `drone_get_builds` | Get CI/CD build history |
+| `check_platform_status` | Check all service health |
+| `security_scan_all` | Run comprehensive security scan |
+
+### Example Usage
+
+Once installed, you can ask Claude Code things like:
+- "Scan this project for vulnerabilities"
+- "Check the CI/CD platform status"
+- "Show me the latest build results"
+- "List security issues in SonarQube"
+
+---
+
 ## Troubleshooting
 
 ### Services not starting?
@@ -257,7 +303,11 @@ ci-co/
 ├── INSTALLATION.md        # Detailed setup
 ├── CONFIGURATION.md       # Advanced config
 ├── USAGE.md               # Workflows & examples
+├── mcp-server/            # Claude Code MCP server
+├── cicd-agent/            # CLI security agent
+├── shared/                # Shared library
 └── scripts/
+    ├── install-claude.ps1 # Claude Code installer
     ├── backup.ps1         # Backup data
     ├── restore.ps1        # Restore data
     └── status.ps1         # Check status
