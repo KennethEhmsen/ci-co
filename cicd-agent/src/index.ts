@@ -2,9 +2,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { program } from "commander";
-import * as readline from "readline";
+import * as readline from "node:readline";
 import { config as dotenvConfig } from "dotenv";
-import { tools, executeTool, config } from "./tools.js";
+import { tools, executeTool } from "./tools.js";
 
 // Load environment variables
 dotenvConfig();
@@ -102,15 +102,10 @@ class CICDSecurityAgent {
       }
 
       // Add assistant's response and tool results to history
-      this.conversationHistory.push({
-        role: "assistant",
-        content: response.content,
-      });
-
-      this.conversationHistory.push({
-        role: "user",
-        content: toolResults,
-      });
+      this.conversationHistory.push(
+        { role: "assistant", content: response.content },
+        { role: "user", content: toolResults }
+      );
 
       // Continue the conversation
       response = await this.client.messages.create({

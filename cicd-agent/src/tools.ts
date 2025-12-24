@@ -1,17 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
 // =============================================================================
 // Input Validation & Sanitization
 // =============================================================================
-const ALLOWED_SEVERITY_LEVELS = ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"];
+const ALLOWED_SEVERITY_LEVELS = new Set(["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 
 function validateSeverity(severity: string): string {
   const levels = severity.split(",").map((s) => s.trim().toUpperCase());
-  const validLevels = levels.filter((l) => ALLOWED_SEVERITY_LEVELS.includes(l));
+  const validLevels = levels.filter((l) => ALLOWED_SEVERITY_LEVELS.has(l));
   if (validLevels.length === 0) {
     return "HIGH,CRITICAL"; // Default safe value
   }
@@ -21,10 +21,10 @@ function validateSeverity(severity: string): string {
 function sanitizePath(path: string): string {
   // Remove any shell metacharacters that could be used for injection
   // Allow only alphanumeric, forward slash, backslash, dot, hyphen, underscore, colon (for Windows drives), and space
-  const sanitized = path.replace(/[^a-zA-Z0-9/\\.:\-_ ]/g, "");
+  const sanitized = path.replaceAll(/[^a-zA-Z0-9/\\.:\-_ ]/g, "");
 
   // Prevent path traversal attempts
-  const normalized = sanitized.replace(/\.\.\//g, "").replace(/\.\.\\/g, "");
+  const normalized = sanitized.replaceAll("../", "").replaceAll("..\\", "");
 
   return normalized;
 }
@@ -32,7 +32,7 @@ function sanitizePath(path: string): string {
 function sanitizeImageName(image: string): string {
   // Docker image names: alphanumeric, forward slash, colon, dot, hyphen, underscore
   // Pattern: [registry/]name[:tag]
-  const sanitized = image.replace(/[^a-zA-Z0-9/:.@\-_]/g, "");
+  const sanitized = image.replaceAll(/[^a-zA-Z0-9/:.@\-_]/g, "");
   return sanitized;
 }
 
@@ -152,7 +152,7 @@ async function handleSonarListProjects(): Promise<any> {
 
 async function handleSonarGetIssues(input: Record<string, unknown>): Promise<any> {
   let url = `${config.sonarqube.url}/api/issues/search?componentKeys=${input.projectKey}&statuses=OPEN`;
-  if (input.types) url += `&types=${input.types}`;
+  if (input.types && typeof input.types === "string") url += `&types=${input.types}`;
   return fetchJson(url, {
     headers: {
       Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
