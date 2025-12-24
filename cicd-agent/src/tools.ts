@@ -1,385 +1,43 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import {
+  // Validation (re-export for tests)
+  validateSeverity as sharedValidateSeverity,
+  sanitizePath as sharedSanitizePath,
+  sanitizeImageName as sharedSanitizeImageName,
+  // Handlers
+  trivyScanPath,
+  trivyScanImage,
+  sonarGetProjects,
+  sonarGetIssues,
+  sonarGetSecurityHotspots,
+  sonarGetMetrics,
+  dtrackGetProjects,
+  dtrackGetVulnerabilities,
+  dtrackGetFindings,
+  dtrackGetComponents,
+  giteaGetRepos,
+  giteaGetRepo,
+  giteaGetBranches,
+  giteaGetCommits,
+  giteaCreateRepo,
+  giteaMigrateRepo,
+  droneGetRepos,
+  droneGetBuilds,
+  droneGetBuild,
+  droneGetBuildLogs,
+  droneTriggerBuild,
+  registryGetCatalog,
+  registryGetTags,
+  checkPlatformStatus,
+} from "@cicd/shared";
 
-const execAsync = promisify(exec);
+// Re-export validation functions for tests
+export const validateSeverity = sharedValidateSeverity;
+export const sanitizePath = sharedSanitizePath;
+export const sanitizeImageName = sharedSanitizeImageName;
 
-// =============================================================================
-// Input Validation & Sanitization
-// =============================================================================
-const ALLOWED_SEVERITY_LEVELS = new Set(["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"]);
-
-export function validateSeverity(severity: string): string {
-  const levels = severity.split(",").map((s) => s.trim().toUpperCase());
-  const validLevels = levels.filter((l) => ALLOWED_SEVERITY_LEVELS.has(l));
-  if (validLevels.length === 0) {
-    return "HIGH,CRITICAL"; // Default safe value
-  }
-  return validLevels.join(",");
-}
-
-export function sanitizePath(path: string): string {
-  // Remove any shell metacharacters that could be used for injection
-  // Allow only alphanumeric, forward slash, backslash, dot, hyphen, underscore, colon (for Windows drives), and space
-  const sanitized = path.replaceAll(/[^a-zA-Z0-9/\\.:\-_ ]/g, "");
-
-  // Prevent path traversal attempts
-  const normalized = sanitized.replaceAll("../", "").replaceAll("..\\", "");
-
-  return normalized;
-}
-
-export function sanitizeImageName(image: string): string {
-  // Docker image names: alphanumeric, forward slash, colon, dot, hyphen, underscore
-  // Pattern: [registry/]name[:tag]
-  const sanitized = image.replaceAll(/[^a-zA-Z0-9/:.@\-_]/g, "");
-  return sanitized;
-}
-
-// =============================================================================
-// Configuration
-// =============================================================================
-export const config = {
-  gitea: {
-    url: process.env.GITEA_URL || "http://localhost:3000",
-    user: process.env.GITEA_USER || "localadmin",
-    password: process.env.GITEA_PASSWORD || "admin123",
-  },
-  drone: {
-    url: process.env.DRONE_URL || "http://localhost:8085",
-    token: process.env.DRONE_TOKEN || "",
-  },
-  sonarqube: {
-    url: process.env.SONARQUBE_URL || "http://localhost:9000",
-    user: process.env.SONARQUBE_USER || "admin",
-    password: process.env.SONARQUBE_PASSWORD || "admin",
-  },
-  dependencyTrack: {
-    url: process.env.DTRACK_URL || "http://localhost:8081",
-    apiKey: process.env.DTRACK_API_KEY || "",
-  },
-  trivy: {
-    url: process.env.TRIVY_URL || "http://localhost:4954",
-  },
-  registry: {
-    url: process.env.REGISTRY_URL || "http://localhost:5000",
-  },
-};
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
-  const response = await fetch(url, {
-    ...options,
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-function basicAuth(user: string, pass: string): string {
-  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
-}
-
-// =============================================================================
-// Trivy Handlers
-// =============================================================================
-async function handleTrivyScanPath(input: Record<string, unknown>): Promise<any> {
-  const path = sanitizePath(input.path as string);
-  const severity = validateSeverity((input.severity as string) || "HIGH,CRITICAL");
-
-  if (!path || path.length < 2) {
-    throw new Error("Invalid path provided");
-  }
-
-  try {
-    const { stdout } = await execAsync(
-      `docker run --rm -v "${path}:/app" aquasec/trivy:latest fs --format json --severity ${severity} /app`,
-      { maxBuffer: 10 * 1024 * 1024 }
-    );
-    return JSON.parse(stdout);
-  } catch (error: any) {
-    if (error.stdout) {
-      try {
-        return JSON.parse(error.stdout);
-      } catch {
-        return { output: error.stdout, error: error.message };
-      }
-    }
-    throw error;
-  }
-}
-
-async function handleTrivyScanImage(input: Record<string, unknown>): Promise<any> {
-  const image = sanitizeImageName(input.image as string);
-  const severity = validateSeverity((input.severity as string) || "HIGH,CRITICAL");
-
-  if (!image || image.length < 2) {
-    throw new Error("Invalid image name provided");
-  }
-
-  try {
-    const { stdout } = await execAsync(
-      `docker run --rm aquasec/trivy:latest image --format json --severity ${severity} ${image}`,
-      { maxBuffer: 10 * 1024 * 1024 }
-    );
-    return JSON.parse(stdout);
-  } catch (error: any) {
-    if (error.stdout) {
-      try {
-        return JSON.parse(error.stdout);
-      } catch {
-        return { output: error.stdout, error: error.message };
-      }
-    }
-    throw error;
-  }
-}
-
-// =============================================================================
-// SonarQube Handlers
-// =============================================================================
-async function handleSonarListProjects(): Promise<any> {
-  return fetchJson(`${config.sonarqube.url}/api/projects/search`, {
-    headers: {
-      Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
-    },
-  });
-}
-
-async function handleSonarGetIssues(input: Record<string, unknown>): Promise<any> {
-  let url = `${config.sonarqube.url}/api/issues/search?componentKeys=${input.projectKey}&statuses=OPEN`;
-  if (input.types && typeof input.types === "string") url += `&types=${input.types}`;
-  return fetchJson(url, {
-    headers: {
-      Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
-    },
-  });
-}
-
-async function handleSonarGetSecurityHotspots(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(
-    `${config.sonarqube.url}/api/hotspots/search?projectKey=${input.projectKey}`,
-    {
-      headers: {
-        Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
-      },
-    }
-  );
-}
-
-async function handleSonarGetMetrics(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(
-    `${config.sonarqube.url}/api/measures/component?component=${input.projectKey}&metricKeys=bugs,vulnerabilities,security_hotspots,code_smells,coverage,duplicated_lines_density`,
-    {
-      headers: {
-        Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
-      },
-    }
-  );
-}
-
-// =============================================================================
-// Dependency-Track Handlers
-// =============================================================================
-function requireDtrackApiKey(): void {
-  if (!config.dependencyTrack.apiKey) {
-    throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY.");
-  }
-}
-
-async function handleDtrackListProjects(): Promise<any> {
-  requireDtrackApiKey();
-  return fetchJson(`${config.dependencyTrack.url}/api/v1/project`, {
-    headers: { "X-Api-Key": config.dependencyTrack.apiKey },
-  });
-}
-
-async function handleDtrackGetVulnerabilities(input: Record<string, unknown>): Promise<any> {
-  requireDtrackApiKey();
-  return fetchJson(
-    `${config.dependencyTrack.url}/api/v1/vulnerability/project/${input.projectUuid}`,
-    { headers: { "X-Api-Key": config.dependencyTrack.apiKey } }
-  );
-}
-
-async function handleDtrackGetFindings(input: Record<string, unknown>): Promise<any> {
-  requireDtrackApiKey();
-  return fetchJson(
-    `${config.dependencyTrack.url}/api/v1/finding/project/${input.projectUuid}`,
-    { headers: { "X-Api-Key": config.dependencyTrack.apiKey } }
-  );
-}
-
-async function handleDtrackGetComponents(input: Record<string, unknown>): Promise<any> {
-  requireDtrackApiKey();
-  return fetchJson(
-    `${config.dependencyTrack.url}/api/v1/component/project/${input.projectUuid}`,
-    { headers: { "X-Api-Key": config.dependencyTrack.apiKey } }
-  );
-}
-
-// =============================================================================
-// Gitea Handlers
-// =============================================================================
-function giteaAuthHeaders(): { Authorization: string } {
-  return { Authorization: basicAuth(config.gitea.user, config.gitea.password) };
-}
-
-async function handleGiteaListRepos(): Promise<any> {
-  return fetchJson(`${config.gitea.url}/api/v1/user/repos`, {
-    headers: giteaAuthHeaders(),
-  });
-}
-
-async function handleGiteaGetRepo(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(
-    `${config.gitea.url}/api/v1/repos/${input.owner}/${input.repo}`,
-    { headers: giteaAuthHeaders() }
-  );
-}
-
-async function handleGiteaGetBranches(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(
-    `${config.gitea.url}/api/v1/repos/${input.owner}/${input.repo}/branches`,
-    { headers: giteaAuthHeaders() }
-  );
-}
-
-async function handleGiteaGetCommits(input: Record<string, unknown>): Promise<any> {
-  const limit = (input.limit as number) || 10;
-  return fetchJson(
-    `${config.gitea.url}/api/v1/repos/${input.owner}/${input.repo}/commits?limit=${limit}`,
-    { headers: giteaAuthHeaders() }
-  );
-}
-
-async function handleGiteaCreateRepo(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(`${config.gitea.url}/api/v1/user/repos`, {
-    method: "POST",
-    headers: { ...giteaAuthHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: input.name,
-      description: input.description || "",
-      private: input.private || false,
-      auto_init: true,
-    }),
-  });
-}
-
-async function handleGiteaMigrateRepo(input: Record<string, unknown>): Promise<any> {
-  const body: any = {
-    clone_addr: input.cloneUrl,
-    repo_name: input.repoName,
-    service: "github",
-    mirror: false,
-    private: false,
-    issues: true,
-    pull_requests: true,
-    releases: true,
-    milestones: true,
-    labels: true,
-  };
-  if (input.authToken) body.auth_token = input.authToken;
-
-  return fetchJson(`${config.gitea.url}/api/v1/repos/migrate`, {
-    method: "POST",
-    headers: { ...giteaAuthHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-// =============================================================================
-// Drone Handlers
-// =============================================================================
-function droneAuthHeaders(): Record<string, string> {
-  return config.drone.token ? { Authorization: `Bearer ${config.drone.token}` } : {};
-}
-
-async function handleDroneListRepos(): Promise<any> {
-  return fetchJson(`${config.drone.url}/api/user/repos`, {
-    headers: droneAuthHeaders(),
-  });
-}
-
-async function handleDroneGetBuilds(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(
-    `${config.drone.url}/api/repos/${input.owner}/${input.repo}/builds`,
-    { headers: droneAuthHeaders() }
-  );
-}
-
-async function handleDroneGetBuild(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(
-    `${config.drone.url}/api/repos/${input.owner}/${input.repo}/builds/${input.build}`,
-    { headers: droneAuthHeaders() }
-  );
-}
-
-async function handleDroneGetBuildLogs(input: Record<string, unknown>): Promise<any> {
-  const stage = (input.stage as number) || 1;
-  const step = (input.step as number) || 1;
-  return fetchJson(
-    `${config.drone.url}/api/repos/${input.owner}/${input.repo}/builds/${input.build}/logs/${stage}/${step}`,
-    { headers: droneAuthHeaders() }
-  );
-}
-
-async function handleDroneTriggerBuild(input: Record<string, unknown>): Promise<any> {
-  if (!config.drone.token) {
-    throw new Error("Drone token required. Set DRONE_TOKEN.");
-  }
-  const branch = (input.branch as string) || "main";
-  return fetchJson(
-    `${config.drone.url}/api/repos/${input.owner}/${input.repo}/builds?branch=${branch}`,
-    { method: "POST", headers: { Authorization: `Bearer ${config.drone.token}` } }
-  );
-}
-
-// =============================================================================
-// Registry Handlers
-// =============================================================================
-async function handleRegistryListImages(): Promise<any> {
-  return fetchJson(`${config.registry.url}/v2/_catalog`);
-}
-
-async function handleRegistryGetTags(input: Record<string, unknown>): Promise<any> {
-  return fetchJson(`${config.registry.url}/v2/${input.image}/tags/list`);
-}
-
-// =============================================================================
-// Platform Status Handler
-// =============================================================================
-async function handleCheckPlatformStatus(): Promise<any> {
-  const status: any = {
-    timestamp: new Date().toISOString(),
-    services: {},
-  };
-
-  const checks = [
-    { name: "gitea", url: `${config.gitea.url}/api/v1/version` },
-    { name: "drone", url: `${config.drone.url}/healthz` },
-    { name: "sonarqube", url: `${config.sonarqube.url}/api/system/health` },
-    { name: "dependencyTrack", url: `${config.dependencyTrack.url}/api/version` },
-    { name: "registry", url: `${config.registry.url}/v2/` },
-  ];
-
-  for (const check of checks) {
-    try {
-      const response = await fetch(check.url, { signal: AbortSignal.timeout(5000) });
-      status.services[check.name] = {
-        status: response.ok ? "healthy" : "degraded",
-        statusCode: response.status,
-      };
-    } catch (e: any) {
-      status.services[check.name] = { status: "unreachable", error: e.message };
-    }
-  }
-  return status;
-}
+// Re-export config from shared
+export { config } from "@cicd/shared";
 
 // =============================================================================
 // Tool Handler Map
@@ -388,36 +46,36 @@ type ToolHandler = (input: Record<string, unknown>) => Promise<any>;
 
 const toolHandlers: Record<string, ToolHandler> = {
   // Trivy
-  trivy_scan_path: handleTrivyScanPath,
-  trivy_scan_image: handleTrivyScanImage,
+  trivy_scan_path: async (input) => trivyScanPath(input.path as string, input.severity as string),
+  trivy_scan_image: async (input) => trivyScanImage(input.image as string, input.severity as string),
   // SonarQube
-  sonar_list_projects: handleSonarListProjects,
-  sonar_get_issues: handleSonarGetIssues,
-  sonar_get_security_hotspots: handleSonarGetSecurityHotspots,
-  sonar_get_metrics: handleSonarGetMetrics,
+  sonar_list_projects: async () => sonarGetProjects(),
+  sonar_get_issues: async (input) => sonarGetIssues(input.projectKey as string, input.types as string),
+  sonar_get_security_hotspots: async (input) => sonarGetSecurityHotspots(input.projectKey as string),
+  sonar_get_metrics: async (input) => sonarGetMetrics(input.projectKey as string),
   // Dependency-Track
-  dtrack_list_projects: handleDtrackListProjects,
-  dtrack_get_vulnerabilities: handleDtrackGetVulnerabilities,
-  dtrack_get_findings: handleDtrackGetFindings,
-  dtrack_get_components: handleDtrackGetComponents,
+  dtrack_list_projects: async () => dtrackGetProjects(),
+  dtrack_get_vulnerabilities: async (input) => dtrackGetVulnerabilities(input.projectUuid as string),
+  dtrack_get_findings: async (input) => dtrackGetFindings(input.projectUuid as string),
+  dtrack_get_components: async (input) => dtrackGetComponents(input.projectUuid as string),
   // Gitea
-  gitea_list_repos: handleGiteaListRepos,
-  gitea_get_repo: handleGiteaGetRepo,
-  gitea_get_branches: handleGiteaGetBranches,
-  gitea_get_commits: handleGiteaGetCommits,
-  gitea_create_repo: handleGiteaCreateRepo,
-  gitea_migrate_repo: handleGiteaMigrateRepo,
+  gitea_list_repos: async () => giteaGetRepos(),
+  gitea_get_repo: async (input) => giteaGetRepo(input.owner as string, input.repo as string),
+  gitea_get_branches: async (input) => giteaGetBranches(input.owner as string, input.repo as string),
+  gitea_get_commits: async (input) => giteaGetCommits(input.owner as string, input.repo as string, input.limit as number),
+  gitea_create_repo: async (input) => giteaCreateRepo(input.name as string, input.description as string, input.private as boolean),
+  gitea_migrate_repo: async (input) => giteaMigrateRepo(input.cloneUrl as string, input.repoName as string, input.authToken as string),
   // Drone
-  drone_list_repos: handleDroneListRepos,
-  drone_get_builds: handleDroneGetBuilds,
-  drone_get_build: handleDroneGetBuild,
-  drone_get_build_logs: handleDroneGetBuildLogs,
-  drone_trigger_build: handleDroneTriggerBuild,
+  drone_list_repos: async () => droneGetRepos(),
+  drone_get_builds: async (input) => droneGetBuilds(input.owner as string, input.repo as string),
+  drone_get_build: async (input) => droneGetBuild(input.owner as string, input.repo as string, input.build as number),
+  drone_get_build_logs: async (input) => droneGetBuildLogs(input.owner as string, input.repo as string, input.build as number, input.stage as number, input.step as number),
+  drone_trigger_build: async (input) => droneTriggerBuild(input.owner as string, input.repo as string, input.branch as string),
   // Registry
-  registry_list_images: handleRegistryListImages,
-  registry_get_tags: handleRegistryGetTags,
+  registry_list_images: async () => registryGetCatalog(),
+  registry_get_tags: async (input) => registryGetTags(input.image as string),
   // Platform
-  check_platform_status: handleCheckPlatformStatus,
+  check_platform_status: async () => checkPlatformStatus(),
 };
 
 // =============================================================================

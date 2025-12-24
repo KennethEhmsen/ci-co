@@ -1,15 +1,8 @@
-// Re-export everything from the shared library
+// Re-export all shared modules
+export { config, type Config } from "./config.js";
+export { validateSeverity, sanitizePath, sanitizeImageName } from "./validation.js";
+export { fetchJson, basicAuth } from "./http.js";
 export {
-  // Config
-  config,
-  type Config,
-  // Validation
-  validateSeverity,
-  sanitizePath,
-  sanitizeImageName,
-  // HTTP helpers
-  fetchJson,
-  basicAuth,
   // Trivy
   trivyScanPath,
   trivyScanImage,
@@ -42,4 +35,4 @@ export {
   // Combined
   securityScanAll,
   checkPlatformStatus,
-} from "@cicd/shared";
+} from "./handlers.js";

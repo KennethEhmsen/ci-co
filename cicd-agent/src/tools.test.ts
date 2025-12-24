@@ -862,7 +862,7 @@ describe('Tool Handlers', () => {
       const result = await executeTool('check_platform_status', {});
       const parsed = JSON.parse(result);
 
-      expect(parsed.services.gitea.status).toBe('degraded');
+      expect(parsed.services.gitea.status).toBe('unhealthy');
       expect(parsed.services.gitea.statusCode).toBe(503);
     });
 
