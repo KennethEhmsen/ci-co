@@ -55,9 +55,9 @@ Always provide actionable insights and recommendations based on the findings.`;
 // Agent Class
 // =============================================================================
 class CICDSecurityAgent {
-  private client: Anthropic;
+  private readonly client: Anthropic;
   private conversationHistory: Anthropic.MessageParam[] = [];
-  private model = "claude-sonnet-4-20250514";
+  private readonly model = "claude-sonnet-4-20250514";
 
   constructor() {
     this.client = new Anthropic();

@@ -21,7 +21,7 @@ function validateSeverity(severity: string): string {
 function sanitizePath(path: string): string {
   // Remove any shell metacharacters that could be used for injection
   // Allow only alphanumeric, forward slash, backslash, dot, hyphen, underscore, colon (for Windows drives), and space
-  const sanitized = path.replace(/[^a-zA-Z0-9\/\\.:\-_ ]/g, "");
+  const sanitized = path.replace(/[^a-zA-Z0-9/\\.:\-_ ]/g, "");
 
   // Prevent path traversal attempts
   const normalized = sanitized.replace(/\.\.\//g, "").replace(/\.\.\\/g, "");
@@ -32,7 +32,7 @@ function sanitizePath(path: string): string {
 function sanitizeImageName(image: string): string {
   // Docker image names: alphanumeric, forward slash, colon, dot, hyphen, underscore
   // Pattern: [registry/]name[:tag]
-  const sanitized = image.replace(/[^a-zA-Z0-9\/:.@\-_]/g, "");
+  const sanitized = image.replace(/[^a-zA-Z0-9/:.@\-_]/g, "");
   return sanitized;
 }
 
