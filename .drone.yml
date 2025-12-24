@@ -28,13 +28,29 @@ steps:
     depends_on:
       - clone
 
+  - name: test-mcp-server
+    image: node:20-alpine
+    commands:
+      - cd mcp-server
+      - npm run test:coverage
+    depends_on:
+      - install-mcp-server
+
+  - name: test-cicd-agent
+    image: node:20-alpine
+    commands:
+      - cd cicd-agent
+      - npm run test:coverage
+    depends_on:
+      - install-cicd-agent
+
   - name: build-mcp-server
     image: node:20-alpine
     commands:
       - cd mcp-server
       - npm run build
     depends_on:
-      - install-mcp-server
+      - test-mcp-server
 
   - name: build-cicd-agent
     image: node:20-alpine
@@ -42,7 +58,7 @@ steps:
       - cd cicd-agent
       - npm run build
     depends_on:
-      - install-cicd-agent
+      - test-cicd-agent
 
   - name: security-scan
     image: aquasec/trivy:latest
@@ -63,6 +79,10 @@ steps:
         -Dsonar.projectKey=ci-co
         -Dsonar.projectName=ci-co
         -Dsonar.sources=mcp-server/src,cicd-agent/src
+        -Dsonar.tests=mcp-server/src,cicd-agent/src
+        -Dsonar.test.inclusions=**/*.test.ts
+        -Dsonar.exclusions=**/*.test.ts
+        -Dsonar.javascript.lcov.reportPaths=mcp-server/coverage/lcov.info,cicd-agent/coverage/lcov.info
         -Dsonar.sourceEncoding=UTF-8
         -Dsonar.token=$SONAR_TOKEN
     depends_on:

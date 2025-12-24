@@ -48,7 +48,7 @@ const config = {
 // =============================================================================
 const ALLOWED_SEVERITY_LEVELS = new Set(["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 
-function validateSeverity(severity: string): string {
+export function validateSeverity(severity: string): string {
   const levels = severity.split(",").map((s) => s.trim().toUpperCase());
   const validLevels = levels.filter((l) => ALLOWED_SEVERITY_LEVELS.has(l));
   if (validLevels.length === 0) {
@@ -57,7 +57,7 @@ function validateSeverity(severity: string): string {
   return validLevels.join(",");
 }
 
-function sanitizePath(path: string): string {
+export function sanitizePath(path: string): string {
   // Remove any shell metacharacters that could be used for injection
   // Allow only alphanumeric, forward slash, backslash, dot, hyphen, underscore, colon (for Windows drives), and space
   const sanitized = path.replaceAll(/[^a-zA-Z0-9/\\.:\-_ ]/g, "");
@@ -68,7 +68,7 @@ function sanitizePath(path: string): string {
   return normalized;
 }
 
-function sanitizeImageName(image: string): string {
+export function sanitizeImageName(image: string): string {
   // Docker image names: alphanumeric, forward slash, colon, dot, hyphen, underscore
   // Pattern: [registry/]name[:tag]
   const sanitized = image.replaceAll(/[^a-zA-Z0-9/:.@\-_]/g, "");
