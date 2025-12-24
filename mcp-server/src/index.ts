@@ -404,6 +404,48 @@ async function registryGetTags(image: string): Promise<any> {
 }
 
 // =============================================================================
+// Combined Security Scan
+// =============================================================================
+async function securityScanAll(
+  path?: string,
+  sonarProjectKey?: string,
+  dtrackProjectUuid?: string
+): Promise<any> {
+  const scanResults: any = {
+    timestamp: new Date().toISOString(),
+    trivy: null,
+    sonarqube: null,
+    dependencyTrack: null,
+  };
+
+  if (path) {
+    try {
+      scanResults.trivy = await trivyScanPath(path);
+    } catch (e: any) {
+      scanResults.trivy = { error: e.message };
+    }
+  }
+
+  if (sonarProjectKey) {
+    try {
+      scanResults.sonarqube = await sonarGetIssues(sonarProjectKey);
+    } catch (e: any) {
+      scanResults.sonarqube = { error: e.message };
+    }
+  }
+
+  if (dtrackProjectUuid) {
+    try {
+      scanResults.dependencyTrack = await dtrackGetFindings(dtrackProjectUuid);
+    } catch (e: any) {
+      scanResults.dependencyTrack = { error: e.message };
+    }
+  }
+
+  return scanResults;
+}
+
+// =============================================================================
 // MCP Server Setup
 // =============================================================================
 const server = new Server(
@@ -962,43 +1004,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Combined security scan
       case "security_scan_all":
-        const scanResults: any = {
-          timestamp: new Date().toISOString(),
-          trivy: null,
-          sonarqube: null,
-          dependencyTrack: null,
-        };
-
-        // Trivy scan
-        if (args?.path) {
-          try {
-            scanResults.trivy = await trivyScanPath(args.path as string);
-          } catch (e: any) {
-            scanResults.trivy = { error: e.message };
-          }
-        }
-
-        // SonarQube issues
-        if (args?.sonarProjectKey) {
-          try {
-            scanResults.sonarqube = await sonarGetIssues(args.sonarProjectKey as string);
-          } catch (e: any) {
-            scanResults.sonarqube = { error: e.message };
-          }
-        }
-
-        // Dependency-Track findings
-        if (args?.dtrackProjectUuid) {
-          try {
-            scanResults.dependencyTrack = await dtrackGetFindings(
-              args.dtrackProjectUuid as string
-            );
-          } catch (e: any) {
-            scanResults.dependencyTrack = { error: e.message };
-          }
-        }
-
-        result = scanResults;
+        result = await securityScanAll(
+          args?.path as string,
+          args?.sonarProjectKey as string,
+          args?.dtrackProjectUuid as string
+        );
         break;
 
       default:
