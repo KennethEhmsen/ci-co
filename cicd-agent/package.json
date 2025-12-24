@@ -1,0 +1,41 @@
+{
+  "name": "cicd-security-agent",
+  "version": "1.0.0",
+  "description": "Claude Code Agent for CI/CD Security - integrates Trivy, SonarQube, Dependency-Track, Gitea, and Drone CI",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "cicd-agent": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "npx ts-node src/index.ts",
+    "security-scan": "node dist/index.js security-scan",
+    "full-report": "node dist/index.js full-report"
+  },
+  "keywords": [
+    "claude",
+    "agent",
+    "security",
+    "cicd",
+    "trivy",
+    "sonarqube"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "dotenv": "^16.3.1",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

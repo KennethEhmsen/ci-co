@@ -1,0 +1,35 @@
+{
+  "name": "cicd-security-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for CI/CD Security Tools - Trivy, SonarQube, Dependency-Track, Gitea, Drone CI",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "security",
+    "trivy",
+    "sonarqube",
+    "dependency-track",
+    "gitea",
+    "drone"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
