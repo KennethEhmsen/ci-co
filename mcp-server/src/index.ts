@@ -10,9 +10,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import {
   config,
-  validateSeverity,
-  sanitizePath,
-  sanitizeImageName,
   trivyScanPath,
   trivyScanImage,
   sonarGetProjects,
@@ -41,7 +38,7 @@ import {
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
-export { validateSeverity, sanitizePath, sanitizeImageName };
+export { validateSeverity, sanitizePath, sanitizeImageName } from "./handlers.js";
 
 // =============================================================================
 // MCP Server Setup
