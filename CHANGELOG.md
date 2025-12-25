@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- License compliance check in CI (fails on non-permissive licenses like GPL)
+
 ## [1.3.1] - 2025-12-25
 
 ### Added
