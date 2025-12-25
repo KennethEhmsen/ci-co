@@ -2,6 +2,15 @@
 export { config, type Config } from "./config.js";
 export { validateSeverity, sanitizePath, sanitizeImageName } from "./validation.js";
 export { fetchJson, basicAuth } from "./http.js";
+export { ScanCache, withCache, trivyScanCache, sonarCache, dtrackCache } from "./cache.js";
+export {
+  CircuitBreaker,
+  CircuitOpenError,
+  circuitBreakers,
+  getAllCircuitStats,
+  type CircuitState,
+  type CircuitBreakerOptions,
+} from "./circuit-breaker.js";
 
 // Export all types
 export type {
