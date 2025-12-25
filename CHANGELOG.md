@@ -7,28 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.15.0] - 2025-12-25
-
-### Added
-- **SBOM Format Option** for combined scans
-  - `trivy_scan_image_full` now accepts `sbomFormat` parameter (cyclonedx or spdx-json)
-  - `trivy_scan_path_full` now accepts `sbomFormat` parameter (cyclonedx or spdx-json)
-  - Default format remains CycloneDX for backwards compatibility
-
-## [1.14.0] - 2025-12-25
-
-### Added
-- **SBOM Generation** in combined scans
-  - `trivy_scan_image_full` now includes SBOM (4 operations: vuln, secret, license, SBOM)
-  - `trivy_scan_path_full` now includes SBOM (5 operations: vuln, secret, license, IaC, SBOM)
-
 ## [1.13.0] - 2025-12-25
 
 ### Added
 - **Combined Path Scan Tool** (`trivy_scan_path_full`)
-  - Runs vulnerability, secret, license, and IaC scanning in one operation
+  - Runs vulnerability, secret, license, IaC, and SBOM generation in one operation
   - Returns comprehensive results with individual error handling
-  - Tool count: 33
+- **SBOM Generation** in combined scans
+  - `trivy_scan_image_full` now includes SBOM (4 operations: vuln, secret, license, SBOM)
+  - `trivy_scan_path_full` now includes SBOM (5 operations: vuln, secret, license, IaC, SBOM)
+- **SBOM Format Option** for combined scans
+  - `trivy_scan_image_full` accepts `sbomFormat` parameter (cyclonedx or spdx-json)
+  - `trivy_scan_path_full` accepts `sbomFormat` parameter (cyclonedx or spdx-json)
+  - Default format is CycloneDX for backwards compatibility
+- **CI Workflow SBOM Generation**
+  - Generates CycloneDX and SPDX-JSON SBOMs in security job
+  - Uploads both formats as artifacts with 90-day retention
+- Tool count: 33
 
 ## [1.12.0] - 2025-12-25
 
@@ -268,9 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.15.0...HEAD
-[1.15.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.14.0...v1.15.0
-[1.14.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.0...v1.14.0
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.0...HEAD
 [1.13.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.10.0...v1.11.0
