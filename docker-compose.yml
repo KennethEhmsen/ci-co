@@ -7,7 +7,12 @@
 #   2. Update the passwords in .env (or use the defaults for local dev)
 #
 # USAGE:
-#   docker compose up -d
+#   docker compose up -d                    # Core services: Gitea, Drone, Registry
+#   docker compose --profile security up -d # Add security tools: Trivy, SonarQube, D-Track
+#
+# PROFILES:
+#   (none)   - Core CI/CD: Gitea, Drone CI, Docker Registry
+#   security - Adds: Trivy, SonarQube, Dependency-Track
 #
 # Then wait ~60 seconds and everything is ready!
 #
@@ -417,6 +422,7 @@ services:
   sonarqube-db:
     image: postgres:15-alpine
     container_name: ci-sonarqube-db
+    profiles: [security]
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${SONARQUBE_DB_USER:-sonar}
@@ -435,6 +441,7 @@ services:
   sonarqube:
     image: sonarqube:community
     container_name: ci-sonarqube
+    profiles: [security]
     restart: unless-stopped
     environment:
       - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/${SONARQUBE_DB_NAME:-sonarqube}
@@ -465,6 +472,7 @@ services:
   trivy-server:
     image: aquasec/trivy:latest
     container_name: ci-trivy-server
+    profiles: [security]
     restart: unless-stopped
     command: ["server", "--listen", "0.0.0.0:4954"]
     volumes:
@@ -482,6 +490,7 @@ services:
   dependency-track-apiserver:
     image: dependencytrack/apiserver:latest
     container_name: ci-dependency-track-api
+    profiles: [security]
     restart: unless-stopped
     environment:
       - ALPINE_DATABASE_MODE=external
@@ -501,6 +510,7 @@ services:
   dependency-track-db:
     image: postgres:15-alpine
     container_name: ci-dependency-track-db
+    profiles: [security]
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DTRACK_DB_USER:-dtrack}
@@ -514,6 +524,7 @@ services:
   dependency-track-frontend:
     image: dependencytrack/frontend:latest
     container_name: ci-dependency-track-ui
+    profiles: [security]
     restart: unless-stopped
     environment:
       - API_BASE_URL=http://localhost:8081

@@ -1,0 +1,249 @@
+/**
+ * Output Formatter - Formats tool output in different formats (json, table, markdown)
+ */
+
+export type OutputFormat = "json" | "table" | "markdown" | "text";
+
+export interface FormatterOptions {
+  format: OutputFormat;
+  quiet?: boolean;
+  noColor?: boolean;
+}
+
+// Global formatter state
+let globalFormat: OutputFormat = "text";
+let globalQuiet = false;
+
+export function setGlobalFormat(format: OutputFormat): void {
+  globalFormat = format;
+}
+
+export function getGlobalFormat(): OutputFormat {
+  return globalFormat;
+}
+
+export function setGlobalQuiet(quiet: boolean): void {
+  globalQuiet = quiet;
+}
+
+export function isQuiet(): boolean {
+  return globalQuiet;
+}
+
+/**
+ * Format data based on global format setting
+ */
+export function formatOutput(data: unknown, title?: string): string {
+  switch (globalFormat) {
+    case "json":
+      return formatJson(data);
+    case "table":
+      return formatTable(data, title);
+    case "markdown":
+      return formatMarkdown(data, title);
+    case "text":
+    default:
+      return formatText(data);
+  }
+}
+
+/**
+ * JSON format - raw JSON output for scripting
+ */
+function formatJson(data: unknown): string {
+  return JSON.stringify(data, null, 2);
+}
+
+/**
+ * Text format - human readable (default)
+ */
+function formatText(data: unknown): string {
+  if (typeof data === "string") {
+    return data;
+  }
+  return JSON.stringify(data, null, 2);
+}
+
+/**
+ * Table format - ASCII table for terminal
+ */
+function formatTable(data: unknown, title?: string): string {
+  const lines: string[] = [];
+
+  if (title) {
+    lines.push(`\n${title}`);
+    lines.push("=".repeat(title.length));
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) {
+      return lines.join("\n") + "\nNo data";
+    }
+
+    // Get all keys from first item
+    const keys = Object.keys(data[0] as Record<string, unknown>);
+    const columnWidths: Record<string, number> = {};
+
+    // Calculate column widths
+    for (const key of keys) {
+      columnWidths[key] = key.length;
+      for (const row of data) {
+        const val = String((row as Record<string, unknown>)[key] ?? "");
+        columnWidths[key] = Math.max(columnWidths[key], Math.min(val.length, 40));
+      }
+    }
+
+    // Header
+    const header = keys.map((k) => k.padEnd(columnWidths[k])).join(" | ");
+    lines.push(header);
+    lines.push(keys.map((k) => "-".repeat(columnWidths[k])).join("-+-"));
+
+    // Rows
+    for (const row of data) {
+      const rowStr = keys
+        .map((k) => {
+          const val = String((row as Record<string, unknown>)[k] ?? "");
+          return val.slice(0, 40).padEnd(columnWidths[k]);
+        })
+        .join(" | ");
+      lines.push(rowStr);
+    }
+  } else if (typeof data === "object" && data !== null) {
+    // Single object - display as key-value pairs
+    const obj = data as Record<string, unknown>;
+    const maxKeyLen = Math.max(...Object.keys(obj).map((k) => k.length));
+
+    for (const [key, value] of Object.entries(obj)) {
+      const valStr = typeof value === "object" ? JSON.stringify(value) : String(value);
+      lines.push(`${key.padEnd(maxKeyLen)} : ${valStr}`);
+    }
+  } else {
+    lines.push(String(data));
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Markdown format - for documentation/reports
+ */
+function formatMarkdown(data: unknown, title?: string): string {
+  const lines: string[] = [];
+
+  if (title) {
+    lines.push(`## ${title}\n`);
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) {
+      return lines.join("\n") + "\n*No data*\n";
+    }
+
+    // Get all keys from first item
+    const keys = Object.keys(data[0] as Record<string, unknown>);
+
+    // Header
+    lines.push("| " + keys.join(" | ") + " |");
+    lines.push("| " + keys.map(() => "---").join(" | ") + " |");
+
+    // Rows
+    for (const row of data) {
+      const rowStr = keys
+        .map((k) => {
+          const val = (row as Record<string, unknown>)[k];
+          if (typeof val === "object") {
+            return "`" + JSON.stringify(val).slice(0, 30) + "`";
+          }
+          return String(val ?? "").replace(/\|/g, "\\|");
+        })
+        .join(" | ");
+      lines.push("| " + rowStr + " |");
+    }
+  } else if (typeof data === "object" && data !== null) {
+    // Single object as definition list
+    const obj = data as Record<string, unknown>;
+    for (const [key, value] of Object.entries(obj)) {
+      const valStr =
+        typeof value === "object"
+          ? "\n```json\n" + JSON.stringify(value, null, 2) + "\n```"
+          : String(value);
+      lines.push(`- **${key}**: ${valStr}`);
+    }
+  } else {
+    lines.push(String(data));
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Log a message (respects quiet mode)
+ */
+export function log(message: string): void {
+  if (!globalQuiet) {
+    console.log(message);
+  }
+}
+
+/**
+ * Log an error (always shown)
+ */
+export function logError(message: string): void {
+  console.error(message);
+}
+
+/**
+ * Format scan results specifically
+ */
+export function formatScanResults(
+  results: {
+    vulnerabilities?: number;
+    secrets?: number;
+    licenses?: number;
+    misconfigurations?: number;
+    components?: number;
+  },
+  title?: string
+): string {
+  const data = [
+    { metric: "Vulnerabilities", count: results.vulnerabilities ?? 0 },
+    { metric: "Secrets", count: results.secrets ?? 0 },
+    { metric: "Licenses", count: results.licenses ?? 0 },
+    { metric: "Misconfigurations", count: results.misconfigurations ?? 0 },
+    { metric: "Components", count: results.components ?? 0 },
+  ].filter((r) => r.count > 0 || r.metric === "Vulnerabilities");
+
+  return formatOutput(data, title);
+}
+
+/**
+ * Format build status
+ */
+export function formatBuildStatus(
+  builds: Array<{
+    number: number;
+    status: string;
+    message?: string;
+    finished?: number;
+  }>
+): string {
+  const statusEmoji: Record<string, string> = {
+    success: "✅",
+    failure: "❌",
+    running: "🔄",
+    pending: "⏳",
+    killed: "💀",
+  };
+
+  if (globalFormat === "json") {
+    return formatJson(builds);
+  }
+
+  const formatted = builds.map((b) => ({
+    build: `#${b.number}`,
+    status: `${statusEmoji[b.status] || "❓"} ${b.status}`,
+    message: (b.message || "").slice(0, 50),
+  }));
+
+  return formatOutput(formatted, "Recent Builds");
+}

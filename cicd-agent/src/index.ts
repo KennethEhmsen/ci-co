@@ -5,9 +5,23 @@ import { program } from "commander";
 import * as readline from "node:readline";
 import { config as dotenvConfig } from "dotenv";
 import { tools, executeTool } from "./tools.js";
+import { OutputFormat, setGlobalFormat, setGlobalQuiet, log, isQuiet } from "./formatter.js";
+import { loadConfigFile } from "./config-file.js";
 
 // Load environment variables
 dotenvConfig();
+
+// Load configuration file
+const fileConfig = loadConfigFile();
+if (fileConfig) {
+  // Apply file-based defaults (can be overridden by CLI)
+  if (fileConfig.format) {
+    setGlobalFormat(fileConfig.format);
+  }
+  if (fileConfig.quiet) {
+    setGlobalQuiet(fileConfig.quiet);
+  }
+}
 
 // Export for testing
 export { tools, executeTool } from "./tools.js";
@@ -95,12 +109,11 @@ export class CICDSecurityAgent {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
       for (const toolUse of toolUseBlocks) {
-        console.log(`\n🔧 Using tool: ${toolUse.name}`);
+        if (!isQuiet()) {
+          console.log(`\n🔧 Using tool: ${toolUse.name}`);
+        }
 
-        const result = await executeTool(
-          toolUse.name,
-          toolUse.input as Record<string, unknown>
-        );
+        const result = await executeTool(toolUse.name, toolUse.input as Record<string, unknown>);
 
         toolResults.push({
           type: "tool_result",
@@ -211,14 +224,21 @@ async function interactiveMode() {
 // =============================================================================
 // Command Handlers (exported for testing)
 // =============================================================================
-export async function handleScanCommand(path: string, severity: string, agent?: CICDSecurityAgent): Promise<string> {
+export async function handleScanCommand(
+  path: string,
+  severity: string,
+  agent?: CICDSecurityAgent
+): Promise<string> {
   const instance = agent ?? new CICDSecurityAgent();
   return instance.runSingleQuery(
     `Scan the directory "${path}" for security vulnerabilities. Report severity ${severity} and above. Provide a summary of findings with recommendations.`
   );
 }
 
-export async function handleScanImageCommand(image: string, agent?: CICDSecurityAgent): Promise<string> {
+export async function handleScanImageCommand(
+  image: string,
+  agent?: CICDSecurityAgent
+): Promise<string> {
   const instance = agent ?? new CICDSecurityAgent();
   return instance.runSingleQuery(
     `Scan the Docker image "${image}" for security vulnerabilities. Provide a summary of findings with severity levels and recommendations.`
@@ -234,19 +254,24 @@ export async function handleStatusCommand(agent?: CICDSecurityAgent): Promise<st
 
 export async function handleReposCommand(agent?: CICDSecurityAgent): Promise<string> {
   const instance = agent ?? new CICDSecurityAgent();
-  return instance.runSingleQuery(
-    "List all repositories in Gitea with their details."
-  );
+  return instance.runSingleQuery("List all repositories in Gitea with their details.");
 }
 
-export async function handleBuildsCommand(owner: string, repo: string, agent?: CICDSecurityAgent): Promise<string> {
+export async function handleBuildsCommand(
+  owner: string,
+  repo: string,
+  agent?: CICDSecurityAgent
+): Promise<string> {
   const instance = agent ?? new CICDSecurityAgent();
   return instance.runSingleQuery(
     `Show the recent CI/CD builds for the repository ${owner}/${repo}. Include build status, duration, and any failures.`
   );
 }
 
-export async function handleSecurityReportCommand(path: string, agent?: CICDSecurityAgent): Promise<string> {
+export async function handleSecurityReportCommand(
+  path: string,
+  agent?: CICDSecurityAgent
+): Promise<string> {
   const instance = agent ?? new CICDSecurityAgent();
   return instance.runSingleQuery(
     `Generate a comprehensive security report for "${path}".
@@ -273,7 +298,10 @@ export async function handleMigrateCommand(
   );
 }
 
-export async function handleAskCommand(question: string, agent?: CICDSecurityAgent): Promise<string> {
+export async function handleAskCommand(
+  question: string,
+  agent?: CICDSecurityAgent
+): Promise<string> {
   const instance = agent ?? new CICDSecurityAgent();
   return instance.runSingleQuery(question);
 }
@@ -284,7 +312,18 @@ export async function handleAskCommand(question: string, agent?: CICDSecurityAge
 program
   .name("cicd-agent")
   .description("CI/CD Security Agent - powered by Claude")
-  .version("1.0.0");
+  .version("1.15.0")
+  .option("-f, --format <format>", "Output format: json, table, markdown, text", "text")
+  .option("-q, --quiet", "Suppress progress output (for CI usage)")
+  .hook("preAction", (thisCommand) => {
+    const opts = thisCommand.opts();
+    if (opts.format) {
+      setGlobalFormat(opts.format as OutputFormat);
+    }
+    if (opts.quiet) {
+      setGlobalQuiet(true);
+    }
+  });
 
 program
   .command("chat")
@@ -298,7 +337,7 @@ program
   .description("Scan a directory for vulnerabilities")
   .option("-s, --severity <levels>", "Severity levels", "HIGH,CRITICAL")
   .action(async (path: string, options) => {
-    console.log(`\n🔍 Scanning ${path} for vulnerabilities...\n`);
+    log(`\n🔍 Scanning ${path} for vulnerabilities...\n`);
     const response = await handleScanCommand(path, options.severity);
     console.log(response);
   });
@@ -307,7 +346,7 @@ program
   .command("scan-image <image>")
   .description("Scan a Docker image for vulnerabilities")
   .action(async (image: string) => {
-    console.log(`\n🐳 Scanning image ${image}...\n`);
+    log(`\n🐳 Scanning image ${image}...\n`);
     const response = await handleScanImageCommand(image);
     console.log(response);
   });
@@ -316,7 +355,7 @@ program
   .command("status")
   .description("Check CI/CD platform status")
   .action(async () => {
-    console.log("\n🔍 Checking platform status...\n");
+    log("\n🔍 Checking platform status...\n");
     const response = await handleStatusCommand();
     console.log(response);
   });
@@ -325,7 +364,7 @@ program
   .command("repos")
   .description("List all repositories")
   .action(async () => {
-    console.log("\n📚 Fetching repositories...\n");
+    log("\n📚 Fetching repositories...\n");
     const response = await handleReposCommand();
     console.log(response);
   });
@@ -334,7 +373,7 @@ program
   .command("builds <owner> <repo>")
   .description("Show recent builds for a repository")
   .action(async (owner: string, repo: string) => {
-    console.log(`\n🏗️ Fetching builds for ${owner}/${repo}...\n`);
+    log(`\n🏗️ Fetching builds for ${owner}/${repo}...\n`);
     const response = await handleBuildsCommand(owner, repo);
     console.log(response);
   });
@@ -344,7 +383,7 @@ program
   .description("Generate a comprehensive security report")
   .action(async (path?: string) => {
     const targetPath = path || process.cwd();
-    console.log(`\n📊 Generating security report for ${targetPath}...\n`);
+    log(`\n📊 Generating security report for ${targetPath}...\n`);
     const response = await handleSecurityReportCommand(targetPath);
     console.log(response);
   });
@@ -354,7 +393,7 @@ program
   .description("Migrate a repository from GitHub to Gitea")
   .option("-t, --token <token>", "GitHub personal access token (for private repos)")
   .action(async (githubUrl: string, repoName: string, options) => {
-    console.log(`\n📦 Migrating ${githubUrl} to Gitea as ${repoName}...\n`);
+    log(`\n📦 Migrating ${githubUrl} to Gitea as ${repoName}...\n`);
     const response = await handleMigrateCommand(githubUrl, repoName, !!options.token);
     console.log(response);
   });
@@ -364,7 +403,7 @@ program
   .description("Ask a single question")
   .action(async (questionParts: string[]) => {
     const question = questionParts.join(" ");
-    console.log("\n🤖 Processing...\n");
+    log("\n🤖 Processing...\n");
     const response = await handleAskCommand(question);
     console.log(response);
   });
@@ -375,7 +414,7 @@ program.action(async () => {
 });
 
 // Only run CLI when executed directly (not when imported)
-const isMainModule = process.argv[1]?.includes('index') && !process.argv[1]?.includes('.test.');
+const isMainModule = process.argv[1]?.includes("index") && !process.argv[1]?.includes(".test.");
 if (isMainModule) {
   program.parse();
 }

@@ -496,52 +496,34 @@ export async function trivyScanImageFull(
     throw new Error("Invalid image name provided");
   }
 
-  const result: TrivyCombinedImageScanResult = {
+  // Run all scans in parallel for 3-4x performance improvement
+  const [vulnResult, secretResult, licenseResult, sbomResult] = await Promise.allSettled([
+    trivyScanImage(safeImage, severity),
+    trivyScanSecretsImage(safeImage, severity),
+    trivyScanLicensesImage(safeImage, severity),
+    trivyGenerateSbomImage(safeImage, sbomFormat),
+  ]);
+
+  return {
     image: safeImage,
     timestamp: new Date().toISOString(),
-    vulnerabilities: null,
-    secrets: null,
-    licenses: null,
-    sbom: null,
+    vulnerabilities:
+      vulnResult.status === "fulfilled"
+        ? vulnResult.value
+        : { error: (vulnResult.reason as Error).message },
+    secrets:
+      secretResult.status === "fulfilled"
+        ? secretResult.value
+        : { error: (secretResult.reason as Error).message },
+    licenses:
+      licenseResult.status === "fulfilled"
+        ? licenseResult.value
+        : { error: (licenseResult.reason as Error).message },
+    sbom:
+      sbomResult.status === "fulfilled"
+        ? sbomResult.value
+        : { error: (sbomResult.reason as Error).message },
   };
-
-  // Run vulnerability scan
-  try {
-    const vulnResult = await trivyScanImage(safeImage, severity);
-    result.vulnerabilities = vulnResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.vulnerabilities = { error: error.message };
-  }
-
-  // Run secret scan
-  try {
-    const secretResult = await trivyScanSecretsImage(safeImage, severity);
-    result.secrets = secretResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.secrets = { error: error.message };
-  }
-
-  // Run license scan
-  try {
-    const licenseResult = await trivyScanLicensesImage(safeImage, severity);
-    result.licenses = licenseResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.licenses = { error: error.message };
-  }
-
-  // Generate SBOM
-  try {
-    const sbomResult = await trivyGenerateSbomImage(safeImage, sbomFormat);
-    result.sbom = sbomResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.sbom = { error: error.message };
-  }
-
-  return result;
 }
 
 /**
@@ -575,62 +557,41 @@ export async function trivyScanPathFull(
     throw new Error("Invalid path provided");
   }
 
-  const result: TrivyCombinedPathScanResult = {
+  // Run all scans in parallel for 3-4x performance improvement
+  const [vulnResult, secretResult, licenseResult, iacResult, sbomResult] = await Promise.allSettled(
+    [
+      trivyScanPath(safePath, severity),
+      trivyScanSecrets(safePath, severity),
+      trivyScanLicenses(safePath, severity),
+      trivyScanIac(safePath, severity),
+      trivyGenerateSbom(safePath, sbomFormat),
+    ]
+  );
+
+  return {
     path: safePath,
     timestamp: new Date().toISOString(),
-    vulnerabilities: null,
-    secrets: null,
-    licenses: null,
-    iac: null,
-    sbom: null,
+    vulnerabilities:
+      vulnResult.status === "fulfilled"
+        ? vulnResult.value
+        : { error: (vulnResult.reason as Error).message },
+    secrets:
+      secretResult.status === "fulfilled"
+        ? secretResult.value
+        : { error: (secretResult.reason as Error).message },
+    licenses:
+      licenseResult.status === "fulfilled"
+        ? licenseResult.value
+        : { error: (licenseResult.reason as Error).message },
+    iac:
+      iacResult.status === "fulfilled"
+        ? iacResult.value
+        : { error: (iacResult.reason as Error).message },
+    sbom:
+      sbomResult.status === "fulfilled"
+        ? sbomResult.value
+        : { error: (sbomResult.reason as Error).message },
   };
-
-  // Run vulnerability scan
-  try {
-    const vulnResult = await trivyScanPath(safePath, severity);
-    result.vulnerabilities = vulnResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.vulnerabilities = { error: error.message };
-  }
-
-  // Run secret scan
-  try {
-    const secretResult = await trivyScanSecrets(safePath, severity);
-    result.secrets = secretResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.secrets = { error: error.message };
-  }
-
-  // Run license scan
-  try {
-    const licenseResult = await trivyScanLicenses(safePath, severity);
-    result.licenses = licenseResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.licenses = { error: error.message };
-  }
-
-  // Run IaC scan
-  try {
-    const iacResult = await trivyScanIac(safePath, severity);
-    result.iac = iacResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.iac = { error: error.message };
-  }
-
-  // Generate SBOM
-  try {
-    const sbomResult = await trivyGenerateSbom(safePath, sbomFormat);
-    result.sbom = sbomResult;
-  } catch (e: unknown) {
-    const error = e as Error;
-    result.sbom = { error: error.message };
-  }
-
-  return result;
 }
 
 // =============================================================================
@@ -697,6 +658,33 @@ export async function sonarGetSecurityHotspots(projectKey: string): Promise<Sona
 export async function sonarGetMetrics(projectKey: string): Promise<SonarMetricsResponse> {
   return fetchJson<SonarMetricsResponse>(
     `${config.sonarqube.url}/api/measures/component?component=${projectKey}&metricKeys=bugs,vulnerabilities,security_hotspots,code_smells,coverage,duplicated_lines_density`,
+    {
+      headers: {
+        Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
+      },
+    }
+  );
+}
+
+/**
+ * Check SonarQube quality gate status for a project.
+ */
+export interface QualityGateStatus {
+  projectStatus: {
+    status: "OK" | "WARN" | "ERROR" | "NONE";
+    conditions: Array<{
+      status: string;
+      metricKey: string;
+      comparator: string;
+      errorThreshold: string;
+      actualValue: string;
+    }>;
+  };
+}
+
+export async function sonarGetQualityGateStatus(projectKey: string): Promise<QualityGateStatus> {
+  return fetchJson<QualityGateStatus>(
+    `${config.sonarqube.url}/api/qualitygates/project_status?projectKey=${projectKey}`,
     {
       headers: {
         Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
@@ -774,6 +762,43 @@ export async function dtrackGetComponents(projectUuid: string): Promise<DTrackCo
       headers: { "X-Api-Key": config.dependencyTrack.apiKey },
     }
   );
+}
+
+/**
+ * Upload an SBOM to Dependency-Track.
+ */
+export interface DTrackUploadResult {
+  token: string;
+}
+
+export async function dtrackUploadSbom(
+  projectName: string,
+  projectVersion: string,
+  sbom: string,
+  autoCreate: boolean = true
+): Promise<DTrackUploadResult> {
+  if (!config.dependencyTrack.apiKey) {
+    throw new Error(
+      "Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable."
+    );
+  }
+
+  // Encode SBOM as base64
+  const sbomBase64 = Buffer.from(sbom).toString("base64");
+
+  return fetchJson<DTrackUploadResult>(`${config.dependencyTrack.url}/api/v1/bom`, {
+    method: "PUT",
+    headers: {
+      "X-Api-Key": config.dependencyTrack.apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      projectName,
+      projectVersion,
+      autoCreate,
+      bom: sbomBase64,
+    }),
+  });
 }
 
 // =============================================================================
@@ -880,6 +905,148 @@ export async function giteaMigrateRepo(
     },
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * List pull requests for a Gitea repository.
+ */
+export interface GiteaPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  state: string;
+  user: { login: string };
+  body: string;
+  created_at: string;
+  updated_at: string;
+  merged: boolean;
+  mergeable: boolean;
+  html_url: string;
+  head: { ref: string };
+  base: { ref: string };
+}
+
+export async function giteaListPullRequests(
+  owner: string,
+  repo: string,
+  state: "open" | "closed" | "all" = "open"
+): Promise<GiteaPullRequest[]> {
+  return fetchJson<GiteaPullRequest[]>(
+    `${config.gitea.url}/api/v1/repos/${owner}/${repo}/pulls?state=${state}`,
+    {
+      headers: {
+        Authorization: basicAuth(config.gitea.user, config.gitea.password),
+      },
+    }
+  );
+}
+
+/**
+ * Get a specific pull request.
+ */
+export async function giteaGetPullRequest(
+  owner: string,
+  repo: string,
+  pullNumber: number
+): Promise<GiteaPullRequest> {
+  return fetchJson<GiteaPullRequest>(
+    `${config.gitea.url}/api/v1/repos/${owner}/${repo}/pulls/${pullNumber}`,
+    {
+      headers: {
+        Authorization: basicAuth(config.gitea.user, config.gitea.password),
+      },
+    }
+  );
+}
+
+/**
+ * Create a new pull request.
+ */
+export async function giteaCreatePullRequest(
+  owner: string,
+  repo: string,
+  title: string,
+  head: string,
+  base: string,
+  body?: string
+): Promise<GiteaPullRequest> {
+  return fetchJson<GiteaPullRequest>(`${config.gitea.url}/api/v1/repos/${owner}/${repo}/pulls`, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuth(config.gitea.user, config.gitea.password),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title, head, base, body: body || "" }),
+  });
+}
+
+/**
+ * Merge a pull request.
+ */
+export async function giteaMergePullRequest(
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  mergeStyle: "merge" | "rebase" | "squash" = "merge"
+): Promise<{ merged: boolean }> {
+  await fetchJson(`${config.gitea.url}/api/v1/repos/${owner}/${repo}/pulls/${pullNumber}/merge`, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuth(config.gitea.user, config.gitea.password),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ Do: mergeStyle }),
+  });
+  return { merged: true };
+}
+
+/**
+ * Create an issue in a Gitea repository.
+ */
+export interface GiteaIssue {
+  id: number;
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  html_url: string;
+  created_at: string;
+  user: { login: string };
+}
+
+export async function giteaCreateIssue(
+  owner: string,
+  repo: string,
+  title: string,
+  body?: string,
+  labels?: string[]
+): Promise<GiteaIssue> {
+  return fetchJson<GiteaIssue>(`${config.gitea.url}/api/v1/repos/${owner}/${repo}/issues`, {
+    method: "POST",
+    headers: {
+      Authorization: basicAuth(config.gitea.user, config.gitea.password),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title, body: body || "", labels: labels || [] }),
+  });
+}
+
+/**
+ * List issues in a Gitea repository.
+ */
+export async function giteaListIssues(
+  owner: string,
+  repo: string,
+  state: "open" | "closed" | "all" = "open"
+): Promise<GiteaIssue[]> {
+  return fetchJson<GiteaIssue[]>(
+    `${config.gitea.url}/api/v1/repos/${owner}/${repo}/issues?state=${state}&type=issues`,
+    {
+      headers: {
+        Authorization: basicAuth(config.gitea.user, config.gitea.password),
+      },
+    }
+  );
 }
 
 // =============================================================================

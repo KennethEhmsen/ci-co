@@ -1,0 +1,28 @@
+# CI/CD Security Agent Configuration
+# Copy this file to .cicd-agent.yaml and customize
+
+# Output format: json, table, markdown, text
+format: text
+
+# Suppress progress messages (useful for CI)
+quiet: false
+
+# Default severity filter for scans
+severity: HIGH,CRITICAL
+
+# SBOM format: cyclonedx or spdx-json
+sbomFormat: cyclonedx
+
+# Platform URLs (override defaults)
+platforms:
+  gitea: http://localhost:3000
+  drone: http://localhost:8085
+  sonarqube: http://localhost:9000
+  dependencyTrack: http://localhost:8081
+  trivy: http://localhost:4954
+  registry: http://localhost:5000
+
+# Default repository context
+defaults:
+  owner: localadmin
+  repo: my-project

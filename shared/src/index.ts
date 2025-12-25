@@ -94,11 +94,13 @@ export {
   sonarGetIssues,
   sonarGetSecurityHotspots,
   sonarGetMetrics,
+  sonarGetQualityGateStatus,
   // Dependency-Track
   dtrackGetProjects,
   dtrackGetVulnerabilities,
   dtrackGetFindings,
   dtrackGetComponents,
+  dtrackUploadSbom,
   // Gitea
   giteaGetRepos,
   giteaGetRepo,
@@ -106,6 +108,12 @@ export {
   giteaGetCommits,
   giteaCreateRepo,
   giteaMigrateRepo,
+  giteaListPullRequests,
+  giteaGetPullRequest,
+  giteaCreatePullRequest,
+  giteaMergePullRequest,
+  giteaCreateIssue,
+  giteaListIssues,
   // Drone
   droneGetRepos,
   droneGetBuilds,
