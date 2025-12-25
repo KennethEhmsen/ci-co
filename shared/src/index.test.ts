@@ -22,6 +22,7 @@ import {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanLicenses,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -1214,6 +1215,116 @@ describe("Trivy Handlers", () => {
       }) as unknown as typeof exec);
 
       const result = await trivyScanSecrets("/valid/path");
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe("trivyScanLicenses", () => {
+    it("should throw error for invalid path", async () => {
+      await expect(trivyScanLicenses("")).rejects.toThrow("Invalid path provided");
+    });
+
+    it("should throw error for short path", async () => {
+      await expect(trivyScanLicenses("a")).rejects.toThrow("Invalid path provided");
+    });
+
+    it("should scan for licenses in a valid path successfully", async () => {
+      const mockResult = {
+        SchemaVersion: 2,
+        Results: [
+          {
+            Target: "/app",
+            Class: "license",
+            Licenses: [],
+          },
+        ],
+      };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanLicenses("/valid/path");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should handle exec errors with JSON stdout", async () => {
+      const mockResult = {
+        SchemaVersion: 2,
+        Results: [{ Target: "/app", Licenses: [] }],
+      };
+      const mockExec = vi.mocked(exec);
+      const error = new Error("Command failed") as ExecException;
+      (error as ExecException & { stdout: string }).stdout = JSON.stringify(mockResult);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(error, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanLicenses("/valid/path");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should handle exec errors with non-JSON stdout", async () => {
+      const mockExec = vi.mocked(exec);
+      const error = new Error("Command failed") as ExecException;
+      (error as ExecException & { stdout: string }).stdout = "Not JSON";
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(error, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanLicenses("/valid/path");
+      expect(result).toHaveProperty("error");
+      expect(result).toHaveProperty("output", "Not JSON");
+    });
+
+    it("should throw error when exec fails without stdout", async () => {
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(new Error("Command failed") as ExecException, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      await expect(trivyScanLicenses("/valid/path")).rejects.toThrow("Command failed");
+    });
+
+    it("should pass custom severity levels", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        expect(cmd).toContain("--severity HIGH,CRITICAL");
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanLicenses("/valid/path", "HIGH,CRITICAL");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should use --scanners license flag", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        expect(cmd).toContain("--scanners license");
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanLicenses("/valid/path");
       expect(result).toEqual(mockResult);
     });
   });

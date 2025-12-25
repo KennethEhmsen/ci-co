@@ -23,6 +23,10 @@ export type {
   // Secret Scan Types
   SecretResult,
   TrivySecretScanResult,
+  // License Scan Types
+  LicenseFinding,
+  LicenseResult,
+  TrivyLicenseScanResult,
   // SonarQube Types
   SonarProject,
   SonarProjectsResponse,
@@ -77,6 +81,7 @@ export {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanLicenses,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

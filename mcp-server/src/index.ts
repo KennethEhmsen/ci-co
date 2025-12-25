@@ -16,6 +16,7 @@ import {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanLicenses,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -165,6 +166,26 @@ export const toolDefinitions = [
           type: "string",
           description: "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)",
           default: "MEDIUM,HIGH,CRITICAL",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_licenses",
+    description:
+      "Scan a local path for license information using Trivy. Detects licenses in dependencies and flags potentially problematic licenses (forbidden, restricted, etc.).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan for licenses",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)",
+          default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL",
         },
       },
       required: ["path"],
@@ -609,6 +630,9 @@ export async function handleCallTool(
         break;
       case "trivy_scan_secrets":
         result = await trivyScanSecrets(args?.path as string, args?.severity as string);
+        break;
+      case "trivy_scan_licenses":
+        result = await trivyScanLicenses(args?.path as string, args?.severity as string);
         break;
 
       // SonarQube

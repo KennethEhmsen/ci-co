@@ -8,6 +8,7 @@ import type {
   TrivySbomResult,
   TrivyIacScanResult,
   TrivySecretScanResult,
+  TrivyLicenseScanResult,
   SonarProjectsResponse,
   SonarIssuesResponse,
   SonarHotspotsResponse,
@@ -320,6 +321,51 @@ export async function trivyScanSecrets(
     if (execError.stdout) {
       try {
         return JSON.parse(execError.stdout) as TrivySecretScanResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Scan a local filesystem path for license information using Trivy.
+ * Detects licenses in dependencies and flags potentially problematic licenses.
+ *
+ * @param path - Absolute path to the directory to scan
+ * @param severity - Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: LOW,MEDIUM,HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy license scan results in JSON format
+ * @throws Error if path is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanLicenses('/home/user/project');
+ * console.log(results.Results); // Array of license findings
+ * ```
+ */
+export async function trivyScanLicenses(
+  path: string,
+  severity: string = "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+): Promise<TrivyLicenseScanResult | ErrorResponse> {
+  const safePath = sanitizePath(path);
+  const safeSeverity = validateSeverity(severity);
+
+  if (!safePath || safePath.length < 2) {
+    throw new Error("Invalid path provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm -v "${safePath}:/app" aquasec/trivy:latest fs --scanners license --format json --severity ${safeSeverity} /app`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivyLicenseScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivyLicenseScanResult;
       } catch {
         return { error: execError.message, output: execError.stdout };
       }

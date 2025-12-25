@@ -166,6 +166,38 @@ export interface TrivySecretScanResult {
   Results?: SecretResult[];
 }
 
+// License Scanning Types
+export interface LicenseFinding {
+  Severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "UNKNOWN";
+  Category:
+    | "forbidden"
+    | "restricted"
+    | "reciprocal"
+    | "notice"
+    | "permissive"
+    | "unencumbered"
+    | "unknown";
+  PkgName: string;
+  FilePath?: string;
+  Name: string;
+  Confidence: number;
+  Link?: string;
+}
+
+export interface LicenseResult {
+  Target: string;
+  Class: "license";
+  Licenses?: LicenseFinding[];
+}
+
+export interface TrivyLicenseScanResult {
+  SchemaVersion?: number;
+  CreatedAt?: string;
+  ArtifactName?: string;
+  ArtifactType?: string;
+  Results?: LicenseResult[];
+}
+
 // =============================================================================
 // SonarQube Types
 // =============================================================================

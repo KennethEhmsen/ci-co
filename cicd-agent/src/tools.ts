@@ -7,6 +7,7 @@ import {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanLicenses,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -51,6 +52,8 @@ const toolHandlers: Record<string, ToolHandler> = {
   trivy_scan_iac: async (input) => trivyScanIac(input.path as string, input.severity as string),
   trivy_scan_secrets: async (input) =>
     trivyScanSecrets(input.path as string, input.severity as string),
+  trivy_scan_licenses: async (input) =>
+    trivyScanLicenses(input.path as string, input.severity as string),
   // SonarQube
   sonar_list_projects: async () => sonarGetProjects(),
   sonar_get_issues: async (input) =>
@@ -214,6 +217,26 @@ export const tools: Anthropic.Tool[] = [
           type: "string",
           description:
             "Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: MEDIUM,HIGH,CRITICAL)",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_licenses",
+    description:
+      "Scan a local path for license information using Trivy. Detects licenses in dependencies and flags potentially problematic licenses (forbidden, restricted, etc.).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan for licenses",
+        },
+        severity: {
+          type: "string",
+          description:
+            "Severity levels to report: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL (default: all)",
         },
       },
       required: ["path"],
