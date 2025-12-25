@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2025-12-25
+
 ### Added
 - Pre-commit hooks with Husky and lint-staged (auto-fix ESLint and Prettier)
 
@@ -170,7 +172,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.4...v1.4.0
 [1.3.4]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.2...v1.3.3
