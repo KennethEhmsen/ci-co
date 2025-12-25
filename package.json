@@ -1,6 +1,6 @@
 {
   "name": "ci-co",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "private": true,
   "description": "Local CI/CD Platform with Security Scanning",
   "workspaces": [

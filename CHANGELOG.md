@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2025-12-25
+
 ### Added
 - Dependency caching in CI to speed up builds
 
@@ -158,7 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.0...v1.3.1
