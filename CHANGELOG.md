@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Dependency caching in CI to speed up builds
+
 ## [1.3.3] - 2025-12-25
 
 ### Added
