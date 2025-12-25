@@ -16,6 +16,10 @@ export type {
   SbomHash,
   SbomMetadata,
   TrivySbomResult,
+  // IaC Types
+  IacMisconfiguration,
+  IacResult,
+  TrivyIacScanResult,
   // SonarQube Types
   SonarProject,
   SonarProjectsResponse,
@@ -68,6 +72,7 @@ export {
   trivyScanImage,
   trivyGenerateSbom,
   trivyGenerateSbomImage,
+  trivyScanIac,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

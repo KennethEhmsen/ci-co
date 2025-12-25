@@ -14,6 +14,7 @@ import {
   trivyScanImage,
   trivyGenerateSbom,
   trivyGenerateSbomImage,
+  trivyScanIac,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -126,6 +127,26 @@ export const toolDefinitions = [
         },
       },
       required: ["image"],
+    },
+  },
+  {
+    name: "trivy_scan_iac",
+    description:
+      "Scan Infrastructure as Code (IaC) files for misconfigurations using Trivy. Detects security issues in Terraform, Kubernetes, Docker, CloudFormation, and other IaC files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory containing IaC files",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)",
+          default: "MEDIUM,HIGH,CRITICAL",
+        },
+      },
+      required: ["path"],
     },
   },
 
@@ -561,6 +582,9 @@ export async function handleCallTool(
           args?.image as string,
           args?.format as "cyclonedx" | "spdx-json"
         );
+        break;
+      case "trivy_scan_iac":
+        result = await trivyScanIac(args?.path as string, args?.severity as string);
         break;
 
       // SonarQube

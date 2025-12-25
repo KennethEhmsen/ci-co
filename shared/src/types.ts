@@ -90,6 +90,67 @@ export interface TrivySbomResult {
   }[];
 }
 
+// IaC (Infrastructure as Code) Misconfiguration Types
+export interface IacMisconfiguration {
+  Type: string;
+  ID: string;
+  AVDID?: string;
+  Title: string;
+  Description: string;
+  Message: string;
+  Namespace?: string;
+  Query?: string;
+  Resolution: string;
+  Severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  PrimaryURL?: string;
+  References?: string[];
+  Status: "FAIL" | "PASS" | "EXCEPTION";
+  Layer?: {
+    Digest?: string;
+    DiffID?: string;
+    CreatedBy?: string;
+  };
+  CauseMetadata?: {
+    Resource?: string;
+    Provider?: string;
+    Service?: string;
+    StartLine?: number;
+    EndLine?: number;
+    Code?: {
+      Lines?: {
+        Number: number;
+        Content: string;
+        IsCause: boolean;
+        Annotation: string;
+        Truncated: boolean;
+        Highlighted?: string;
+        FirstCause: boolean;
+        LastCause: boolean;
+      }[];
+    };
+  };
+}
+
+export interface IacResult {
+  Target: string;
+  Class: "config";
+  Type: string;
+  MisconfSummary?: {
+    Successes: number;
+    Failures: number;
+    Exceptions: number;
+  };
+  Misconfigurations?: IacMisconfiguration[];
+}
+
+export interface TrivyIacScanResult {
+  SchemaVersion?: number;
+  CreatedAt?: string;
+  ArtifactName?: string;
+  ArtifactType?: string;
+  Results?: IacResult[];
+}
+
 // =============================================================================
 // SonarQube Types
 // =============================================================================

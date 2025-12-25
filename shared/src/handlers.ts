@@ -6,6 +6,7 @@ import { fetchJson, basicAuth } from "./http.js";
 import type {
   TrivyScanResult,
   TrivySbomResult,
+  TrivyIacScanResult,
   SonarProjectsResponse,
   SonarIssuesResponse,
   SonarHotspotsResponse,
@@ -228,6 +229,51 @@ export async function trivyGenerateSbomImage(
     if (execError.stdout) {
       try {
         return JSON.parse(execError.stdout) as TrivySbomResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Scan a local filesystem path for Infrastructure as Code (IaC) misconfigurations using Trivy.
+ * Detects security issues in Terraform, Kubernetes, Docker, CloudFormation, and other IaC files.
+ *
+ * @param path - Absolute path to the directory to scan
+ * @param severity - Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: MEDIUM,HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy IaC scan results in JSON format
+ * @throws Error if path is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanIac('/home/user/terraform');
+ * console.log(results.Results); // Array of misconfiguration findings
+ * ```
+ */
+export async function trivyScanIac(
+  path: string,
+  severity: string = "MEDIUM,HIGH,CRITICAL"
+): Promise<TrivyIacScanResult | ErrorResponse> {
+  const safePath = sanitizePath(path);
+  const safeSeverity = validateSeverity(severity);
+
+  if (!safePath || safePath.length < 2) {
+    throw new Error("Invalid path provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm -v "${safePath}:/app" aquasec/trivy:latest config --format json --severity ${safeSeverity} /app`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivyIacScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivyIacScanResult;
       } catch {
         return { error: execError.message, output: execError.stdout };
       }

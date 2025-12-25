@@ -20,6 +20,7 @@ import {
   trivyScanImage,
   trivyGenerateSbom,
   trivyGenerateSbomImage,
+  trivyScanIac,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -1007,6 +1008,102 @@ describe("Trivy Handlers", () => {
       }) as unknown as typeof exec);
 
       await expect(trivyGenerateSbomImage("nginx:latest")).rejects.toThrow("Command failed");
+    });
+  });
+
+  describe("trivyScanIac", () => {
+    it("should throw error for invalid path", async () => {
+      await expect(trivyScanIac("")).rejects.toThrow("Invalid path provided");
+    });
+
+    it("should throw error for short path", async () => {
+      await expect(trivyScanIac("a")).rejects.toThrow("Invalid path provided");
+    });
+
+    it("should scan IaC files for a valid path successfully", async () => {
+      const mockResult = {
+        SchemaVersion: 2,
+        Results: [
+          {
+            Target: "/app",
+            Class: "config",
+            Type: "terraform",
+            Misconfigurations: [],
+          },
+        ],
+      };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanIac("/valid/path");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should handle exec errors with JSON stdout", async () => {
+      const mockResult = {
+        SchemaVersion: 2,
+        Results: [{ Target: "/app", Misconfigurations: [] }],
+      };
+      const mockExec = vi.mocked(exec);
+      const error = new Error("Command failed") as ExecException;
+      (error as ExecException & { stdout: string }).stdout = JSON.stringify(mockResult);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(error, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanIac("/valid/path");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should handle exec errors with non-JSON stdout", async () => {
+      const mockExec = vi.mocked(exec);
+      const error = new Error("Command failed") as ExecException;
+      (error as ExecException & { stdout: string }).stdout = "Not JSON";
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(error, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanIac("/valid/path");
+      expect(result).toHaveProperty("error");
+      expect(result).toHaveProperty("output", "Not JSON");
+    });
+
+    it("should throw error when exec fails without stdout", async () => {
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(new Error("Command failed") as ExecException, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      await expect(trivyScanIac("/valid/path")).rejects.toThrow("Command failed");
+    });
+
+    it("should pass custom severity levels", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        expect(cmd).toContain("--severity HIGH,CRITICAL");
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanIac("/valid/path", "HIGH,CRITICAL");
+      expect(result).toEqual(mockResult);
     });
   });
 });

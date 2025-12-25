@@ -5,6 +5,7 @@ import {
   trivyScanImage,
   trivyGenerateSbom,
   trivyGenerateSbomImage,
+  trivyScanIac,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -46,6 +47,7 @@ const toolHandlers: Record<string, ToolHandler> = {
     trivyGenerateSbom(input.path as string, input.format as "cyclonedx" | "spdx-json"),
   trivy_generate_sbom_image: async (input) =>
     trivyGenerateSbomImage(input.image as string, input.format as "cyclonedx" | "spdx-json"),
+  trivy_scan_iac: async (input) => trivyScanIac(input.path as string, input.severity as string),
   // SonarQube
   sonar_list_projects: async () => sonarGetProjects(),
   sonar_get_issues: async (input) =>
@@ -172,6 +174,26 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["image"],
+    },
+  },
+  {
+    name: "trivy_scan_iac",
+    description:
+      "Scan Infrastructure as Code (IaC) files for misconfigurations using Trivy. Detects security issues in Terraform, Kubernetes, Docker, CloudFormation, and other IaC files.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory containing IaC files",
+        },
+        severity: {
+          type: "string",
+          description:
+            "Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: MEDIUM,HIGH,CRITICAL)",
+        },
+      },
+      required: ["path"],
     },
   },
 
