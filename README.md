@@ -321,6 +321,79 @@ docker compose up -d
 
 ---
 
+## Contributing
+
+### Conventional Commits
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and changelog generation. All commit messages must follow this format:
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer]
+```
+
+#### Commit Types
+
+| Type | Description | Version Bump |
+|------|-------------|--------------|
+| `feat` | New feature | Minor (1.x.0) |
+| `fix` | Bug fix | Patch (1.0.x) |
+| `docs` | Documentation only | None |
+| `style` | Formatting, no code change | None |
+| `refactor` | Code restructuring | None |
+| `perf` | Performance improvement | Patch |
+| `test` | Adding tests | None |
+| `build` | Build system or dependencies | None |
+| `ci` | CI configuration | None |
+| `chore` | Maintenance tasks | None |
+| `revert` | Revert a commit | Patch |
+
+#### Breaking Changes
+
+For breaking changes, add `!` after the type or include `BREAKING CHANGE:` in the footer:
+
+```bash
+feat!: remove deprecated API endpoints
+
+# or
+
+feat: redesign authentication system
+
+BREAKING CHANGE: JWT tokens now expire after 1 hour instead of 24 hours
+```
+
+Breaking changes trigger a **major version bump** (x.0.0).
+
+#### Examples
+
+```bash
+# Feature (minor bump)
+git commit -m "feat(auth): add oauth2 support"
+
+# Bug fix (patch bump)
+git commit -m "fix(scanner): resolve timeout on large files"
+
+# Documentation (no bump)
+git commit -m "docs: update installation guide"
+
+# Breaking change (major bump)
+git commit -m "feat!: change api response format"
+```
+
+### Pre-commit Hooks
+
+The project uses Husky to run pre-commit hooks:
+
+- **lint-staged**: Runs ESLint and Prettier on staged `.ts` files
+- **commitlint**: Validates commit messages follow conventional commits
+
+If your commit is rejected, check the error message and fix the format.
+
+---
+
 ## Documentation
 
 | Document | Description |
