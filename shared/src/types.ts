@@ -342,3 +342,108 @@ export interface SecurityScanResult {
     total: number;
   };
 }
+
+// =============================================================================
+// Configuration Types
+// =============================================================================
+
+export interface ServiceConfig {
+  url: string;
+}
+
+export interface AuthenticatedServiceConfig extends ServiceConfig {
+  user: string;
+  password: string;
+}
+
+export interface TokenAuthServiceConfig extends ServiceConfig {
+  token?: string;
+}
+
+export interface ApiKeyServiceConfig extends ServiceConfig {
+  apiKey?: string;
+}
+
+export interface PlatformConfig {
+  gitea: AuthenticatedServiceConfig;
+  drone: TokenAuthServiceConfig;
+  sonarqube: AuthenticatedServiceConfig;
+  dependencyTrack: ApiKeyServiceConfig;
+  trivy: ServiceConfig;
+  registry: ServiceConfig;
+}
+
+// =============================================================================
+// Error Types
+// =============================================================================
+
+export interface ApiError {
+  error: string;
+  message?: string;
+  statusCode?: number;
+  details?: unknown;
+}
+
+// =============================================================================
+// Combined Scan Response
+// =============================================================================
+
+export interface CombinedScanResponse {
+  timestamp: string;
+  trivy: TrivyScanResult | ApiError | null;
+  sonarqube: SonarIssuesResponse | ApiError | null;
+  dependencyTrack: DTrackFinding[] | ApiError | null;
+}
+
+// =============================================================================
+// Platform Health Response
+// =============================================================================
+
+export interface ServiceHealthStatus {
+  status: "healthy" | "unhealthy" | "unreachable";
+  statusCode?: number;
+  error?: string;
+}
+
+export interface PlatformHealthResponse {
+  timestamp: string;
+  services: {
+    gitea: ServiceHealthStatus;
+    drone: ServiceHealthStatus;
+    sonarqube: ServiceHealthStatus;
+    dependencyTrack: ServiceHealthStatus;
+    trivy: ServiceHealthStatus;
+    registry: ServiceHealthStatus;
+  };
+}
+
+// =============================================================================
+// MCP Resource Types
+// =============================================================================
+
+export interface McpConfigResource {
+  gitea: {
+    url: string;
+    user: string;
+    hasPassword: boolean;
+  };
+  drone: {
+    url: string;
+    hasToken: boolean;
+  };
+  sonarqube: {
+    url: string;
+    user: string;
+    hasPassword: boolean;
+  };
+  dependencyTrack: {
+    url: string;
+    hasApiKey: boolean;
+  };
+  trivy: {
+    url: string;
+  };
+  registry: {
+    url: string;
+  };
+}

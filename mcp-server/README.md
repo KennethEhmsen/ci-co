@@ -218,3 +218,49 @@ The MCP server also provides these resources:
 ### Drone CI errors
 1. Get token from http://localhost:8085 (Profile → Token)
 2. Add to `DRONE_TOKEN` environment variable
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Run tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Development mode (watch)
+npm run dev
+```
+
+## Architecture
+
+The MCP server is a thin wrapper around `@cicd/shared`:
+
+```
+mcp-server/
+├── src/
+│   ├── index.ts        # MCP server entry point
+│   ├── handlers.ts     # Re-exported from @cicd/shared
+│   ├── handlers.test.ts
+│   └── index.test.ts
+├── package.json
+└── tsconfig.json
+```
+
+All business logic lives in the shared library, making the server easy to maintain and test.
+
+## Related Documentation
+
+- [API Reference](../docs/API.md) - Complete tool and handler documentation
+- [Developer Guide](../docs/DEVELOPER.md) - How to extend the platform
+- [Main README](../README.md) - Platform overview
+
+## License
+
+MIT

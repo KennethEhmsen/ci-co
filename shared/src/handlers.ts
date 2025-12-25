@@ -9,6 +9,22 @@ const execAsync = promisify(exec);
 // =============================================================================
 // Trivy Functions
 // =============================================================================
+
+/**
+ * Scan a local filesystem path for vulnerabilities using Trivy.
+ * Detects vulnerabilities in dependencies (npm, pip, go, maven, etc.) and secrets in code.
+ *
+ * @param path - Absolute path to the directory to scan
+ * @param severity - Severity levels to report: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL (default: HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy scan results in JSON format
+ * @throws Error if path is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanPath('/home/user/myproject', 'MEDIUM,HIGH,CRITICAL');
+ * console.log(results.Results); // Array of vulnerability findings
+ * ```
+ */
 export async function trivyScanPath(path: string, severity: string = "HIGH,CRITICAL"): Promise<any> {
   const safePath = sanitizePath(path);
   const safeSeverity = validateSeverity(severity);
@@ -35,6 +51,21 @@ export async function trivyScanPath(path: string, severity: string = "HIGH,CRITI
   }
 }
 
+/**
+ * Scan a Docker image for vulnerabilities using Trivy.
+ * Works with local images and registry images.
+ *
+ * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
+ * @param severity - Severity levels to report (default: HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy scan results in JSON format
+ * @throws Error if image name is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanImage('nginx:1.25', 'HIGH,CRITICAL');
+ * console.log(results.Results); // Array of vulnerability findings
+ * ```
+ */
 export async function trivyScanImage(image: string, severity: string = "HIGH,CRITICAL"): Promise<any> {
   const safeImage = sanitizeImageName(image);
   const safeSeverity = validateSeverity(severity);
@@ -64,6 +95,18 @@ export async function trivyScanImage(image: string, severity: string = "HIGH,CRI
 // =============================================================================
 // SonarQube Functions
 // =============================================================================
+
+/**
+ * List all projects analyzed in SonarQube.
+ *
+ * @returns Promise resolving to list of SonarQube projects
+ *
+ * @example
+ * ```typescript
+ * const response = await sonarGetProjects();
+ * console.log(response.components); // Array of projects
+ * ```
+ */
 export async function sonarGetProjects(): Promise<any> {
   return fetchJson(`${config.sonarqube.url}/api/projects/search`, {
     headers: {
@@ -72,6 +115,19 @@ export async function sonarGetProjects(): Promise<any> {
   });
 }
 
+/**
+ * Get code issues (bugs, vulnerabilities, code smells) for a SonarQube project.
+ *
+ * @param projectKey - The SonarQube project key
+ * @param types - Issue types to filter: VULNERABILITY, BUG, CODE_SMELL (comma-separated)
+ * @returns Promise resolving to list of issues
+ *
+ * @example
+ * ```typescript
+ * const response = await sonarGetIssues('my-project', 'VULNERABILITY,BUG');
+ * console.log(response.issues); // Array of issues
+ * ```
+ */
 export async function sonarGetIssues(projectKey: string, types?: string): Promise<any> {
   let url = `${config.sonarqube.url}/api/issues/search?componentKeys=${projectKey}&statuses=OPEN`;
   if (types) url += `&types=${types}`;
@@ -108,6 +164,19 @@ export async function sonarGetMetrics(projectKey: string): Promise<any> {
 // =============================================================================
 // Dependency-Track Functions
 // =============================================================================
+
+/**
+ * List all projects in Dependency-Track with their vulnerability counts.
+ *
+ * @returns Promise resolving to array of Dependency-Track projects
+ * @throws Error if Dependency-Track API key is not configured
+ *
+ * @example
+ * ```typescript
+ * const projects = await dtrackGetProjects();
+ * projects.forEach(p => console.log(p.name, p.metrics?.vulnerabilities));
+ * ```
+ */
 export async function dtrackGetProjects(): Promise<any> {
   if (!config.dependencyTrack.apiKey) {
     throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
@@ -156,6 +225,18 @@ export async function dtrackGetComponents(projectUuid: string): Promise<any> {
 // =============================================================================
 // Gitea Functions
 // =============================================================================
+
+/**
+ * List all Git repositories in Gitea for the current user.
+ *
+ * @returns Promise resolving to array of Gitea repositories
+ *
+ * @example
+ * ```typescript
+ * const repos = await giteaGetRepos();
+ * repos.forEach(r => console.log(r.full_name, r.html_url));
+ * ```
+ */
 export async function giteaGetRepos(): Promise<any> {
   return fetchJson(`${config.gitea.url}/api/v1/user/repos`, {
     headers: {
@@ -358,6 +439,19 @@ export async function securityScanAll(
 // =============================================================================
 // Platform Status
 // =============================================================================
+
+/**
+ * Check the health status of all CI/CD platform services.
+ * Tests connectivity to Gitea, Drone, SonarQube, Dependency-Track, Trivy, and Registry.
+ *
+ * @returns Promise resolving to platform health status with each service's status
+ *
+ * @example
+ * ```typescript
+ * const status = await checkPlatformStatus();
+ * console.log(status.services.gitea.status); // 'healthy' | 'unhealthy' | 'unreachable'
+ * ```
+ */
 export async function checkPlatformStatus(): Promise<any> {
   const status: any = {
     timestamp: new Date().toISOString(),

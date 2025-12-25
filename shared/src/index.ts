@@ -2,6 +2,60 @@
 export { config, type Config } from "./config.js";
 export { validateSeverity, sanitizePath, sanitizeImageName } from "./validation.js";
 export { fetchJson, basicAuth } from "./http.js";
+
+// Export all types
+export type {
+  // Trivy Types
+  TrivyVulnerability,
+  TrivyResult,
+  TrivySecret,
+  TrivyScanResult,
+  // SonarQube Types
+  SonarProject,
+  SonarProjectsResponse,
+  SonarIssue,
+  SonarIssuesResponse,
+  SonarHotspot,
+  SonarHotspotsResponse,
+  SonarMeasure,
+  SonarMetricsResponse,
+  // Dependency-Track Types
+  DTrackProject,
+  DTrackVulnerability,
+  DTrackFinding,
+  DTrackComponent,
+  // Gitea Types
+  GiteaUser,
+  GiteaRepository,
+  GiteaBranch,
+  GiteaCommit,
+  // Drone CI Types
+  DroneRepository,
+  DroneBuild,
+  DroneStage,
+  DroneStep,
+  DroneLogLine,
+  // Registry Types
+  RegistryCatalog,
+  RegistryTags,
+  // Platform Types
+  ServiceStatus,
+  PlatformStatus,
+  SecurityScanResult,
+  // Configuration Types
+  ServiceConfig,
+  AuthenticatedServiceConfig,
+  TokenAuthServiceConfig,
+  ApiKeyServiceConfig,
+  PlatformConfig,
+  // Error Types
+  ApiError,
+  // Response Types
+  CombinedScanResponse,
+  ServiceHealthStatus,
+  PlatformHealthResponse,
+  McpConfigResource,
+} from "./types.js";
 export {
   // Trivy
   trivyScanPath,

@@ -18,7 +18,7 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 
 Instead, please report security vulnerabilities by emailing:
 
-**security@example.com** *(replace with your actual security contact)*
+**security@kennethehmsen.dk**
 
 Or use GitHub's private vulnerability reporting:
 1. Go to the [Security tab](https://github.com/KennethEhmsen/ci-co/security)
