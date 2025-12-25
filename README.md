@@ -253,18 +253,75 @@ The installer will:
 
 ### Available Tools in Claude Code
 
-After installation, restart Claude Code and these tools become available:
+After installation, restart Claude Code and these tools become available (33 total):
+
+#### Trivy Security Scanning (11 tools)
 
 | Tool | Description |
 |------|-------------|
 | `trivy_scan_path` | Scan local paths for vulnerabilities |
-| `trivy_scan_image` | Scan Docker images |
-| `sonar_list_projects` | List SonarQube projects |
-| `sonar_get_issues` | Get code quality issues |
-| `gitea_list_repos` | List Gitea repositories |
-| `drone_get_builds` | Get CI/CD build history |
-| `check_platform_status` | Check all service health |
-| `security_scan_all` | Run comprehensive security scan |
+| `trivy_scan_image` | Scan Docker images for vulnerabilities |
+| `trivy_generate_sbom` | Generate SBOM (CycloneDX/SPDX) for local paths |
+| `trivy_generate_sbom_image` | Generate SBOM for Docker images |
+| `trivy_scan_iac` | Scan IaC files (Terraform, K8s, Docker, etc.) |
+| `trivy_scan_secrets` | Scan local paths for hardcoded secrets |
+| `trivy_scan_secrets_image` | Scan Docker images for secrets |
+| `trivy_scan_licenses` | Scan local paths for license compliance |
+| `trivy_scan_licenses_image` | Scan Docker images for licenses |
+| `trivy_scan_image_full` | **Combined scan**: vuln + secret + license + SBOM |
+| `trivy_scan_path_full` | **Combined scan**: vuln + secret + license + IaC + SBOM |
+
+#### SonarQube (4 tools)
+
+| Tool | Description |
+|------|-------------|
+| `sonar_list_projects` | List all SonarQube projects |
+| `sonar_get_issues` | Get code quality issues (bugs, vulnerabilities, smells) |
+| `sonar_get_security_hotspots` | Get security hotspots requiring review |
+| `sonar_get_metrics` | Get project metrics (coverage, duplication, etc.) |
+
+#### Dependency-Track (4 tools)
+
+| Tool | Description |
+|------|-------------|
+| `dtrack_list_projects` | List all Dependency-Track projects |
+| `dtrack_get_vulnerabilities` | Get vulnerabilities for a project |
+| `dtrack_get_findings` | Get detailed findings with analysis |
+| `dtrack_get_components` | Get component inventory (SBOM) |
+
+#### Gitea (6 tools)
+
+| Tool | Description |
+|------|-------------|
+| `gitea_list_repos` | List all repositories |
+| `gitea_get_repo` | Get repository details |
+| `gitea_get_branches` | List branches in a repository |
+| `gitea_get_commits` | Get recent commits |
+| `gitea_create_repo` | Create a new repository |
+| `gitea_migrate_repo` | Migrate/mirror external repository |
+
+#### Drone CI (5 tools)
+
+| Tool | Description |
+|------|-------------|
+| `drone_list_repos` | List repositories with CI enabled |
+| `drone_get_builds` | Get build history |
+| `drone_get_build` | Get specific build details |
+| `drone_get_build_logs` | Get build logs |
+| `drone_trigger_build` | Trigger a new build |
+
+#### Docker Registry (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `registry_get_catalog` | List all images in registry |
+| `registry_get_tags` | Get tags for an image |
+
+#### Platform Tools (1 tool)
+
+| Tool | Description |
+|------|-------------|
+| `check_platform_status` | Check health of all services |
 
 ### Example Usage
 
@@ -412,7 +469,7 @@ If your commit is rejected, check the error message and fix the format.
 
 | Document | Description |
 |----------|-------------|
-| [docs/API.md](docs/API.md) | Complete API reference (23 tools) |
+| [docs/API.md](docs/API.md) | Complete API reference (33 tools) |
 | [docs/CLI.md](docs/CLI.md) | CI/CD Agent CLI reference |
 | [docs/DEVELOPER.md](docs/DEVELOPER.md) | Developer guide & extension |
 | [docs/ADMIN.md](docs/ADMIN.md) | Administrator operations guide |

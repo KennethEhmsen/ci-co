@@ -22,12 +22,24 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides 23 tools for security scanning and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides 33 tools for security scanning and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration
 
 All tools share the same underlying handlers from the `@cicd/shared` package.
+
+### Tool Summary by Category
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Trivy** | 11 | Vulnerability, secret, license, IaC scanning + SBOM |
+| **SonarQube** | 4 | Code quality and SAST analysis |
+| **Dependency-Track** | 4 | Software composition analysis |
+| **Gitea** | 6 | Git repository management |
+| **Drone CI** | 5 | CI/CD pipeline management |
+| **Docker Registry** | 2 | Container image management |
+| **Platform** | 1 | Platform health monitoring |
 
 ---
 
@@ -96,6 +108,259 @@ Scan a Docker image for vulnerabilities using Trivy.
 {
   "image": "nginx:1.25",
   "severity": "HIGH,CRITICAL"
+}
+```
+
+---
+
+#### `trivy_generate_sbom`
+
+Generate a Software Bill of Materials (SBOM) for a local path using Trivy.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute path to the directory to scan"
+    },
+    "format": {
+      "type": "string",
+      "description": "SBOM format: cyclonedx (default) or spdx-json",
+      "enum": ["cyclonedx", "spdx-json"]
+    }
+  },
+  "required": ["path"]
+}
+```
+
+---
+
+#### `trivy_generate_sbom_image`
+
+Generate a Software Bill of Materials (SBOM) for a Docker image.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "Docker image to scan"
+    },
+    "format": {
+      "type": "string",
+      "description": "SBOM format: cyclonedx (default) or spdx-json",
+      "enum": ["cyclonedx", "spdx-json"]
+    }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `trivy_scan_iac`
+
+Scan Infrastructure as Code (IaC) files for misconfigurations. Supports Terraform, Kubernetes, Docker, CloudFormation, and more.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute path to the directory containing IaC files"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)"
+    }
+  },
+  "required": ["path"]
+}
+```
+
+---
+
+#### `trivy_scan_secrets`
+
+Scan a local path for hardcoded secrets (API keys, passwords, tokens, private keys).
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute path to the directory to scan"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)"
+    }
+  },
+  "required": ["path"]
+}
+```
+
+---
+
+#### `trivy_scan_secrets_image`
+
+Scan a Docker image for hardcoded secrets.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "Docker image to scan"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)"
+    }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `trivy_scan_licenses`
+
+Scan a local path for license information. Detects licenses in dependencies and flags problematic licenses.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute path to the directory to scan"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
+    }
+  },
+  "required": ["path"]
+}
+```
+
+---
+
+#### `trivy_scan_licenses_image`
+
+Scan a Docker image for license information.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "Docker image to scan"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)"
+    }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `trivy_scan_image_full`
+
+Run a comprehensive security scan on a Docker image. Combines vulnerability, secret, license scanning, and SBOM generation in one operation.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "Docker image to scan"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: HIGH,CRITICAL)"
+    },
+    "sbomFormat": {
+      "type": "string",
+      "description": "SBOM format: cyclonedx (default) or spdx-json",
+      "enum": ["cyclonedx", "spdx-json"]
+    }
+  },
+  "required": ["image"]
+}
+```
+
+**Response:**
+```json
+{
+  "image": "nginx:1.25",
+  "timestamp": "2024-12-25T12:00:00.000Z",
+  "vulnerabilities": { "Results": [...] },
+  "secrets": { "Results": [...] },
+  "licenses": { "Results": [...] },
+  "sbom": { "bomFormat": "CycloneDX", "components": [...] }
+}
+```
+
+---
+
+#### `trivy_scan_path_full`
+
+Run a comprehensive security scan on a local path. Combines vulnerability, secret, license, IaC scanning, and SBOM generation in one operation.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Absolute path to the directory to scan"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity levels to report (default: HIGH,CRITICAL)"
+    },
+    "sbomFormat": {
+      "type": "string",
+      "description": "SBOM format: cyclonedx (default) or spdx-json",
+      "enum": ["cyclonedx", "spdx-json"]
+    }
+  },
+  "required": ["path"]
+}
+```
+
+**Response:**
+```json
+{
+  "path": "/home/user/project",
+  "timestamp": "2024-12-25T12:00:00.000Z",
+  "vulnerabilities": { "Results": [...] },
+  "secrets": { "Results": [...] },
+  "licenses": { "Results": [...] },
+  "iac": { "Results": [...] },
+  "sbom": { "bomFormat": "CycloneDX", "components": [...] }
 }
 ```
 
@@ -699,9 +964,22 @@ All handlers are exported from `@cicd/shared`:
 
 ```typescript
 import {
-  // Trivy
+  // Trivy - Scanning
   trivyScanPath,
   trivyScanImage,
+  trivyScanIac,
+  trivyScanSecrets,
+  trivyScanSecretsImage,
+  trivyScanLicenses,
+  trivyScanLicensesImage,
+
+  // Trivy - SBOM Generation
+  trivyGenerateSbom,
+  trivyGenerateSbomImage,
+
+  // Trivy - Combined Scans
+  trivyScanImageFull,
+  trivyScanPathFull,
 
   // SonarQube
   sonarGetProjects,
