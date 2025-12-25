@@ -32,7 +32,8 @@ steps:
     image: node:20
     commands:
       - cd shared
-      - npm rebuild
+      - rm -rf node_modules
+      - npm install
       - npm run test:coverage
     depends_on:
       - install-shared
@@ -57,7 +58,8 @@ steps:
     image: node:20
     commands:
       - cd mcp-server
-      - npm rebuild
+      - rm -rf node_modules
+      - npm install
       - npm run test:coverage
     depends_on:
       - install-mcp-server
@@ -66,7 +68,8 @@ steps:
     image: node:20
     commands:
       - cd cicd-agent
-      - npm rebuild
+      - rm -rf node_modules
+      - npm install
       - npm run test:coverage
     depends_on:
       - install-cicd-agent
