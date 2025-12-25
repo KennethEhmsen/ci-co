@@ -20,6 +20,7 @@ export {
   trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
+  trivyScanImageFull,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

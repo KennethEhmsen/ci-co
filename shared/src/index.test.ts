@@ -25,6 +25,7 @@ import {
   trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
+  trivyScanImageFull,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -1548,6 +1549,90 @@ describe("Trivy Handlers", () => {
 
       const result = await trivyScanLicensesImage("nginx:latest");
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe("trivyScanImageFull", () => {
+    it("should throw error for invalid image name", async () => {
+      await expect(trivyScanImageFull("")).rejects.toThrow("Invalid image name provided");
+    });
+
+    it("should throw error for short image name", async () => {
+      await expect(trivyScanImageFull("a")).rejects.toThrow("Invalid image name provided");
+    });
+
+    it("should run all three scans and return combined results", async () => {
+      const vulnResult = {
+        SchemaVersion: 2,
+        Results: [{ Target: "nginx:latest", Vulnerabilities: [] }],
+      };
+      const secretResult = { SchemaVersion: 2, Results: [{ Target: "nginx:latest", Secrets: [] }] };
+      const licenseResult = {
+        SchemaVersion: 2,
+        Results: [{ Target: "nginx:latest", Licenses: [] }],
+      };
+
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        let result;
+        if (cmd.includes("--scanners secret")) {
+          result = secretResult;
+        } else if (cmd.includes("--scanners license")) {
+          result = licenseResult;
+        } else {
+          result = vulnResult;
+        }
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(result), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanImageFull("nginx:latest");
+
+      expect(result.image).toBe("nginx:latest");
+      expect(result.timestamp).toBeDefined();
+      expect(result.vulnerabilities).toEqual(vulnResult);
+      expect(result.secrets).toEqual(secretResult);
+      expect(result.licenses).toEqual(licenseResult);
+    });
+
+    it("should capture errors from individual scans", async () => {
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(new Error("Scan failed") as ExecException, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanImageFull("nginx:latest");
+
+      expect(result.image).toBe("nginx:latest");
+      expect(result.vulnerabilities).toEqual({ error: "Scan failed" });
+      expect(result.secrets).toEqual({ error: "Scan failed" });
+      expect(result.licenses).toEqual({ error: "Scan failed" });
+    });
+
+    it("should pass custom severity to all scans", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const mockExec = vi.mocked(exec);
+      const severityCalls: string[] = [];
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (cmd.includes("--severity")) {
+          const match = cmd.match(/--severity\s+(\S+)/);
+          if (match) severityCalls.push(match[1]);
+        }
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      await trivyScanImageFull("nginx:latest", "CRITICAL");
+
+      expect(severityCalls.every((s) => s === "CRITICAL")).toBe(true);
+      expect(severityCalls.length).toBe(3);
     });
   });
 });

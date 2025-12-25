@@ -19,6 +19,7 @@ import {
   trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
+  trivyScanImageFull,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -228,6 +229,26 @@ export const toolDefinitions = [
           type: "string",
           description: "Severity levels to report (default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)",
           default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "trivy_scan_image_full",
+    description:
+      "Run a comprehensive security scan on a Docker image using Trivy. Combines vulnerability, secret, and license scanning in one operation for complete image analysis.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
         },
       },
       required: ["image"],
@@ -681,6 +702,9 @@ export async function handleCallTool(
         break;
       case "trivy_scan_licenses_image":
         result = await trivyScanLicensesImage(args?.image as string, args?.severity as string);
+        break;
+      case "trivy_scan_image_full":
+        result = await trivyScanImageFull(args?.image as string, args?.severity as string);
         break;
 
       // SonarQube

@@ -9,6 +9,7 @@ import type {
   TrivyIacScanResult,
   TrivySecretScanResult,
   TrivyLicenseScanResult,
+  TrivyCombinedImageScanResult,
   SonarProjectsResponse,
   SonarIssuesResponse,
   SonarHotspotsResponse,
@@ -462,6 +463,71 @@ export async function trivyScanLicensesImage(
     }
     throw error;
   }
+}
+
+/**
+ * Run a comprehensive scan on a Docker image using Trivy.
+ * Combines vulnerability, secret, and license scanning in one operation.
+ *
+ * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
+ * @param severity - Severity levels to report (default: HIGH,CRITICAL)
+ * @returns Promise resolving to combined scan results from all scanners
+ * @throws Error if image name is invalid
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanImageFull('nginx:1.25');
+ * console.log(results.vulnerabilities); // Vulnerability findings
+ * console.log(results.secrets); // Secret findings
+ * console.log(results.licenses); // License findings
+ * ```
+ */
+export async function trivyScanImageFull(
+  image: string,
+  severity: string = "HIGH,CRITICAL"
+): Promise<TrivyCombinedImageScanResult> {
+  const safeImage = sanitizeImageName(image);
+
+  if (!safeImage || safeImage.length < 2) {
+    throw new Error("Invalid image name provided");
+  }
+
+  const result: TrivyCombinedImageScanResult = {
+    image: safeImage,
+    timestamp: new Date().toISOString(),
+    vulnerabilities: null,
+    secrets: null,
+    licenses: null,
+  };
+
+  // Run vulnerability scan
+  try {
+    const vulnResult = await trivyScanImage(safeImage, severity);
+    result.vulnerabilities = vulnResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.vulnerabilities = { error: error.message };
+  }
+
+  // Run secret scan
+  try {
+    const secretResult = await trivyScanSecretsImage(safeImage, severity);
+    result.secrets = secretResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.secrets = { error: error.message };
+  }
+
+  // Run license scan
+  try {
+    const licenseResult = await trivyScanLicensesImage(safeImage, severity);
+    result.licenses = licenseResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.licenses = { error: error.message };
+  }
+
+  return result;
 }
 
 // =============================================================================

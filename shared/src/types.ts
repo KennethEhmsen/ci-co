@@ -198,6 +198,15 @@ export interface TrivyLicenseScanResult {
   Results?: LicenseResult[];
 }
 
+// Combined Image Scan Types
+export interface TrivyCombinedImageScanResult {
+  image: string;
+  timestamp: string;
+  vulnerabilities: TrivyScanResult | { error: string } | null;
+  secrets: TrivySecretScanResult | { error: string } | null;
+  licenses: TrivyLicenseScanResult | { error: string } | null;
+}
+
 // =============================================================================
 // SonarQube Types
 // =============================================================================

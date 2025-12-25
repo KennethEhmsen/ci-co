@@ -27,6 +27,8 @@ export type {
   LicenseFinding,
   LicenseResult,
   TrivyLicenseScanResult,
+  // Combined Image Scan Types
+  TrivyCombinedImageScanResult,
   // SonarQube Types
   SonarProject,
   SonarProjectsResponse,
@@ -84,6 +86,7 @@ export {
   trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
+  trivyScanImageFull,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,
