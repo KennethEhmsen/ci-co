@@ -16,8 +16,8 @@ vi.mock('node:util', async (importOriginal) => {
   const original = await importOriginal() as any;
   return {
     ...original,
-    promisify: (fn: any) => {
-      return async (...args: any[]) => {
+    promisify: (_fn: any) => {
+      return async (..._args: any[]) => {
         // Return mocked exec result
         const mockExecResult = (global as any).__mockExecResult;
         if (mockExecResult?.error) {

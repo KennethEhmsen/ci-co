@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 
 // Import functions to test
 import {
