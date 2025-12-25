@@ -21,6 +21,7 @@ export {
   trivyScanLicenses,
   trivyScanLicensesImage,
   trivyScanImageFull,
+  trivyScanPathFull,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

@@ -20,6 +20,7 @@ import {
   trivyScanLicenses,
   trivyScanLicensesImage,
   trivyScanImageFull,
+  trivyScanPathFull,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -252,6 +253,26 @@ export const toolDefinitions = [
         },
       },
       required: ["image"],
+    },
+  },
+  {
+    name: "trivy_scan_path_full",
+    description:
+      "Run a comprehensive security scan on a local path using Trivy. Combines vulnerability, secret, license, and IaC scanning in one operation for complete codebase analysis.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
+        },
+      },
+      required: ["path"],
     },
   },
 
@@ -705,6 +726,9 @@ export async function handleCallTool(
         break;
       case "trivy_scan_image_full":
         result = await trivyScanImageFull(args?.image as string, args?.severity as string);
+        break;
+      case "trivy_scan_path_full":
+        result = await trivyScanPathFull(args?.path as string, args?.severity as string);
         break;
 
       // SonarQube

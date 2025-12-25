@@ -48,6 +48,14 @@ vi.mock("./handlers.js", async (importOriginal) => {
       secrets: { Results: [] },
       licenses: { Results: [] },
     }),
+    trivyScanPathFull: vi.fn().mockResolvedValue({
+      path: "/test/path",
+      timestamp: "2024-01-01T00:00:00.000Z",
+      vulnerabilities: { Results: [] },
+      secrets: { Results: [] },
+      licenses: { Results: [] },
+      iac: { Results: [] },
+    }),
     securityScanAll: vi
       .fn()
       .mockResolvedValue({ trivy: null, sonarqube: null, dependencyTrack: null }),
@@ -228,6 +236,7 @@ describe("toolDefinitions", () => {
     expect(toolNames).toContain("trivy_scan_licenses");
     expect(toolNames).toContain("trivy_scan_licenses_image");
     expect(toolNames).toContain("trivy_scan_image_full");
+    expect(toolNames).toContain("trivy_scan_path_full");
     expect(toolNames).toContain("sonar_list_projects");
     expect(toolNames).toContain("sonar_get_issues");
     expect(toolNames).toContain("sonar_get_security_hotspots");
@@ -252,8 +261,8 @@ describe("toolDefinitions", () => {
     expect(toolNames).toContain("security_scan_all");
   });
 
-  it("should have 32 tools total", () => {
-    expect(toolDefinitions.length).toBe(32);
+  it("should have 33 tools total", () => {
+    expect(toolDefinitions.length).toBe(33);
   });
 
   it("should have valid inputSchema for each tool", () => {
@@ -303,7 +312,7 @@ describe("handleListTools", () => {
     const result = handleListTools();
     expect(result).toHaveProperty("tools");
     expect(Array.isArray(result.tools)).toBe(true);
-    expect(result.tools.length).toBe(32);
+    expect(result.tools.length).toBe(33);
   });
 
   it("should return the same tools as toolDefinitions", () => {

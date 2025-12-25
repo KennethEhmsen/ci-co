@@ -207,6 +207,16 @@ export interface TrivyCombinedImageScanResult {
   licenses: TrivyLicenseScanResult | { error: string } | null;
 }
 
+// Combined Path Scan Types
+export interface TrivyCombinedPathScanResult {
+  path: string;
+  timestamp: string;
+  vulnerabilities: TrivyScanResult | { error: string } | null;
+  secrets: TrivySecretScanResult | { error: string } | null;
+  licenses: TrivyLicenseScanResult | { error: string } | null;
+  iac: TrivyIacScanResult | { error: string } | null;
+}
+
 // =============================================================================
 // SonarQube Types
 // =============================================================================

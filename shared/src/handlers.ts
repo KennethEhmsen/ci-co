@@ -10,6 +10,7 @@ import type {
   TrivySecretScanResult,
   TrivyLicenseScanResult,
   TrivyCombinedImageScanResult,
+  TrivyCombinedPathScanResult,
   SonarProjectsResponse,
   SonarIssuesResponse,
   SonarHotspotsResponse,
@@ -525,6 +526,82 @@ export async function trivyScanImageFull(
   } catch (e: unknown) {
     const error = e as Error;
     result.licenses = { error: error.message };
+  }
+
+  return result;
+}
+
+/**
+ * Run a comprehensive scan on a local filesystem path using Trivy.
+ * Combines vulnerability, secret, license, and IaC scanning in one operation.
+ *
+ * @param path - Absolute path to the directory to scan
+ * @param severity - Severity levels to report (default: HIGH,CRITICAL)
+ * @returns Promise resolving to combined scan results from all scanners
+ * @throws Error if path is invalid
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanPathFull('/home/user/project');
+ * console.log(results.vulnerabilities); // Vulnerability findings
+ * console.log(results.secrets); // Secret findings
+ * console.log(results.licenses); // License findings
+ * console.log(results.iac); // IaC misconfiguration findings
+ * ```
+ */
+export async function trivyScanPathFull(
+  path: string,
+  severity: string = "HIGH,CRITICAL"
+): Promise<TrivyCombinedPathScanResult> {
+  const safePath = sanitizePath(path);
+
+  if (!safePath || safePath.length < 2) {
+    throw new Error("Invalid path provided");
+  }
+
+  const result: TrivyCombinedPathScanResult = {
+    path: safePath,
+    timestamp: new Date().toISOString(),
+    vulnerabilities: null,
+    secrets: null,
+    licenses: null,
+    iac: null,
+  };
+
+  // Run vulnerability scan
+  try {
+    const vulnResult = await trivyScanPath(safePath, severity);
+    result.vulnerabilities = vulnResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.vulnerabilities = { error: error.message };
+  }
+
+  // Run secret scan
+  try {
+    const secretResult = await trivyScanSecrets(safePath, severity);
+    result.secrets = secretResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.secrets = { error: error.message };
+  }
+
+  // Run license scan
+  try {
+    const licenseResult = await trivyScanLicenses(safePath, severity);
+    result.licenses = licenseResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.licenses = { error: error.message };
+  }
+
+  // Run IaC scan
+  try {
+    const iacResult = await trivyScanIac(safePath, severity);
+    result.iac = iacResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.iac = { error: error.message };
   }
 
   return result;

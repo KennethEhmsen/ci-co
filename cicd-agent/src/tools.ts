@@ -11,6 +11,7 @@ import {
   trivyScanLicenses,
   trivyScanLicensesImage,
   trivyScanImageFull,
+  trivyScanPathFull,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -63,6 +64,8 @@ const toolHandlers: Record<string, ToolHandler> = {
     trivyScanLicensesImage(input.image as string, input.severity as string),
   trivy_scan_image_full: async (input) =>
     trivyScanImageFull(input.image as string, input.severity as string),
+  trivy_scan_path_full: async (input) =>
+    trivyScanPathFull(input.path as string, input.severity as string),
   // SonarQube
   sonar_list_projects: async () => sonarGetProjects(),
   sonar_get_issues: async (input) =>
@@ -308,6 +311,25 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["image"],
+    },
+  },
+  {
+    name: "trivy_scan_path_full",
+    description:
+      "Run a comprehensive security scan on a local path using Trivy. Combines vulnerability, secret, license, and IaC scanning in one operation for complete codebase analysis.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report: HIGH, CRITICAL (default: HIGH,CRITICAL)",
+        },
+      },
+      required: ["path"],
     },
   },
 
