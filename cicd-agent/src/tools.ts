@@ -16,16 +16,24 @@ import {
   sonarGetIssues,
   sonarGetSecurityHotspots,
   sonarGetMetrics,
+  sonarGetQualityGateStatus,
   dtrackGetProjects,
   dtrackGetVulnerabilities,
   dtrackGetFindings,
   dtrackGetComponents,
+  dtrackUploadSbom,
   giteaGetRepos,
   giteaGetRepo,
   giteaGetBranches,
   giteaGetCommits,
   giteaCreateRepo,
   giteaMigrateRepo,
+  giteaListPullRequests,
+  giteaGetPullRequest,
+  giteaCreatePullRequest,
+  giteaMergePullRequest,
+  giteaCreateIssue,
+  giteaListIssues,
   droneGetRepos,
   droneGetBuilds,
   droneGetBuild,
@@ -81,12 +89,21 @@ const toolHandlers: Record<string, ToolHandler> = {
   sonar_get_security_hotspots: async (input) =>
     sonarGetSecurityHotspots(input.projectKey as string),
   sonar_get_metrics: async (input) => sonarGetMetrics(input.projectKey as string),
+  sonar_get_quality_gate_status: async (input) =>
+    sonarGetQualityGateStatus(input.projectKey as string),
   // Dependency-Track
   dtrack_list_projects: async () => dtrackGetProjects(),
   dtrack_get_vulnerabilities: async (input) =>
     dtrackGetVulnerabilities(input.projectUuid as string),
   dtrack_get_findings: async (input) => dtrackGetFindings(input.projectUuid as string),
   dtrack_get_components: async (input) => dtrackGetComponents(input.projectUuid as string),
+  dtrack_upload_sbom: async (input) =>
+    dtrackUploadSbom(
+      input.projectName as string,
+      input.projectVersion as string,
+      input.sbom as string,
+      input.autoCreate as boolean
+    ),
   // Gitea
   gitea_list_repos: async () => giteaGetRepos(),
   gitea_get_repo: async (input) => giteaGetRepo(input.owner as string, input.repo as string),
@@ -98,6 +115,44 @@ const toolHandlers: Record<string, ToolHandler> = {
     giteaCreateRepo(input.name as string, input.description as string, input.private as boolean),
   gitea_migrate_repo: async (input) =>
     giteaMigrateRepo(input.cloneUrl as string, input.repoName as string, input.authToken as string),
+  gitea_list_pull_requests: async (input) =>
+    giteaListPullRequests(
+      input.owner as string,
+      input.repo as string,
+      input.state as "open" | "closed" | "all" | undefined
+    ),
+  gitea_get_pull_request: async (input) =>
+    giteaGetPullRequest(input.owner as string, input.repo as string, input.pullNumber as number),
+  gitea_create_pull_request: async (input) =>
+    giteaCreatePullRequest(
+      input.owner as string,
+      input.repo as string,
+      input.title as string,
+      input.head as string,
+      input.base as string,
+      input.body as string
+    ),
+  gitea_merge_pull_request: async (input) =>
+    giteaMergePullRequest(
+      input.owner as string,
+      input.repo as string,
+      input.pullNumber as number,
+      input.mergeStyle as "merge" | "rebase" | "squash"
+    ),
+  gitea_create_issue: async (input) =>
+    giteaCreateIssue(
+      input.owner as string,
+      input.repo as string,
+      input.title as string,
+      input.body as string,
+      input.labels as string[]
+    ),
+  gitea_list_issues: async (input) =>
+    giteaListIssues(
+      input.owner as string,
+      input.repo as string,
+      input.state as "open" | "closed" | "all" | undefined
+    ),
   // Drone
   drone_list_repos: async () => droneGetRepos(),
   drone_get_builds: async (input) => droneGetBuilds(input.owner as string, input.repo as string),
@@ -407,6 +462,21 @@ export const tools: Anthropic.Tool[] = [
       required: ["projectKey"],
     },
   },
+  {
+    name: "sonar_get_quality_gate_status",
+    description:
+      "Get the quality gate status for a SonarQube project. Returns whether the project passes or fails the quality gate with condition details.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        projectKey: {
+          type: "string",
+          description: "The SonarQube project key",
+        },
+      },
+      required: ["projectKey"],
+    },
+  },
 
   // Dependency-Track Tools
   {
@@ -458,6 +528,33 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["projectUuid"],
+    },
+  },
+  {
+    name: "dtrack_upload_sbom",
+    description:
+      "Upload a Software Bill of Materials (SBOM) to Dependency-Track for vulnerability analysis. Supports CycloneDX and SPDX formats.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        projectName: {
+          type: "string",
+          description: "Name of the project in Dependency-Track",
+        },
+        projectVersion: {
+          type: "string",
+          description: "Version of the project (e.g., 1.0.0)",
+        },
+        sbom: {
+          type: "string",
+          description: "The SBOM content as JSON string (CycloneDX or SPDX format)",
+        },
+        autoCreate: {
+          type: "boolean",
+          description: "Auto-create project if it doesn't exist (default: true)",
+        },
+      },
+      required: ["projectName", "projectVersion", "sbom"],
     },
   },
 
@@ -552,6 +649,104 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["cloneUrl", "repoName"],
+    },
+  },
+  {
+    name: "gitea_list_pull_requests",
+    description: "List pull requests for a repository in Gitea",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        owner: { type: "string", description: "Repository owner" },
+        repo: { type: "string", description: "Repository name" },
+        state: {
+          type: "string",
+          description: "PR state filter: open, closed, all (default: open)",
+        },
+      },
+      required: ["owner", "repo"],
+    },
+  },
+  {
+    name: "gitea_get_pull_request",
+    description: "Get details of a specific pull request",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        owner: { type: "string", description: "Repository owner" },
+        repo: { type: "string", description: "Repository name" },
+        pullNumber: { type: "number", description: "Pull request number" },
+      },
+      required: ["owner", "repo", "pullNumber"],
+    },
+  },
+  {
+    name: "gitea_create_pull_request",
+    description: "Create a new pull request in Gitea",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        owner: { type: "string", description: "Repository owner" },
+        repo: { type: "string", description: "Repository name" },
+        title: { type: "string", description: "Pull request title" },
+        head: { type: "string", description: "Source branch (e.g., feature-branch)" },
+        base: { type: "string", description: "Target branch (e.g., main)" },
+        body: { type: "string", description: "Pull request description" },
+      },
+      required: ["owner", "repo", "title", "head", "base"],
+    },
+  },
+  {
+    name: "gitea_merge_pull_request",
+    description: "Merge a pull request in Gitea",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        owner: { type: "string", description: "Repository owner" },
+        repo: { type: "string", description: "Repository name" },
+        pullNumber: { type: "number", description: "Pull request number" },
+        mergeStyle: {
+          type: "string",
+          description: "Merge style: merge, rebase, or squash (default: merge)",
+          enum: ["merge", "rebase", "squash"],
+        },
+      },
+      required: ["owner", "repo", "pullNumber"],
+    },
+  },
+  {
+    name: "gitea_create_issue",
+    description: "Create a new issue in a Gitea repository",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        owner: { type: "string", description: "Repository owner" },
+        repo: { type: "string", description: "Repository name" },
+        title: { type: "string", description: "Issue title" },
+        body: { type: "string", description: "Issue description" },
+        labels: {
+          type: "array",
+          items: { type: "string" },
+          description: "Labels to apply to the issue",
+        },
+      },
+      required: ["owner", "repo", "title"],
+    },
+  },
+  {
+    name: "gitea_list_issues",
+    description: "List issues for a repository in Gitea",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        owner: { type: "string", description: "Repository owner" },
+        repo: { type: "string", description: "Repository name" },
+        state: {
+          type: "string",
+          description: "Issue state filter: open, closed, all (default: open)",
+        },
+      },
+      required: ["owner", "repo"],
     },
   },
 
