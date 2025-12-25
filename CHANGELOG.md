@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- npm audit check in CI security job (fails on HIGH severity vulnerabilities)
+
 ## [1.3.0] - 2025-12-25
 
 ### Added
