@@ -20,6 +20,9 @@ export type {
   IacMisconfiguration,
   IacResult,
   TrivyIacScanResult,
+  // Secret Scan Types
+  SecretResult,
+  TrivySecretScanResult,
   // SonarQube Types
   SonarProject,
   SonarProjectsResponse,
@@ -73,6 +76,7 @@ export {
   trivyGenerateSbom,
   trivyGenerateSbomImage,
   trivyScanIac,
+  trivyScanSecrets,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

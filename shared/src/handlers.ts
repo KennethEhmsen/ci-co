@@ -7,6 +7,7 @@ import type {
   TrivyScanResult,
   TrivySbomResult,
   TrivyIacScanResult,
+  TrivySecretScanResult,
   SonarProjectsResponse,
   SonarIssuesResponse,
   SonarHotspotsResponse,
@@ -274,6 +275,51 @@ export async function trivyScanIac(
     if (execError.stdout) {
       try {
         return JSON.parse(execError.stdout) as TrivyIacScanResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Scan a local filesystem path for secrets using Trivy.
+ * Detects hardcoded secrets, API keys, passwords, tokens, and other sensitive data.
+ *
+ * @param path - Absolute path to the directory to scan
+ * @param severity - Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: MEDIUM,HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy secret scan results in JSON format
+ * @throws Error if path is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanSecrets('/home/user/project');
+ * console.log(results.Results); // Array of secret findings
+ * ```
+ */
+export async function trivyScanSecrets(
+  path: string,
+  severity: string = "MEDIUM,HIGH,CRITICAL"
+): Promise<TrivySecretScanResult | ErrorResponse> {
+  const safePath = sanitizePath(path);
+  const safeSeverity = validateSeverity(severity);
+
+  if (!safePath || safePath.length < 2) {
+    throw new Error("Invalid path provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm -v "${safePath}:/app" aquasec/trivy:latest fs --scanners secret --format json --severity ${safeSeverity} /app`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivySecretScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivySecretScanResult;
       } catch {
         return { error: execError.message, output: execError.stdout };
       }

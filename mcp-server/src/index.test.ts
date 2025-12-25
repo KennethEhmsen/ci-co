@@ -214,6 +214,7 @@ describe("toolDefinitions", () => {
     expect(toolNames).toContain("trivy_generate_sbom");
     expect(toolNames).toContain("trivy_generate_sbom_image");
     expect(toolNames).toContain("trivy_scan_iac");
+    expect(toolNames).toContain("trivy_scan_secrets");
     expect(toolNames).toContain("sonar_list_projects");
     expect(toolNames).toContain("sonar_get_issues");
     expect(toolNames).toContain("sonar_get_security_hotspots");
@@ -238,8 +239,8 @@ describe("toolDefinitions", () => {
     expect(toolNames).toContain("security_scan_all");
   });
 
-  it("should have 27 tools total", () => {
-    expect(toolDefinitions.length).toBe(27);
+  it("should have 28 tools total", () => {
+    expect(toolDefinitions.length).toBe(28);
   });
 
   it("should have valid inputSchema for each tool", () => {
@@ -289,7 +290,7 @@ describe("handleListTools", () => {
     const result = handleListTools();
     expect(result).toHaveProperty("tools");
     expect(Array.isArray(result.tools)).toBe(true);
-    expect(result.tools.length).toBe(27);
+    expect(result.tools.length).toBe(28);
   });
 
   it("should return the same tools as toolDefinitions", () => {

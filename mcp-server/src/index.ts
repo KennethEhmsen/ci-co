@@ -15,6 +15,7 @@ import {
   trivyGenerateSbom,
   trivyGenerateSbomImage,
   trivyScanIac,
+  trivyScanSecrets,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -139,6 +140,26 @@ export const toolDefinitions = [
         path: {
           type: "string",
           description: "Absolute path to the directory containing IaC files",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)",
+          default: "MEDIUM,HIGH,CRITICAL",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_secrets",
+    description:
+      "Scan a local path for hardcoded secrets using Trivy. Detects API keys, passwords, tokens, private keys, and other sensitive data in code.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan for secrets",
         },
         severity: {
           type: "string",
@@ -585,6 +606,9 @@ export async function handleCallTool(
         break;
       case "trivy_scan_iac":
         result = await trivyScanIac(args?.path as string, args?.severity as string);
+        break;
+      case "trivy_scan_secrets":
+        result = await trivyScanSecrets(args?.path as string, args?.severity as string);
         break;
 
       // SonarQube

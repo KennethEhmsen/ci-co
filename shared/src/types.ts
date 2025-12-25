@@ -151,6 +151,21 @@ export interface TrivyIacScanResult {
   Results?: IacResult[];
 }
 
+// Secret Scanning Types
+export interface SecretResult {
+  Target: string;
+  Class: "secret";
+  Secrets?: TrivySecret[];
+}
+
+export interface TrivySecretScanResult {
+  SchemaVersion?: number;
+  CreatedAt?: string;
+  ArtifactName?: string;
+  ArtifactType?: string;
+  Results?: SecretResult[];
+}
+
 // =============================================================================
 // SonarQube Types
 // =============================================================================
