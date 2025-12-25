@@ -107,3 +107,7 @@ jobs:
 
       - name: Run npm audit
         run: npm audit --audit-level=high
+
+      - name: Check license compliance
+        run: |
+          npx license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;CC0-1.0;CC-BY-3.0;CC-BY-4.0;Unlicense;Python-2.0;BlueOak-1.0.0' --excludePrivatePackages
