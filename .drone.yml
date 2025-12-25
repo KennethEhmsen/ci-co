@@ -15,6 +15,7 @@ steps:
   - name: install-root
     image: node:20
     commands:
+      - rm -rf node_modules package-lock.json
       - npm install --ignore-scripts
     depends_on:
       - clone
@@ -32,7 +33,7 @@ steps:
     image: node:20
     commands:
       - cd shared
-      - rm -rf node_modules
+      - rm -rf node_modules package-lock.json
       - npm install
       - npm run test:coverage
     depends_on:
@@ -58,7 +59,7 @@ steps:
     image: node:20
     commands:
       - cd mcp-server
-      - rm -rf node_modules
+      - rm -rf node_modules package-lock.json
       - npm install
       - npm run test:coverage
     depends_on:
@@ -68,7 +69,7 @@ steps:
     image: node:20
     commands:
       - cd cicd-agent
-      - rm -rf node_modules
+      - rm -rf node_modules package-lock.json
       - npm install
       - npm run test:coverage
     depends_on:
