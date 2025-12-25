@@ -1,0 +1,42 @@
+{
+  "name": "ci-co",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Local CI/CD Platform with Security Scanning",
+  "workspaces": [
+    "shared",
+    "mcp-server",
+    "cicd-agent"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "test:coverage": "npm run test:coverage --workspaces",
+    "lint": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src",
+    "lint:fix": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src --fix",
+    "format": "prettier --write \"**/src/**/*.ts\"",
+    "format:check": "prettier --check \"**/src/**/*.ts\"",
+    "clean": "rimraf shared/dist mcp-server/dist cicd-agent/dist",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.0",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KennethEhmsen/ci-co.git"
+  },
+  "author": "Kenneth Ehmsen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/KennethEhmsen/ci-co/issues"
+  },
+  "homepage": "https://github.com/KennethEhmsen/ci-co#readme"
+}
