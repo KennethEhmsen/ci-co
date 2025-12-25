@@ -16,8 +16,7 @@
     "lint:fix": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src --fix",
     "format": "prettier --write \"**/src/**/*.ts\"",
     "format:check": "prettier --check \"**/src/**/*.ts\"",
-    "clean": "rimraf shared/dist mcp-server/dist cicd-agent/dist",
-    "prepare": "npm run build"
+    "clean": "rimraf shared/dist mcp-server/dist cicd-agent/dist"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
