@@ -16,12 +16,21 @@
     "lint:fix": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src --fix",
     "format": "prettier --write \"**/src/**/*.ts\"",
     "format:check": "prettier --check \"**/src/**/*.ts\"",
-    "clean": "rimraf shared/dist mcp-server/dist cicd-agent/dist"
+    "clean": "rimraf shared/dist mcp-server/dist cicd-agent/dist",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.2.0",
     "rimraf": "^5.0.0"
   },
