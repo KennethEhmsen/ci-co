@@ -1642,6 +1642,30 @@ describe("Trivy Handlers", () => {
       expect(severityCalls.every((s) => s === "CRITICAL")).toBe(true);
       expect(severityCalls.length).toBe(3); // SBOM doesn't use severity
     });
+
+    it("should pass sbomFormat to SBOM generation", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const sbomResult = { spdxVersion: "SPDX-2.3", packages: [] };
+      const mockExec = vi.mocked(exec);
+      let sbomFormat: string | null = null;
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (cmd.includes("--format spdx-json")) {
+          sbomFormat = "spdx-json";
+        } else if (cmd.includes("--format cyclonedx")) {
+          sbomFormat = "cyclonedx";
+        }
+        const result = cmd.includes("--format spdx-json") ? sbomResult : mockResult;
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(result), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanImageFull("nginx:latest", "HIGH,CRITICAL", "spdx-json");
+
+      expect(sbomFormat).toBe("spdx-json");
+      expect(result.sbom).toEqual(sbomResult);
+    });
   });
 
   describe("trivyScanPathFull", () => {
@@ -1734,6 +1758,30 @@ describe("Trivy Handlers", () => {
 
       expect(severityCalls.every((s) => s === "CRITICAL")).toBe(true);
       expect(severityCalls.length).toBe(4); // SBOM doesn't use severity
+    });
+
+    it("should pass sbomFormat to SBOM generation", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const sbomResult = { spdxVersion: "SPDX-2.3", packages: [] };
+      const mockExec = vi.mocked(exec);
+      let sbomFormat: string | null = null;
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (cmd.includes("--format spdx-json")) {
+          sbomFormat = "spdx-json";
+        } else if (cmd.includes("--format cyclonedx")) {
+          sbomFormat = "cyclonedx";
+        }
+        const result = cmd.includes("--format spdx-json") ? sbomResult : mockResult;
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(result), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanPathFull("/valid/path", "HIGH,CRITICAL", "spdx-json");
+
+      expect(sbomFormat).toBe("spdx-json");
+      expect(result.sbom).toEqual(sbomResult);
     });
   });
 });

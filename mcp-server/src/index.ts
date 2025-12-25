@@ -251,6 +251,12 @@ export const toolDefinitions = [
           description: "Severity levels to report (default: HIGH,CRITICAL)",
           default: "HIGH,CRITICAL",
         },
+        sbomFormat: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+          default: "cyclonedx",
+          enum: ["cyclonedx", "spdx-json"],
+        },
       },
       required: ["image"],
     },
@@ -270,6 +276,12 @@ export const toolDefinitions = [
           type: "string",
           description: "Severity levels to report (default: HIGH,CRITICAL)",
           default: "HIGH,CRITICAL",
+        },
+        sbomFormat: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+          default: "cyclonedx",
+          enum: ["cyclonedx", "spdx-json"],
         },
       },
       required: ["path"],
@@ -725,10 +737,18 @@ export async function handleCallTool(
         result = await trivyScanLicensesImage(args?.image as string, args?.severity as string);
         break;
       case "trivy_scan_image_full":
-        result = await trivyScanImageFull(args?.image as string, args?.severity as string);
+        result = await trivyScanImageFull(
+          args?.image as string,
+          args?.severity as string,
+          args?.sbomFormat as "cyclonedx" | "spdx-json"
+        );
         break;
       case "trivy_scan_path_full":
-        result = await trivyScanPathFull(args?.path as string, args?.severity as string);
+        result = await trivyScanPathFull(
+          args?.path as string,
+          args?.severity as string,
+          args?.sbomFormat as "cyclonedx" | "spdx-json"
+        );
         break;
 
       // SonarQube

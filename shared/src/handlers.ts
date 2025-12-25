@@ -472,6 +472,7 @@ export async function trivyScanLicensesImage(
  *
  * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
  * @param severity - Severity levels to report (default: HIGH,CRITICAL)
+ * @param sbomFormat - SBOM format: cyclonedx (default) or spdx-json
  * @returns Promise resolving to combined scan results from all scanners
  * @throws Error if image name is invalid
  *
@@ -486,7 +487,8 @@ export async function trivyScanLicensesImage(
  */
 export async function trivyScanImageFull(
   image: string,
-  severity: string = "HIGH,CRITICAL"
+  severity: string = "HIGH,CRITICAL",
+  sbomFormat: "cyclonedx" | "spdx-json" = "cyclonedx"
 ): Promise<TrivyCombinedImageScanResult> {
   const safeImage = sanitizeImageName(image);
 
@@ -532,7 +534,7 @@ export async function trivyScanImageFull(
 
   // Generate SBOM
   try {
-    const sbomResult = await trivyGenerateSbomImage(safeImage);
+    const sbomResult = await trivyGenerateSbomImage(safeImage, sbomFormat);
     result.sbom = sbomResult;
   } catch (e: unknown) {
     const error = e as Error;
@@ -548,6 +550,7 @@ export async function trivyScanImageFull(
  *
  * @param path - Absolute path to the directory to scan
  * @param severity - Severity levels to report (default: HIGH,CRITICAL)
+ * @param sbomFormat - SBOM format: cyclonedx (default) or spdx-json
  * @returns Promise resolving to combined scan results from all scanners
  * @throws Error if path is invalid
  *
@@ -563,7 +566,8 @@ export async function trivyScanImageFull(
  */
 export async function trivyScanPathFull(
   path: string,
-  severity: string = "HIGH,CRITICAL"
+  severity: string = "HIGH,CRITICAL",
+  sbomFormat: "cyclonedx" | "spdx-json" = "cyclonedx"
 ): Promise<TrivyCombinedPathScanResult> {
   const safePath = sanitizePath(path);
 
@@ -619,7 +623,7 @@ export async function trivyScanPathFull(
 
   // Generate SBOM
   try {
-    const sbomResult = await trivyGenerateSbom(safePath);
+    const sbomResult = await trivyGenerateSbom(safePath, sbomFormat);
     result.sbom = sbomResult;
   } catch (e: unknown) {
     const error = e as Error;

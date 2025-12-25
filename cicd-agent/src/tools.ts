@@ -63,9 +63,17 @@ const toolHandlers: Record<string, ToolHandler> = {
   trivy_scan_licenses_image: async (input) =>
     trivyScanLicensesImage(input.image as string, input.severity as string),
   trivy_scan_image_full: async (input) =>
-    trivyScanImageFull(input.image as string, input.severity as string),
+    trivyScanImageFull(
+      input.image as string,
+      input.severity as string,
+      input.sbomFormat as "cyclonedx" | "spdx-json"
+    ),
   trivy_scan_path_full: async (input) =>
-    trivyScanPathFull(input.path as string, input.severity as string),
+    trivyScanPathFull(
+      input.path as string,
+      input.severity as string,
+      input.sbomFormat as "cyclonedx" | "spdx-json"
+    ),
   // SonarQube
   sonar_list_projects: async () => sonarGetProjects(),
   sonar_get_issues: async (input) =>
@@ -309,6 +317,11 @@ export const tools: Anthropic.Tool[] = [
           type: "string",
           description: "Severity levels to report: HIGH, CRITICAL (default: HIGH,CRITICAL)",
         },
+        sbomFormat: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+          enum: ["cyclonedx", "spdx-json"],
+        },
       },
       required: ["image"],
     },
@@ -327,6 +340,11 @@ export const tools: Anthropic.Tool[] = [
         severity: {
           type: "string",
           description: "Severity levels to report: HIGH, CRITICAL (default: HIGH,CRITICAL)",
+        },
+        sbomFormat: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+          enum: ["cyclonedx", "spdx-json"],
         },
       },
       required: ["path"],
