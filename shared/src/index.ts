@@ -10,6 +10,12 @@ export type {
   TrivyResult,
   TrivySecret,
   TrivyScanResult,
+  // SBOM Types
+  SbomComponent,
+  SbomLicense,
+  SbomHash,
+  SbomMetadata,
+  TrivySbomResult,
   // SonarQube Types
   SonarProject,
   SonarProjectsResponse,
@@ -60,6 +66,8 @@ export {
   // Trivy
   trivyScanPath,
   trivyScanImage,
+  trivyGenerateSbom,
+  trivyGenerateSbomImage,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

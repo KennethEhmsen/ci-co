@@ -13,6 +13,8 @@ export {
   // Trivy
   trivyScanPath,
   trivyScanImage,
+  trivyGenerateSbom,
+  trivyGenerateSbomImage,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

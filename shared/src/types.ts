@@ -42,6 +42,54 @@ export interface TrivyScanResult {
   Results?: TrivyResult[];
 }
 
+// SBOM (Software Bill of Materials) Types - CycloneDX format
+export interface SbomComponent {
+  type: "library" | "framework" | "application" | "container" | "file";
+  name: string;
+  version: string;
+  purl?: string;
+  licenses?: SbomLicense[];
+  hashes?: SbomHash[];
+}
+
+export interface SbomLicense {
+  license: {
+    id?: string;
+    name?: string;
+  };
+}
+
+export interface SbomHash {
+  alg: string;
+  content: string;
+}
+
+export interface SbomMetadata {
+  timestamp: string;
+  tools?: {
+    name: string;
+    version: string;
+    vendor?: string;
+  }[];
+  component?: {
+    name: string;
+    version: string;
+    type: string;
+  };
+}
+
+export interface TrivySbomResult {
+  bomFormat: "CycloneDX";
+  specVersion: string;
+  version: number;
+  metadata: SbomMetadata;
+  components: SbomComponent[];
+  dependencies?: {
+    ref: string;
+    dependsOn?: string[];
+  }[];
+}
+
 // =============================================================================
 // SonarQube Types
 // =============================================================================

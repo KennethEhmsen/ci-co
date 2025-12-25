@@ -5,6 +5,7 @@ import { validateSeverity, sanitizePath, sanitizeImageName } from "./validation.
 import { fetchJson, basicAuth } from "./http.js";
 import type {
   TrivyScanResult,
+  TrivySbomResult,
   SonarProjectsResponse,
   SonarIssuesResponse,
   SonarHotspotsResponse,
@@ -53,7 +54,6 @@ interface MigrateRepoBody {
   auth_token?: string;
 }
 
-
 // =============================================================================
 // Trivy Functions
 // =============================================================================
@@ -73,7 +73,10 @@ interface MigrateRepoBody {
  * console.log(results.Results); // Array of vulnerability findings
  * ```
  */
-export async function trivyScanPath(path: string, severity: string = "HIGH,CRITICAL"): Promise<TrivyScanResult | ErrorResponse> {
+export async function trivyScanPath(
+  path: string,
+  severity: string = "HIGH,CRITICAL"
+): Promise<TrivyScanResult | ErrorResponse> {
   const safePath = sanitizePath(path);
   const safeSeverity = validateSeverity(severity);
 
@@ -115,7 +118,10 @@ export async function trivyScanPath(path: string, severity: string = "HIGH,CRITI
  * console.log(results.Results); // Array of vulnerability findings
  * ```
  */
-export async function trivyScanImage(image: string, severity: string = "HIGH,CRITICAL"): Promise<TrivyScanResult | ErrorResponse> {
+export async function trivyScanImage(
+  image: string,
+  severity: string = "HIGH,CRITICAL"
+): Promise<TrivyScanResult | ErrorResponse> {
   const safeImage = sanitizeImageName(image);
   const safeSeverity = validateSeverity(severity);
 
@@ -134,6 +140,94 @@ export async function trivyScanImage(image: string, severity: string = "HIGH,CRI
     if (execError.stdout) {
       try {
         return JSON.parse(execError.stdout) as TrivyScanResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Generate a Software Bill of Materials (SBOM) for a local path using Trivy.
+ * Creates a CycloneDX format SBOM listing all components and dependencies.
+ *
+ * @param path - Absolute path to the directory to scan
+ * @param format - SBOM format: cyclonedx (default) or spdx-json
+ * @returns Promise resolving to SBOM in CycloneDX JSON format
+ * @throws Error if path is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const sbom = await trivyGenerateSbom('/home/user/myproject');
+ * console.log(sbom.components); // Array of software components
+ * ```
+ */
+export async function trivyGenerateSbom(
+  path: string,
+  format: "cyclonedx" | "spdx-json" = "cyclonedx"
+): Promise<TrivySbomResult | ErrorResponse> {
+  const safePath = sanitizePath(path);
+
+  if (!safePath || safePath.length < 2) {
+    throw new Error("Invalid path provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm -v "${safePath}:/app" aquasec/trivy:latest fs --format ${format} /app`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivySbomResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivySbomResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Generate a Software Bill of Materials (SBOM) for a Docker image using Trivy.
+ * Creates a CycloneDX format SBOM listing all components in the container image.
+ *
+ * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
+ * @param format - SBOM format: cyclonedx (default) or spdx-json
+ * @returns Promise resolving to SBOM in CycloneDX JSON format
+ * @throws Error if image name is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const sbom = await trivyGenerateSbomImage('nginx:1.25');
+ * console.log(sbom.components); // Array of software components
+ * ```
+ */
+export async function trivyGenerateSbomImage(
+  image: string,
+  format: "cyclonedx" | "spdx-json" = "cyclonedx"
+): Promise<TrivySbomResult | ErrorResponse> {
+  const safeImage = sanitizeImageName(image);
+
+  if (!safeImage || safeImage.length < 2) {
+    throw new Error("Invalid image name provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm aquasec/trivy:latest image --format ${format} ${safeImage}`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivySbomResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivySbomResult;
       } catch {
         return { error: execError.message, output: execError.stdout };
       }
@@ -178,7 +272,10 @@ export async function sonarGetProjects(): Promise<SonarProjectsResponse> {
  * console.log(response.issues); // Array of issues
  * ```
  */
-export async function sonarGetIssues(projectKey: string, types?: string): Promise<SonarIssuesResponse> {
+export async function sonarGetIssues(
+  projectKey: string,
+  types?: string
+): Promise<SonarIssuesResponse> {
   let url = `${config.sonarqube.url}/api/issues/search?componentKeys=${projectKey}&statuses=OPEN`;
   if (types) url += `&types=${types}`;
 
@@ -229,16 +326,22 @@ export async function sonarGetMetrics(projectKey: string): Promise<SonarMetricsR
  */
 export async function dtrackGetProjects(): Promise<DTrackProject[]> {
   if (!config.dependencyTrack.apiKey) {
-    throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
+    throw new Error(
+      "Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable."
+    );
   }
   return fetchJson<DTrackProject[]>(`${config.dependencyTrack.url}/api/v1/project`, {
     headers: { "X-Api-Key": config.dependencyTrack.apiKey },
   });
 }
 
-export async function dtrackGetVulnerabilities(projectUuid: string): Promise<DTrackVulnerability[]> {
+export async function dtrackGetVulnerabilities(
+  projectUuid: string
+): Promise<DTrackVulnerability[]> {
   if (!config.dependencyTrack.apiKey) {
-    throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
+    throw new Error(
+      "Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable."
+    );
   }
   return fetchJson<DTrackVulnerability[]>(
     `${config.dependencyTrack.url}/api/v1/vulnerability/project/${projectUuid}`,
@@ -250,7 +353,9 @@ export async function dtrackGetVulnerabilities(projectUuid: string): Promise<DTr
 
 export async function dtrackGetFindings(projectUuid: string): Promise<DTrackFinding[]> {
   if (!config.dependencyTrack.apiKey) {
-    throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
+    throw new Error(
+      "Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable."
+    );
   }
   return fetchJson<DTrackFinding[]>(
     `${config.dependencyTrack.url}/api/v1/finding/project/${projectUuid}`,
@@ -262,7 +367,9 @@ export async function dtrackGetFindings(projectUuid: string): Promise<DTrackFind
 
 export async function dtrackGetComponents(projectUuid: string): Promise<DTrackComponent[]> {
   if (!config.dependencyTrack.apiKey) {
-    throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
+    throw new Error(
+      "Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable."
+    );
   }
   return fetchJson<DTrackComponent[]>(
     `${config.dependencyTrack.url}/api/v1/component/project/${projectUuid}`,
@@ -311,7 +418,11 @@ export async function giteaGetBranches(owner: string, repo: string): Promise<Git
   });
 }
 
-export async function giteaGetCommits(owner: string, repo: string, limit: number = 10): Promise<GiteaCommit[]> {
+export async function giteaGetCommits(
+  owner: string,
+  repo: string,
+  limit: number = 10
+): Promise<GiteaCommit[]> {
   return fetchJson<GiteaCommit[]>(
     `${config.gitea.url}/api/v1/repos/${owner}/${repo}/commits?limit=${limit}`,
     {
@@ -322,7 +433,11 @@ export async function giteaGetCommits(owner: string, repo: string, limit: number
   );
 }
 
-export async function giteaCreateRepo(name: string, description: string = "", isPrivate: boolean = false): Promise<GiteaRepository> {
+export async function giteaCreateRepo(
+  name: string,
+  description: string = "",
+  isPrivate: boolean = false
+): Promise<GiteaRepository> {
   return fetchJson<GiteaRepository>(`${config.gitea.url}/api/v1/user/repos`, {
     method: "POST",
     headers: {
@@ -392,15 +507,18 @@ export async function droneGetBuilds(owner: string, repo: string): Promise<Drone
   });
 }
 
-export async function droneGetBuild(owner: string, repo: string, build: number): Promise<DroneBuild> {
+export async function droneGetBuild(
+  owner: string,
+  repo: string,
+  build: number
+): Promise<DroneBuild> {
   const headers: Record<string, string> = {};
   if (config.drone.token) {
     headers.Authorization = `Bearer ${config.drone.token}`;
   }
-  return fetchJson<DroneBuild>(
-    `${config.drone.url}/api/repos/${owner}/${repo}/builds/${build}`,
-    { headers }
-  );
+  return fetchJson<DroneBuild>(`${config.drone.url}/api/repos/${owner}/${repo}/builds/${build}`, {
+    headers,
+  });
 }
 
 export async function droneGetBuildLogs(
@@ -420,9 +538,15 @@ export async function droneGetBuildLogs(
   );
 }
 
-export async function droneTriggerBuild(owner: string, repo: string, branch: string = "main"): Promise<DroneBuild> {
+export async function droneTriggerBuild(
+  owner: string,
+  repo: string,
+  branch: string = "main"
+): Promise<DroneBuild> {
   if (!config.drone.token) {
-    throw new Error("Drone token required to trigger builds. Set DRONE_TOKEN environment variable.");
+    throw new Error(
+      "Drone token required to trigger builds. Set DRONE_TOKEN environment variable."
+    );
   }
   return fetchJson<DroneBuild>(
     `${config.drone.url}/api/repos/${owner}/${repo}/builds?branch=${branch}`,

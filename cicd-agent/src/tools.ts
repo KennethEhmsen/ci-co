@@ -3,6 +3,8 @@ import {
   // Handlers
   trivyScanPath,
   trivyScanImage,
+  trivyGenerateSbom,
+  trivyGenerateSbomImage,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -38,30 +40,51 @@ type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
 const toolHandlers: Record<string, ToolHandler> = {
   // Trivy
   trivy_scan_path: async (input) => trivyScanPath(input.path as string, input.severity as string),
-  trivy_scan_image: async (input) => trivyScanImage(input.image as string, input.severity as string),
+  trivy_scan_image: async (input) =>
+    trivyScanImage(input.image as string, input.severity as string),
+  trivy_generate_sbom: async (input) =>
+    trivyGenerateSbom(input.path as string, input.format as "cyclonedx" | "spdx-json"),
+  trivy_generate_sbom_image: async (input) =>
+    trivyGenerateSbomImage(input.image as string, input.format as "cyclonedx" | "spdx-json"),
   // SonarQube
   sonar_list_projects: async () => sonarGetProjects(),
-  sonar_get_issues: async (input) => sonarGetIssues(input.projectKey as string, input.types as string),
-  sonar_get_security_hotspots: async (input) => sonarGetSecurityHotspots(input.projectKey as string),
+  sonar_get_issues: async (input) =>
+    sonarGetIssues(input.projectKey as string, input.types as string),
+  sonar_get_security_hotspots: async (input) =>
+    sonarGetSecurityHotspots(input.projectKey as string),
   sonar_get_metrics: async (input) => sonarGetMetrics(input.projectKey as string),
   // Dependency-Track
   dtrack_list_projects: async () => dtrackGetProjects(),
-  dtrack_get_vulnerabilities: async (input) => dtrackGetVulnerabilities(input.projectUuid as string),
+  dtrack_get_vulnerabilities: async (input) =>
+    dtrackGetVulnerabilities(input.projectUuid as string),
   dtrack_get_findings: async (input) => dtrackGetFindings(input.projectUuid as string),
   dtrack_get_components: async (input) => dtrackGetComponents(input.projectUuid as string),
   // Gitea
   gitea_list_repos: async () => giteaGetRepos(),
   gitea_get_repo: async (input) => giteaGetRepo(input.owner as string, input.repo as string),
-  gitea_get_branches: async (input) => giteaGetBranches(input.owner as string, input.repo as string),
-  gitea_get_commits: async (input) => giteaGetCommits(input.owner as string, input.repo as string, input.limit as number),
-  gitea_create_repo: async (input) => giteaCreateRepo(input.name as string, input.description as string, input.private as boolean),
-  gitea_migrate_repo: async (input) => giteaMigrateRepo(input.cloneUrl as string, input.repoName as string, input.authToken as string),
+  gitea_get_branches: async (input) =>
+    giteaGetBranches(input.owner as string, input.repo as string),
+  gitea_get_commits: async (input) =>
+    giteaGetCommits(input.owner as string, input.repo as string, input.limit as number),
+  gitea_create_repo: async (input) =>
+    giteaCreateRepo(input.name as string, input.description as string, input.private as boolean),
+  gitea_migrate_repo: async (input) =>
+    giteaMigrateRepo(input.cloneUrl as string, input.repoName as string, input.authToken as string),
   // Drone
   drone_list_repos: async () => droneGetRepos(),
   drone_get_builds: async (input) => droneGetBuilds(input.owner as string, input.repo as string),
-  drone_get_build: async (input) => droneGetBuild(input.owner as string, input.repo as string, input.build as number),
-  drone_get_build_logs: async (input) => droneGetBuildLogs(input.owner as string, input.repo as string, input.build as number, input.stage as number, input.step as number),
-  drone_trigger_build: async (input) => droneTriggerBuild(input.owner as string, input.repo as string, input.branch as string),
+  drone_get_build: async (input) =>
+    droneGetBuild(input.owner as string, input.repo as string, input.build as number),
+  drone_get_build_logs: async (input) =>
+    droneGetBuildLogs(
+      input.owner as string,
+      input.repo as string,
+      input.build as number,
+      input.stage as number,
+      input.step as number
+    ),
+  drone_trigger_build: async (input) =>
+    droneTriggerBuild(input.owner as string, input.repo as string, input.branch as string),
   // Registry
   registry_list_images: async () => registryGetCatalog(),
   registry_get_tags: async (input) => registryGetTags(input.image as string),
@@ -103,12 +126,49 @@ export const tools: Anthropic.Tool[] = [
       properties: {
         image: {
           type: "string",
-          description:
-            "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
         },
         severity: {
           type: "string",
           description: "Severity levels to report (default: HIGH,CRITICAL)",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "trivy_generate_sbom",
+    description:
+      "Generate a Software Bill of Materials (SBOM) for a local path using Trivy. Creates a CycloneDX format SBOM listing all components and dependencies.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan",
+        },
+        format: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "trivy_generate_sbom_image",
+    description:
+      "Generate a Software Bill of Materials (SBOM) for a Docker image using Trivy. Creates a CycloneDX format SBOM listing all components in the container.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        format: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
         },
       },
       required: ["image"],
@@ -126,8 +186,7 @@ export const tools: Anthropic.Tool[] = [
   },
   {
     name: "sonar_get_issues",
-    description:
-      "Get code issues (bugs, vulnerabilities, code smells) for a SonarQube project",
+    description: "Get code issues (bugs, vulnerabilities, code smells) for a SonarQube project",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -137,8 +196,7 @@ export const tools: Anthropic.Tool[] = [
         },
         types: {
           type: "string",
-          description:
-            "Issue types to filter: VULNERABILITY, BUG, CODE_SMELL (comma-separated)",
+          description: "Issue types to filter: VULNERABILITY, BUG, CODE_SMELL (comma-separated)",
         },
       },
       required: ["projectKey"],
@@ -146,8 +204,7 @@ export const tools: Anthropic.Tool[] = [
   },
   {
     name: "sonar_get_security_hotspots",
-    description:
-      "Get security hotspots (potential security issues requiring review) for a project",
+    description: "Get security hotspots (potential security issues requiring review) for a project",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -178,8 +235,7 @@ export const tools: Anthropic.Tool[] = [
   // Dependency-Track Tools
   {
     name: "dtrack_list_projects",
-    description:
-      "List all projects in Dependency-Track with their vulnerability counts",
+    description: "List all projects in Dependency-Track with their vulnerability counts",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -216,8 +272,7 @@ export const tools: Anthropic.Tool[] = [
   },
   {
     name: "dtrack_get_components",
-    description:
-      "Get all components (dependencies) for a project with their details",
+    description: "Get all components (dependencies) for a project with their details",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -303,8 +358,7 @@ export const tools: Anthropic.Tool[] = [
   },
   {
     name: "gitea_migrate_repo",
-    description:
-      "Migrate a repository from GitHub to Gitea (preserves issues, PRs, releases)",
+    description: "Migrate a repository from GitHub to Gitea (preserves issues, PRs, releases)",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -427,10 +481,7 @@ export const tools: Anthropic.Tool[] = [
 // =============================================================================
 // Tool Executor
 // =============================================================================
-export async function executeTool(
-  name: string,
-  input: Record<string, unknown>
-): Promise<string> {
+export async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
   try {
     const handler = toolHandlers[name];
     if (!handler) {

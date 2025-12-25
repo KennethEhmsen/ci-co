@@ -12,6 +12,8 @@ import {
   config,
   trivyScanPath,
   trivyScanImage,
+  trivyGenerateSbom,
+  trivyGenerateSbomImage,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -47,7 +49,8 @@ export const toolDefinitions = [
   // Trivy Tools
   {
     name: "trivy_scan_path",
-    description: "Scan a local file path for vulnerabilities using Trivy. Detects vulnerabilities in dependencies (npm, pip, go, etc.) and secrets.",
+    description:
+      "Scan a local file path for vulnerabilities using Trivy. Detects vulnerabilities in dependencies (npm, pip, go, etc.) and secrets.",
     inputSchema: {
       type: "object",
       properties: {
@@ -78,6 +81,48 @@ export const toolDefinitions = [
           type: "string",
           description: "Severity levels to report (default: HIGH,CRITICAL)",
           default: "HIGH,CRITICAL",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "trivy_generate_sbom",
+    description:
+      "Generate a Software Bill of Materials (SBOM) for a local path using Trivy. Creates a CycloneDX format SBOM listing all components and dependencies.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to scan",
+        },
+        format: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+          default: "cyclonedx",
+          enum: ["cyclonedx", "spdx-json"],
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "trivy_generate_sbom_image",
+    description:
+      "Generate a Software Bill of Materials (SBOM) for a Docker image using Trivy. Creates a CycloneDX format SBOM listing all components in the container.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        format: {
+          type: "string",
+          description: "SBOM format: cyclonedx (default) or spdx-json",
+          default: "cyclonedx",
+          enum: ["cyclonedx", "spdx-json"],
         },
       },
       required: ["image"],
@@ -127,7 +172,8 @@ export const toolDefinitions = [
   },
   {
     name: "sonar_get_metrics",
-    description: "Get quality metrics (bugs, vulnerabilities, coverage, etc.) for a SonarQube project",
+    description:
+      "Get quality metrics (bugs, vulnerabilities, coverage, etc.) for a SonarQube project",
     inputSchema: {
       type: "object",
       properties: {
@@ -438,7 +484,8 @@ export const toolDefinitions = [
   // Combined Tools
   {
     name: "security_scan_all",
-    description: "Run a comprehensive security scan using all available tools (Trivy, SonarQube findings, Dependency-Track)",
+    description:
+      "Run a comprehensive security scan using all available tools (Trivy, SonarQube findings, Dependency-Track)",
     inputSchema: {
       type: "object",
       properties: {
@@ -485,7 +532,10 @@ export function handleListTools() {
   return { tools: toolDefinitions };
 }
 
-export async function handleCallTool(name: string, args?: Record<string, unknown>): Promise<{
+export async function handleCallTool(
+  name: string,
+  args?: Record<string, unknown>
+): Promise<{
   content: Array<{ type: string; text: string }>;
   isError?: boolean;
 }> {
@@ -499,6 +549,18 @@ export async function handleCallTool(name: string, args?: Record<string, unknown
         break;
       case "trivy_scan_image":
         result = await trivyScanImage(args?.image as string, args?.severity as string);
+        break;
+      case "trivy_generate_sbom":
+        result = await trivyGenerateSbom(
+          args?.path as string,
+          args?.format as "cyclonedx" | "spdx-json"
+        );
+        break;
+      case "trivy_generate_sbom_image":
+        result = await trivyGenerateSbomImage(
+          args?.image as string,
+          args?.format as "cyclonedx" | "spdx-json"
+        );
         break;
 
       // SonarQube
