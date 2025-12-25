@@ -238,7 +238,7 @@ export const toolDefinitions = [
   {
     name: "trivy_scan_image_full",
     description:
-      "Run a comprehensive security scan on a Docker image using Trivy. Combines vulnerability, secret, and license scanning in one operation for complete image analysis.",
+      "Run a comprehensive security scan on a Docker image using Trivy. Combines vulnerability, secret, license scanning, and SBOM generation in one operation for complete image analysis.",
     inputSchema: {
       type: "object",
       properties: {
@@ -258,7 +258,7 @@ export const toolDefinitions = [
   {
     name: "trivy_scan_path_full",
     description:
-      "Run a comprehensive security scan on a local path using Trivy. Combines vulnerability, secret, license, and IaC scanning in one operation for complete codebase analysis.",
+      "Run a comprehensive security scan on a local path using Trivy. Combines vulnerability, secret, license, IaC scanning, and SBOM generation in one operation for complete codebase analysis.",
     inputSchema: {
       type: "object",
       properties: {

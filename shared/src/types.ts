@@ -205,6 +205,7 @@ export interface TrivyCombinedImageScanResult {
   vulnerabilities: TrivyScanResult | { error: string } | null;
   secrets: TrivySecretScanResult | { error: string } | null;
   licenses: TrivyLicenseScanResult | { error: string } | null;
+  sbom: TrivySbomResult | { error: string } | null;
 }
 
 // Combined Path Scan Types
@@ -215,6 +216,7 @@ export interface TrivyCombinedPathScanResult {
   secrets: TrivySecretScanResult | { error: string } | null;
   licenses: TrivyLicenseScanResult | { error: string } | null;
   iac: TrivyIacScanResult | { error: string } | null;
+  sbom: TrivySbomResult | { error: string } | null;
 }
 
 // =============================================================================

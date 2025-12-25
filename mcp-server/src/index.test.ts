@@ -47,6 +47,7 @@ vi.mock("./handlers.js", async (importOriginal) => {
       vulnerabilities: { Results: [] },
       secrets: { Results: [] },
       licenses: { Results: [] },
+      sbom: { bomFormat: "CycloneDX", components: [] },
     }),
     trivyScanPathFull: vi.fn().mockResolvedValue({
       path: "/test/path",
@@ -55,6 +56,7 @@ vi.mock("./handlers.js", async (importOriginal) => {
       secrets: { Results: [] },
       licenses: { Results: [] },
       iac: { Results: [] },
+      sbom: { bomFormat: "CycloneDX", components: [] },
     }),
     securityScanAll: vi
       .fn()

@@ -1562,7 +1562,7 @@ describe("Trivy Handlers", () => {
       await expect(trivyScanImageFull("a")).rejects.toThrow("Invalid image name provided");
     });
 
-    it("should run all three scans and return combined results", async () => {
+    it("should run all four scans and return combined results", async () => {
       const vulnResult = {
         SchemaVersion: 2,
         Results: [{ Target: "nginx:latest", Vulnerabilities: [] }],
@@ -1572,6 +1572,7 @@ describe("Trivy Handlers", () => {
         SchemaVersion: 2,
         Results: [{ Target: "nginx:latest", Licenses: [] }],
       };
+      const sbomResult = { bomFormat: "CycloneDX", components: [] };
 
       const mockExec = vi.mocked(exec);
       mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
@@ -1580,6 +1581,8 @@ describe("Trivy Handlers", () => {
           result = secretResult;
         } else if (cmd.includes("--scanners license")) {
           result = licenseResult;
+        } else if (cmd.includes("--format cyclonedx")) {
+          result = sbomResult;
         } else {
           result = vulnResult;
         }
@@ -1596,6 +1599,7 @@ describe("Trivy Handlers", () => {
       expect(result.vulnerabilities).toEqual(vulnResult);
       expect(result.secrets).toEqual(secretResult);
       expect(result.licenses).toEqual(licenseResult);
+      expect(result.sbom).toEqual(sbomResult);
     });
 
     it("should capture errors from individual scans", async () => {
@@ -1613,10 +1617,12 @@ describe("Trivy Handlers", () => {
       expect(result.vulnerabilities).toEqual({ error: "Scan failed" });
       expect(result.secrets).toEqual({ error: "Scan failed" });
       expect(result.licenses).toEqual({ error: "Scan failed" });
+      expect(result.sbom).toEqual({ error: "Scan failed" });
     });
 
-    it("should pass custom severity to all scans", async () => {
+    it("should pass custom severity to vulnerability, secret, and license scans", async () => {
       const mockResult = { SchemaVersion: 2, Results: [] };
+      const sbomResult = { bomFormat: "CycloneDX", components: [] };
       const mockExec = vi.mocked(exec);
       const severityCalls: string[] = [];
       mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
@@ -1624,8 +1630,9 @@ describe("Trivy Handlers", () => {
           const match = cmd.match(/--severity\s+(\S+)/);
           if (match) severityCalls.push(match[1]);
         }
+        const result = cmd.includes("--format cyclonedx") ? sbomResult : mockResult;
         if (callback) {
-          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+          callback(null, { stdout: JSON.stringify(result), stderr: "" });
         }
         return {} as ChildProcess;
       }) as unknown as typeof exec);
@@ -1633,7 +1640,7 @@ describe("Trivy Handlers", () => {
       await trivyScanImageFull("nginx:latest", "CRITICAL");
 
       expect(severityCalls.every((s) => s === "CRITICAL")).toBe(true);
-      expect(severityCalls.length).toBe(3);
+      expect(severityCalls.length).toBe(3); // SBOM doesn't use severity
     });
   });
 
@@ -1646,7 +1653,7 @@ describe("Trivy Handlers", () => {
       await expect(trivyScanPathFull("a")).rejects.toThrow("Invalid path provided");
     });
 
-    it("should run all four scans and return combined results", async () => {
+    it("should run all five scans and return combined results", async () => {
       const vulnResult = {
         SchemaVersion: 2,
         Results: [{ Target: "/app", Vulnerabilities: [] }],
@@ -1654,6 +1661,7 @@ describe("Trivy Handlers", () => {
       const secretResult = { SchemaVersion: 2, Results: [{ Target: "/app", Secrets: [] }] };
       const licenseResult = { SchemaVersion: 2, Results: [{ Target: "/app", Licenses: [] }] };
       const iacResult = { SchemaVersion: 2, Results: [{ Target: "/app", Misconfigurations: [] }] };
+      const sbomResult = { bomFormat: "CycloneDX", components: [] };
 
       const mockExec = vi.mocked(exec);
       mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
@@ -1664,6 +1672,8 @@ describe("Trivy Handlers", () => {
           result = licenseResult;
         } else if (cmd.includes("trivy:latest config")) {
           result = iacResult;
+        } else if (cmd.includes("--format cyclonedx")) {
+          result = sbomResult;
         } else {
           result = vulnResult;
         }
@@ -1681,6 +1691,7 @@ describe("Trivy Handlers", () => {
       expect(result.secrets).toEqual(secretResult);
       expect(result.licenses).toEqual(licenseResult);
       expect(result.iac).toEqual(iacResult);
+      expect(result.sbom).toEqual(sbomResult);
     });
 
     it("should capture errors from individual scans", async () => {
@@ -1699,10 +1710,12 @@ describe("Trivy Handlers", () => {
       expect(result.secrets).toEqual({ error: "Scan failed" });
       expect(result.licenses).toEqual({ error: "Scan failed" });
       expect(result.iac).toEqual({ error: "Scan failed" });
+      expect(result.sbom).toEqual({ error: "Scan failed" });
     });
 
-    it("should pass custom severity to all scans", async () => {
+    it("should pass custom severity to vulnerability, secret, license, and IaC scans", async () => {
       const mockResult = { SchemaVersion: 2, Results: [] };
+      const sbomResult = { bomFormat: "CycloneDX", components: [] };
       const mockExec = vi.mocked(exec);
       const severityCalls: string[] = [];
       mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
@@ -1710,8 +1723,9 @@ describe("Trivy Handlers", () => {
           const match = cmd.match(/--severity\s+(\S+)/);
           if (match) severityCalls.push(match[1]);
         }
+        const result = cmd.includes("--format cyclonedx") ? sbomResult : mockResult;
         if (callback) {
-          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+          callback(null, { stdout: JSON.stringify(result), stderr: "" });
         }
         return {} as ChildProcess;
       }) as unknown as typeof exec);
@@ -1719,7 +1733,7 @@ describe("Trivy Handlers", () => {
       await trivyScanPathFull("/valid/path", "CRITICAL");
 
       expect(severityCalls.every((s) => s === "CRITICAL")).toBe(true);
-      expect(severityCalls.length).toBe(4);
+      expect(severityCalls.length).toBe(4); // SBOM doesn't use severity
     });
   });
 });

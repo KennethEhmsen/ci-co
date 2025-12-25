@@ -468,7 +468,7 @@ export async function trivyScanLicensesImage(
 
 /**
  * Run a comprehensive scan on a Docker image using Trivy.
- * Combines vulnerability, secret, and license scanning in one operation.
+ * Combines vulnerability, secret, license scanning, and SBOM generation in one operation.
  *
  * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
  * @param severity - Severity levels to report (default: HIGH,CRITICAL)
@@ -481,6 +481,7 @@ export async function trivyScanLicensesImage(
  * console.log(results.vulnerabilities); // Vulnerability findings
  * console.log(results.secrets); // Secret findings
  * console.log(results.licenses); // License findings
+ * console.log(results.sbom); // Software Bill of Materials
  * ```
  */
 export async function trivyScanImageFull(
@@ -499,6 +500,7 @@ export async function trivyScanImageFull(
     vulnerabilities: null,
     secrets: null,
     licenses: null,
+    sbom: null,
   };
 
   // Run vulnerability scan
@@ -528,12 +530,21 @@ export async function trivyScanImageFull(
     result.licenses = { error: error.message };
   }
 
+  // Generate SBOM
+  try {
+    const sbomResult = await trivyGenerateSbomImage(safeImage);
+    result.sbom = sbomResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.sbom = { error: error.message };
+  }
+
   return result;
 }
 
 /**
  * Run a comprehensive scan on a local filesystem path using Trivy.
- * Combines vulnerability, secret, license, and IaC scanning in one operation.
+ * Combines vulnerability, secret, license, IaC scanning, and SBOM generation in one operation.
  *
  * @param path - Absolute path to the directory to scan
  * @param severity - Severity levels to report (default: HIGH,CRITICAL)
@@ -547,6 +558,7 @@ export async function trivyScanImageFull(
  * console.log(results.secrets); // Secret findings
  * console.log(results.licenses); // License findings
  * console.log(results.iac); // IaC misconfiguration findings
+ * console.log(results.sbom); // Software Bill of Materials
  * ```
  */
 export async function trivyScanPathFull(
@@ -566,6 +578,7 @@ export async function trivyScanPathFull(
     secrets: null,
     licenses: null,
     iac: null,
+    sbom: null,
   };
 
   // Run vulnerability scan
@@ -602,6 +615,15 @@ export async function trivyScanPathFull(
   } catch (e: unknown) {
     const error = e as Error;
     result.iac = { error: error.message };
+  }
+
+  // Generate SBOM
+  try {
+    const sbomResult = await trivyGenerateSbom(safePath);
+    result.sbom = sbomResult;
+  } catch (e: unknown) {
+    const error = e as Error;
+    result.sbom = { error: error.message };
   }
 
   return result;
