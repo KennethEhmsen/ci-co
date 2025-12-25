@@ -1041,8 +1041,8 @@ export async function checkPlatformStatus(): Promise<PlatformHealthResponse> {
 
   const checks: Array<{ name: keyof PlatformHealthResponse["services"]; url: string }> = [
     { name: "gitea", url: `${config.gitea.url}/api/v1/version` },
-    { name: "drone", url: `${config.drone.url}/api/user` },
-    { name: "sonarqube", url: `${config.sonarqube.url}/api/system/health` },
+    { name: "drone", url: `${config.drone.url}/healthz` },
+    { name: "sonarqube", url: `${config.sonarqube.url}/api/system/status` },
     { name: "dependencyTrack", url: `${config.dependencyTrack.url}/api/version` },
     { name: "trivy", url: `${config.trivy.url}/healthz` },
     { name: "registry", url: `${config.registry.url}/v2/` },
