@@ -11,6 +11,37 @@ export {
   type CircuitState,
   type CircuitBreakerOptions,
 } from "./circuit-breaker.js";
+export {
+  evaluatePolicy,
+  getPolicy,
+  strictPolicy,
+  standardPolicy,
+  permissivePolicy,
+  type Policy,
+  type PolicyRule,
+  type PolicyViolation,
+  type PolicyEvaluationResult,
+  type ScanResults,
+  type VulnerabilitySummary,
+  type SeverityThresholds,
+} from "./policy.js";
+export {
+  auditLogger,
+  auditOperation,
+  auditSecurityEvent,
+  getSecurityEvents,
+  getFailedOperations,
+  type AuditEntry,
+  type AuditLevel,
+  type AuditLogger,
+} from "./audit.js";
+export {
+  RateLimiter,
+  QueuedRateLimiter,
+  rateLimiters,
+  withRateLimit,
+  type RateLimiterOptions,
+} from "./rate-limiter.js";
 
 // Export all types
 export type {
