@@ -196,8 +196,9 @@ async function interactiveMode() {
         console.log("\n🤖 Agent: Thinking...");
         const response = await agent.chat(trimmedInput);
         console.log(`\n🤖 Agent:\n${response}`);
-      } catch (error: any) {
-        console.error(`\n❌ Error: ${error.message}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`\n❌ Error: ${errorMessage}`);
       }
 
       prompt();

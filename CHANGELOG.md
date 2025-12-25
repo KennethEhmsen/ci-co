@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2025-12-25
+
+### Fixed
+- Replaced all 109 explicit `any` types with proper TypeScript types
+- Added generic type parameter to `fetchJson<T>()` for type-safe API responses
+- Added typed return values for all handler functions
+- Fixed `AuthHeaders` type compatibility with `HeadersInit`
+- Fixed exec mock type casting for stricter TypeScript checks in tests
+
 ## [1.2.1] - 2025-12-25
 
 ### Fixed
@@ -124,7 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.0.0...v1.1.0

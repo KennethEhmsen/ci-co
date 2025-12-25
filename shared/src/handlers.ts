@@ -3,8 +3,56 @@ import { promisify } from "node:util";
 import { config } from "./config.js";
 import { validateSeverity, sanitizePath, sanitizeImageName } from "./validation.js";
 import { fetchJson, basicAuth } from "./http.js";
+import type {
+  TrivyScanResult,
+  SonarProjectsResponse,
+  SonarIssuesResponse,
+  SonarHotspotsResponse,
+  SonarMetricsResponse,
+  DTrackProject,
+  DTrackVulnerability,
+  DTrackFinding,
+  DTrackComponent,
+  GiteaRepository,
+  GiteaBranch,
+  GiteaCommit,
+  DroneRepository,
+  DroneBuild,
+  DroneLogLine,
+  RegistryCatalog,
+  RegistryTags,
+  CombinedScanResponse,
+  PlatformHealthResponse,
+} from "./types.js";
 
 const execAsync = promisify(exec);
+
+/** Error response for failed operations */
+interface ErrorResponse {
+  error: string;
+  output?: string;
+}
+
+/** Exec error with stdout */
+interface ExecError extends Error {
+  stdout?: string;
+}
+
+/** Migration request body */
+interface MigrateRepoBody {
+  clone_addr: string;
+  repo_name: string;
+  service: string;
+  mirror: boolean;
+  private: boolean;
+  issues: boolean;
+  pull_requests: boolean;
+  releases: boolean;
+  milestones: boolean;
+  labels: boolean;
+  auth_token?: string;
+}
+
 
 // =============================================================================
 // Trivy Functions
@@ -25,7 +73,7 @@ const execAsync = promisify(exec);
  * console.log(results.Results); // Array of vulnerability findings
  * ```
  */
-export async function trivyScanPath(path: string, severity: string = "HIGH,CRITICAL"): Promise<any> {
+export async function trivyScanPath(path: string, severity: string = "HIGH,CRITICAL"): Promise<TrivyScanResult | ErrorResponse> {
   const safePath = sanitizePath(path);
   const safeSeverity = validateSeverity(severity);
 
@@ -38,13 +86,14 @@ export async function trivyScanPath(path: string, severity: string = "HIGH,CRITI
       `docker run --rm -v "${safePath}:/app" aquasec/trivy:latest fs --format json --severity ${safeSeverity} /app`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
-    return JSON.parse(stdout);
-  } catch (error: any) {
-    if (error.stdout) {
+    return JSON.parse(stdout) as TrivyScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
       try {
-        return JSON.parse(error.stdout);
+        return JSON.parse(execError.stdout) as TrivyScanResult;
       } catch {
-        return { error: error.message, output: error.stdout };
+        return { error: execError.message, output: execError.stdout };
       }
     }
     throw error;
@@ -66,7 +115,7 @@ export async function trivyScanPath(path: string, severity: string = "HIGH,CRITI
  * console.log(results.Results); // Array of vulnerability findings
  * ```
  */
-export async function trivyScanImage(image: string, severity: string = "HIGH,CRITICAL"): Promise<any> {
+export async function trivyScanImage(image: string, severity: string = "HIGH,CRITICAL"): Promise<TrivyScanResult | ErrorResponse> {
   const safeImage = sanitizeImageName(image);
   const safeSeverity = validateSeverity(severity);
 
@@ -79,13 +128,14 @@ export async function trivyScanImage(image: string, severity: string = "HIGH,CRI
       `docker run --rm aquasec/trivy:latest image --format json --severity ${safeSeverity} ${safeImage}`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
-    return JSON.parse(stdout);
-  } catch (error: any) {
-    if (error.stdout) {
+    return JSON.parse(stdout) as TrivyScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
       try {
-        return JSON.parse(error.stdout);
+        return JSON.parse(execError.stdout) as TrivyScanResult;
       } catch {
-        return { error: error.message, output: error.stdout };
+        return { error: execError.message, output: execError.stdout };
       }
     }
     throw error;
@@ -107,8 +157,8 @@ export async function trivyScanImage(image: string, severity: string = "HIGH,CRI
  * console.log(response.components); // Array of projects
  * ```
  */
-export async function sonarGetProjects(): Promise<any> {
-  return fetchJson(`${config.sonarqube.url}/api/projects/search`, {
+export async function sonarGetProjects(): Promise<SonarProjectsResponse> {
+  return fetchJson<SonarProjectsResponse>(`${config.sonarqube.url}/api/projects/search`, {
     headers: {
       Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
     },
@@ -128,19 +178,19 @@ export async function sonarGetProjects(): Promise<any> {
  * console.log(response.issues); // Array of issues
  * ```
  */
-export async function sonarGetIssues(projectKey: string, types?: string): Promise<any> {
+export async function sonarGetIssues(projectKey: string, types?: string): Promise<SonarIssuesResponse> {
   let url = `${config.sonarqube.url}/api/issues/search?componentKeys=${projectKey}&statuses=OPEN`;
   if (types) url += `&types=${types}`;
 
-  return fetchJson(url, {
+  return fetchJson<SonarIssuesResponse>(url, {
     headers: {
       Authorization: basicAuth(config.sonarqube.user, config.sonarqube.password),
     },
   });
 }
 
-export async function sonarGetSecurityHotspots(projectKey: string): Promise<any> {
-  return fetchJson(
+export async function sonarGetSecurityHotspots(projectKey: string): Promise<SonarHotspotsResponse> {
+  return fetchJson<SonarHotspotsResponse>(
     `${config.sonarqube.url}/api/hotspots/search?projectKey=${projectKey}`,
     {
       headers: {
@@ -150,8 +200,8 @@ export async function sonarGetSecurityHotspots(projectKey: string): Promise<any>
   );
 }
 
-export async function sonarGetMetrics(projectKey: string): Promise<any> {
-  return fetchJson(
+export async function sonarGetMetrics(projectKey: string): Promise<SonarMetricsResponse> {
+  return fetchJson<SonarMetricsResponse>(
     `${config.sonarqube.url}/api/measures/component?component=${projectKey}&metricKeys=bugs,vulnerabilities,security_hotspots,code_smells,coverage,duplicated_lines_density`,
     {
       headers: {
@@ -177,20 +227,20 @@ export async function sonarGetMetrics(projectKey: string): Promise<any> {
  * projects.forEach(p => console.log(p.name, p.metrics?.vulnerabilities));
  * ```
  */
-export async function dtrackGetProjects(): Promise<any> {
+export async function dtrackGetProjects(): Promise<DTrackProject[]> {
   if (!config.dependencyTrack.apiKey) {
     throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
   }
-  return fetchJson(`${config.dependencyTrack.url}/api/v1/project`, {
+  return fetchJson<DTrackProject[]>(`${config.dependencyTrack.url}/api/v1/project`, {
     headers: { "X-Api-Key": config.dependencyTrack.apiKey },
   });
 }
 
-export async function dtrackGetVulnerabilities(projectUuid: string): Promise<any> {
+export async function dtrackGetVulnerabilities(projectUuid: string): Promise<DTrackVulnerability[]> {
   if (!config.dependencyTrack.apiKey) {
     throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
   }
-  return fetchJson(
+  return fetchJson<DTrackVulnerability[]>(
     `${config.dependencyTrack.url}/api/v1/vulnerability/project/${projectUuid}`,
     {
       headers: { "X-Api-Key": config.dependencyTrack.apiKey },
@@ -198,11 +248,11 @@ export async function dtrackGetVulnerabilities(projectUuid: string): Promise<any
   );
 }
 
-export async function dtrackGetFindings(projectUuid: string): Promise<any> {
+export async function dtrackGetFindings(projectUuid: string): Promise<DTrackFinding[]> {
   if (!config.dependencyTrack.apiKey) {
     throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
   }
-  return fetchJson(
+  return fetchJson<DTrackFinding[]>(
     `${config.dependencyTrack.url}/api/v1/finding/project/${projectUuid}`,
     {
       headers: { "X-Api-Key": config.dependencyTrack.apiKey },
@@ -210,11 +260,11 @@ export async function dtrackGetFindings(projectUuid: string): Promise<any> {
   );
 }
 
-export async function dtrackGetComponents(projectUuid: string): Promise<any> {
+export async function dtrackGetComponents(projectUuid: string): Promise<DTrackComponent[]> {
   if (!config.dependencyTrack.apiKey) {
     throw new Error("Dependency-Track API key not configured. Set DTRACK_API_KEY environment variable.");
   }
-  return fetchJson(
+  return fetchJson<DTrackComponent[]>(
     `${config.dependencyTrack.url}/api/v1/component/project/${projectUuid}`,
     {
       headers: { "X-Api-Key": config.dependencyTrack.apiKey },
@@ -237,32 +287,32 @@ export async function dtrackGetComponents(projectUuid: string): Promise<any> {
  * repos.forEach(r => console.log(r.full_name, r.html_url));
  * ```
  */
-export async function giteaGetRepos(): Promise<any> {
-  return fetchJson(`${config.gitea.url}/api/v1/user/repos`, {
+export async function giteaGetRepos(): Promise<GiteaRepository[]> {
+  return fetchJson<GiteaRepository[]>(`${config.gitea.url}/api/v1/user/repos`, {
     headers: {
       Authorization: basicAuth(config.gitea.user, config.gitea.password),
     },
   });
 }
 
-export async function giteaGetRepo(owner: string, repo: string): Promise<any> {
-  return fetchJson(`${config.gitea.url}/api/v1/repos/${owner}/${repo}`, {
+export async function giteaGetRepo(owner: string, repo: string): Promise<GiteaRepository> {
+  return fetchJson<GiteaRepository>(`${config.gitea.url}/api/v1/repos/${owner}/${repo}`, {
     headers: {
       Authorization: basicAuth(config.gitea.user, config.gitea.password),
     },
   });
 }
 
-export async function giteaGetBranches(owner: string, repo: string): Promise<any> {
-  return fetchJson(`${config.gitea.url}/api/v1/repos/${owner}/${repo}/branches`, {
+export async function giteaGetBranches(owner: string, repo: string): Promise<GiteaBranch[]> {
+  return fetchJson<GiteaBranch[]>(`${config.gitea.url}/api/v1/repos/${owner}/${repo}/branches`, {
     headers: {
       Authorization: basicAuth(config.gitea.user, config.gitea.password),
     },
   });
 }
 
-export async function giteaGetCommits(owner: string, repo: string, limit: number = 10): Promise<any> {
-  return fetchJson(
+export async function giteaGetCommits(owner: string, repo: string, limit: number = 10): Promise<GiteaCommit[]> {
+  return fetchJson<GiteaCommit[]>(
     `${config.gitea.url}/api/v1/repos/${owner}/${repo}/commits?limit=${limit}`,
     {
       headers: {
@@ -272,8 +322,8 @@ export async function giteaGetCommits(owner: string, repo: string, limit: number
   );
 }
 
-export async function giteaCreateRepo(name: string, description: string = "", isPrivate: boolean = false): Promise<any> {
-  return fetchJson(`${config.gitea.url}/api/v1/user/repos`, {
+export async function giteaCreateRepo(name: string, description: string = "", isPrivate: boolean = false): Promise<GiteaRepository> {
+  return fetchJson<GiteaRepository>(`${config.gitea.url}/api/v1/user/repos`, {
     method: "POST",
     headers: {
       Authorization: basicAuth(config.gitea.user, config.gitea.password),
@@ -292,8 +342,8 @@ export async function giteaMigrateRepo(
   cloneUrl: string,
   repoName: string,
   authToken?: string
-): Promise<any> {
-  const body: any = {
+): Promise<GiteaRepository> {
+  const body: MigrateRepoBody = {
     clone_addr: cloneUrl,
     repo_name: repoName,
     service: "github",
@@ -310,7 +360,7 @@ export async function giteaMigrateRepo(
     body.auth_token = authToken;
   }
 
-  return fetchJson(`${config.gitea.url}/api/v1/repos/migrate`, {
+  return fetchJson<GiteaRepository>(`${config.gitea.url}/api/v1/repos/migrate`, {
     method: "POST",
     headers: {
       Authorization: basicAuth(config.gitea.user, config.gitea.password),
@@ -323,31 +373,31 @@ export async function giteaMigrateRepo(
 // =============================================================================
 // Drone CI Functions
 // =============================================================================
-export async function droneGetRepos(): Promise<any> {
+export async function droneGetRepos(): Promise<DroneRepository[]> {
   if (!config.drone.token) {
-    return fetchJson(`${config.drone.url}/api/user/repos`);
+    return fetchJson<DroneRepository[]>(`${config.drone.url}/api/user/repos`);
   }
-  return fetchJson(`${config.drone.url}/api/user/repos`, {
+  return fetchJson<DroneRepository[]>(`${config.drone.url}/api/user/repos`, {
     headers: { Authorization: `Bearer ${config.drone.token}` },
   });
 }
 
-export async function droneGetBuilds(owner: string, repo: string): Promise<any> {
-  const headers: any = {};
+export async function droneGetBuilds(owner: string, repo: string): Promise<DroneBuild[]> {
+  const headers: Record<string, string> = {};
   if (config.drone.token) {
     headers.Authorization = `Bearer ${config.drone.token}`;
   }
-  return fetchJson(`${config.drone.url}/api/repos/${owner}/${repo}/builds`, {
+  return fetchJson<DroneBuild[]>(`${config.drone.url}/api/repos/${owner}/${repo}/builds`, {
     headers,
   });
 }
 
-export async function droneGetBuild(owner: string, repo: string, build: number): Promise<any> {
-  const headers: any = {};
+export async function droneGetBuild(owner: string, repo: string, build: number): Promise<DroneBuild> {
+  const headers: Record<string, string> = {};
   if (config.drone.token) {
     headers.Authorization = `Bearer ${config.drone.token}`;
   }
-  return fetchJson(
+  return fetchJson<DroneBuild>(
     `${config.drone.url}/api/repos/${owner}/${repo}/builds/${build}`,
     { headers }
   );
@@ -359,22 +409,22 @@ export async function droneGetBuildLogs(
   build: number,
   stage: number = 1,
   step: number = 1
-): Promise<any> {
-  const headers: any = {};
+): Promise<DroneLogLine[]> {
+  const headers: Record<string, string> = {};
   if (config.drone.token) {
     headers.Authorization = `Bearer ${config.drone.token}`;
   }
-  return fetchJson(
+  return fetchJson<DroneLogLine[]>(
     `${config.drone.url}/api/repos/${owner}/${repo}/builds/${build}/logs/${stage}/${step}`,
     { headers }
   );
 }
 
-export async function droneTriggerBuild(owner: string, repo: string, branch: string = "main"): Promise<any> {
+export async function droneTriggerBuild(owner: string, repo: string, branch: string = "main"): Promise<DroneBuild> {
   if (!config.drone.token) {
     throw new Error("Drone token required to trigger builds. Set DRONE_TOKEN environment variable.");
   }
-  return fetchJson(
+  return fetchJson<DroneBuild>(
     `${config.drone.url}/api/repos/${owner}/${repo}/builds?branch=${branch}`,
     {
       method: "POST",
@@ -386,12 +436,12 @@ export async function droneTriggerBuild(owner: string, repo: string, branch: str
 // =============================================================================
 // Registry Functions
 // =============================================================================
-export async function registryGetCatalog(): Promise<any> {
-  return fetchJson(`${config.registry.url}/v2/_catalog`);
+export async function registryGetCatalog(): Promise<RegistryCatalog> {
+  return fetchJson<RegistryCatalog>(`${config.registry.url}/v2/_catalog`);
 }
 
-export async function registryGetTags(image: string): Promise<any> {
-  return fetchJson(`${config.registry.url}/v2/${image}/tags/list`);
+export async function registryGetTags(image: string): Promise<RegistryTags> {
+  return fetchJson<RegistryTags>(`${config.registry.url}/v2/${image}/tags/list`);
 }
 
 // =============================================================================
@@ -401,8 +451,8 @@ export async function securityScanAll(
   path?: string,
   sonarProjectKey?: string,
   dtrackProjectUuid?: string
-): Promise<any> {
-  const scanResults: any = {
+): Promise<CombinedScanResponse> {
+  const scanResults: CombinedScanResponse = {
     timestamp: new Date().toISOString(),
     trivy: null,
     sonarqube: null,
@@ -412,24 +462,27 @@ export async function securityScanAll(
   if (path) {
     try {
       scanResults.trivy = await trivyScanPath(path);
-    } catch (e: any) {
-      scanResults.trivy = { error: e.message };
+    } catch (e: unknown) {
+      const error = e as Error;
+      scanResults.trivy = { error: error.message };
     }
   }
 
   if (sonarProjectKey) {
     try {
       scanResults.sonarqube = await sonarGetIssues(sonarProjectKey);
-    } catch (e: any) {
-      scanResults.sonarqube = { error: e.message };
+    } catch (e: unknown) {
+      const error = e as Error;
+      scanResults.sonarqube = { error: error.message };
     }
   }
 
   if (dtrackProjectUuid) {
     try {
       scanResults.dependencyTrack = await dtrackGetFindings(dtrackProjectUuid);
-    } catch (e: any) {
-      scanResults.dependencyTrack = { error: e.message };
+    } catch (e: unknown) {
+      const error = e as Error;
+      scanResults.dependencyTrack = { error: error.message };
     }
   }
 
@@ -452,13 +505,20 @@ export async function securityScanAll(
  * console.log(status.services.gitea.status); // 'healthy' | 'unhealthy' | 'unreachable'
  * ```
  */
-export async function checkPlatformStatus(): Promise<any> {
-  const status: any = {
+export async function checkPlatformStatus(): Promise<PlatformHealthResponse> {
+  const status: PlatformHealthResponse = {
     timestamp: new Date().toISOString(),
-    services: {},
+    services: {
+      gitea: { status: "unreachable" },
+      drone: { status: "unreachable" },
+      sonarqube: { status: "unreachable" },
+      dependencyTrack: { status: "unreachable" },
+      trivy: { status: "unreachable" },
+      registry: { status: "unreachable" },
+    },
   };
 
-  const checks = [
+  const checks: Array<{ name: keyof PlatformHealthResponse["services"]; url: string }> = [
     { name: "gitea", url: `${config.gitea.url}/api/v1/version` },
     { name: "drone", url: `${config.drone.url}/api/user` },
     { name: "sonarqube", url: `${config.sonarqube.url}/api/system/health` },
@@ -477,10 +537,11 @@ export async function checkPlatformStatus(): Promise<any> {
         status: response.ok ? "healthy" : "unhealthy",
         statusCode: response.status,
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const error = e as Error;
       status.services[check.name] = {
         status: "unreachable",
-        error: e.message,
+        error: error.message,
       };
     }
   }

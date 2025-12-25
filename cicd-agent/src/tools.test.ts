@@ -1,9 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { validateSeverity, sanitizePath, sanitizeImageName, executeTool, config } from './tools.js';
 
+/** Mock exec result interface */
+interface MockExecResult {
+  stdout: string;
+  stderr: string;
+  error?: Error & { stdout?: string };
+}
+
+/** Extended global for mocks */
+interface MockGlobal {
+  __mockExecResult?: MockExecResult | null;
+}
+
 // Mock child_process exec
 vi.mock('node:child_process', () => ({
-  exec: vi.fn((cmd, opts, callback) => {
+  exec: vi.fn((cmd: string, opts: unknown, callback?: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
     // Default mock implementation
     if (callback) {
       callback(null, { stdout: '{}', stderr: '' });
@@ -13,13 +25,13 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:util', async (importOriginal) => {
-  const original = await importOriginal() as any;
+  const original = await importOriginal() as Record<string, unknown>;
   return {
     ...original,
-    promisify: (_fn: any) => {
-      return async (..._args: any[]) => {
+    promisify: (_fn: unknown) => {
+      return async (..._args: unknown[]) => {
         // Return mocked exec result
-        const mockExecResult = (global as any).__mockExecResult;
+        const mockExecResult = (global as unknown as MockGlobal).__mockExecResult;
         if (mockExecResult?.error) {
           throw mockExecResult.error;
         }
@@ -882,11 +894,11 @@ describe('Tool Handlers', () => {
   // ===========================================================================
   describe('trivy_scan_path', () => {
     beforeEach(() => {
-      (global as any).__mockExecResult = { stdout: '{"Results":[]}', stderr: '' };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '{"Results":[]}', stderr: '' };
     });
 
     afterEach(() => {
-      delete (global as any).__mockExecResult;
+      (global as unknown as MockGlobal).__mockExecResult = null;
     });
 
     it('should return error for invalid path', async () => {
@@ -904,7 +916,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should scan a valid path successfully', async () => {
-      (global as any).__mockExecResult = {
+      (global as unknown as MockGlobal).__mockExecResult = {
         stdout: JSON.stringify({ Results: [{ Target: '/app', Vulnerabilities: [] }] }),
         stderr: '',
       };
@@ -916,9 +928,9 @@ describe('Tool Handlers', () => {
     });
 
     it('should handle exec errors with stdout', async () => {
-      const error: any = new Error('Command failed');
+      const error = new Error('Command failed') as Error & { stdout?: string };
       error.stdout = JSON.stringify({ Results: [], error: 'scan failed' });
-      (global as any).__mockExecResult = { error };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '', stderr: '', error };
 
       const result = await executeTool('trivy_scan_path', { path: '/home/user/project' });
       const parsed = JSON.parse(result);
@@ -927,9 +939,9 @@ describe('Tool Handlers', () => {
     });
 
     it('should handle exec errors with non-JSON stdout', async () => {
-      const error: any = new Error('Command failed');
+      const error = new Error('Command failed') as Error & { stdout?: string };
       error.stdout = 'Non-JSON output';
-      (global as any).__mockExecResult = { error };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '', stderr: '', error };
 
       const result = await executeTool('trivy_scan_path', { path: '/home/user/project' });
       const parsed = JSON.parse(result);
@@ -939,7 +951,7 @@ describe('Tool Handlers', () => {
 
     it('should handle exec errors without stdout', async () => {
       const error = new Error('Command not found');
-      (global as any).__mockExecResult = { error };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '', stderr: '', error };
 
       const result = await executeTool('trivy_scan_path', { path: '/home/user/project' });
       const parsed = JSON.parse(result);
@@ -948,7 +960,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should use custom severity levels', async () => {
-      (global as any).__mockExecResult = {
+      (global as unknown as MockGlobal).__mockExecResult = {
         stdout: JSON.stringify({ Results: [] }),
         stderr: '',
       };
@@ -965,11 +977,11 @@ describe('Tool Handlers', () => {
 
   describe('trivy_scan_image', () => {
     beforeEach(() => {
-      (global as any).__mockExecResult = { stdout: '{"Results":[]}', stderr: '' };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '{"Results":[]}', stderr: '' };
     });
 
     afterEach(() => {
-      delete (global as any).__mockExecResult;
+      (global as unknown as MockGlobal).__mockExecResult = null;
     });
 
     it('should return error for invalid image name', async () => {
@@ -987,7 +999,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should scan a valid image successfully', async () => {
-      (global as any).__mockExecResult = {
+      (global as unknown as MockGlobal).__mockExecResult = {
         stdout: JSON.stringify({ Results: [{ Target: 'nginx:latest', Vulnerabilities: [] }] }),
         stderr: '',
       };
@@ -999,9 +1011,9 @@ describe('Tool Handlers', () => {
     });
 
     it('should handle exec errors with stdout', async () => {
-      const error: any = new Error('Command failed');
+      const error = new Error('Command failed') as Error & { stdout?: string };
       error.stdout = JSON.stringify({ Results: [], error: 'scan failed' });
-      (global as any).__mockExecResult = { error };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '', stderr: '', error };
 
       const result = await executeTool('trivy_scan_image', { image: 'nginx:latest' });
       const parsed = JSON.parse(result);
@@ -1010,9 +1022,9 @@ describe('Tool Handlers', () => {
     });
 
     it('should handle exec errors with non-JSON stdout', async () => {
-      const error: any = new Error('Command failed');
+      const error = new Error('Command failed') as Error & { stdout?: string };
       error.stdout = 'Non-JSON output';
-      (global as any).__mockExecResult = { error };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '', stderr: '', error };
 
       const result = await executeTool('trivy_scan_image', { image: 'nginx:latest' });
       const parsed = JSON.parse(result);
@@ -1022,7 +1034,7 @@ describe('Tool Handlers', () => {
 
     it('should handle exec errors without stdout', async () => {
       const error = new Error('Docker not found');
-      (global as any).__mockExecResult = { error };
+      (global as unknown as MockGlobal).__mockExecResult = { stdout: '', stderr: '', error };
 
       const result = await executeTool('trivy_scan_image', { image: 'nginx:latest' });
       const parsed = JSON.parse(result);
@@ -1031,7 +1043,7 @@ describe('Tool Handlers', () => {
     });
 
     it('should use custom severity levels', async () => {
-      (global as any).__mockExecResult = {
+      (global as unknown as MockGlobal).__mockExecResult = {
         stdout: JSON.stringify({ Results: [] }),
         stderr: '',
       };

@@ -24,7 +24,7 @@
  * });
  * ```
  */
-export async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
+export async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
     ...options,
     signal: AbortSignal.timeout(30000),
@@ -32,7 +32,7 @@ export async function fetchJson(url: string, options: RequestInit = {}): Promise
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 /**

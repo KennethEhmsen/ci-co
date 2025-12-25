@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import {
   validateSeverity,
   sanitizePath,
@@ -33,9 +33,24 @@ import {
   checkPlatformStatus,
 } from './handlers.js';
 
+/** Mock exec result interface */
+interface MockExecResult {
+  stdout: string;
+  stderr: string;
+  error?: {
+    message: string;
+    stdout?: string;
+  };
+}
+
+/** Extended global for mocks */
+interface MockGlobal {
+  __mockExecResult: MockExecResult | null;
+}
+
 // Mock node:child_process for exec tests
 vi.mock('node:child_process', () => ({
-  exec: vi.fn((cmd, opts, callback) => {
+  exec: vi.fn((cmd: string, opts: unknown, callback?: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
     if (callback) {
       callback(null, { stdout: '{}', stderr: '' });
     }
@@ -44,15 +59,15 @@ vi.mock('node:child_process', () => ({
 }));
 
 vi.mock('node:util', async (importOriginal) => {
-  const original = await importOriginal() as any;
+  const original = await importOriginal() as Record<string, unknown>;
   return {
     ...original,
-    promisify: (_fn: any) => {
-      return async (..._args: any[]) => {
-        const mockExecResult = (global as any).__mockExecResult;
+    promisify: (_fn: unknown) => {
+      return async (..._args: unknown[]) => {
+        const mockExecResult = (global as unknown as MockGlobal).__mockExecResult;
         if (mockExecResult?.error) {
-          const error = new Error(mockExecResult.error.message);
-          (error as any).stdout = mockExecResult.error.stdout;
+          const error = new Error(mockExecResult.error.message) as Error & { stdout?: string };
+          error.stdout = mockExecResult.error.stdout;
           throw error;
         }
         return mockExecResult || { stdout: '{}', stderr: '' };
@@ -66,12 +81,12 @@ vi.mock('node:util', async (importOriginal) => {
 // =============================================================================
 describe('Handlers', () => {
   const originalFetch = global.fetch;
-  let mockFetch: any;
+  let mockFetch: Mock;
 
   beforeEach(() => {
     mockFetch = vi.fn();
-    global.fetch = mockFetch as typeof fetch;
-    (global as any).__mockExecResult = null;
+    global.fetch = mockFetch as unknown as typeof fetch;
+    (global as unknown as MockGlobal).__mockExecResult = null;
   });
 
   afterEach(() => {
@@ -720,7 +735,7 @@ describe('Handlers', () => {
       });
 
       it('scans path successfully', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
           stdout: JSON.stringify({ Results: [] }),
           stderr: '',
         };
@@ -730,7 +745,9 @@ describe('Handlers', () => {
       });
 
       it('handles scan with vulnerabilities in stdout on error', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
+          stdout: '',
+          stderr: '',
           error: {
             message: 'Exit code 1',
             stdout: JSON.stringify({ Results: [{ Vulnerabilities: [] }] }),
@@ -742,7 +759,9 @@ describe('Handlers', () => {
       });
 
       it('returns error object when stdout is not valid JSON', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
+          stdout: '',
+          stderr: '',
           error: {
             message: 'Exit code 1',
             stdout: 'not valid json',
@@ -755,7 +774,9 @@ describe('Handlers', () => {
       });
 
       it('rethrows error when no stdout available', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
+          stdout: '',
+          stderr: '',
           error: {
             message: 'Command failed',
             stdout: undefined,
@@ -773,7 +794,7 @@ describe('Handlers', () => {
       });
 
       it('scans image successfully', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
           stdout: JSON.stringify({ Results: [] }),
           stderr: '',
         };
@@ -783,7 +804,9 @@ describe('Handlers', () => {
       });
 
       it('handles scan with vulnerabilities in stdout on error', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
+          stdout: '',
+          stderr: '',
           error: {
             message: 'Exit code 1',
             stdout: JSON.stringify({ Results: [{ Vulnerabilities: [] }] }),
@@ -795,7 +818,9 @@ describe('Handlers', () => {
       });
 
       it('returns error object when stdout is not valid JSON', async () => {
-        (global as any).__mockExecResult = {
+        (global as unknown as MockGlobal).__mockExecResult = {
+          stdout: '',
+          stderr: '',
           error: {
             message: 'Exit code 1',
             stdout: 'not valid json',
@@ -822,7 +847,7 @@ describe('Handlers', () => {
     });
 
     it('runs trivy scan when path provided', async () => {
-      (global as any).__mockExecResult = {
+      (global as unknown as MockGlobal).__mockExecResult = {
         stdout: JSON.stringify({ Results: [] }),
         stderr: '',
       };

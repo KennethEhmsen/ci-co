@@ -1,5 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import Anthropic from '@anthropic-ai/sdk';
+
+/** Mock Anthropic client interface */
+interface MockAnthropicClient {
+  messages: {
+    create: Mock;
+  };
+}
+
+/** Mock message structure */
+interface MockMessage {
+  role: string;
+  content: string | Array<{ type: string; tool_use_id?: string }>;
+}
 
 // Mock dotenv first
 vi.mock('dotenv', () => ({
@@ -113,8 +126,8 @@ describe('executeTool export', () => {
 // =============================================================================
 
 describe('CICDSecurityAgent', () => {
-  let mockClient: any;
-  let mockCreate: any;
+  let mockClient: MockAnthropicClient;
+  let mockCreate: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -399,10 +412,10 @@ describe('CICDSecurityAgent', () => {
 
       // Find the tool result message
       const toolResultMessage = secondCall.messages.find(
-        (m: any) => m.role === 'user' && Array.isArray(m.content) && m.content[0]?.type === 'tool_result'
-      );
+        (m: MockMessage) => m.role === 'user' && Array.isArray(m.content) && m.content[0]?.type === 'tool_result'
+      ) as MockMessage | undefined;
       expect(toolResultMessage).toBeDefined();
-      expect(toolResultMessage.content[0].tool_use_id).toBe('tool_1');
+      expect((toolResultMessage?.content as Array<{ type: string; tool_use_id?: string }>)[0].tool_use_id).toBe('tool_1');
     });
   });
 });
@@ -412,8 +425,8 @@ describe('CICDSecurityAgent', () => {
 // =============================================================================
 
 describe('Command Handlers', () => {
-  let mockClient: any;
-  let mockCreate: any;
+  let mockClient: MockAnthropicClient;
+  let mockCreate: Mock;
   let mockAgent: CICDSecurityAgent;
 
   beforeEach(() => {

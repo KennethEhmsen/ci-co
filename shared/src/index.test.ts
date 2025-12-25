@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { ExecOptions, ExecException, ChildProcess } from 'node:child_process';
 import { exec } from 'node:child_process';
+
+/** Exec callback type */
+type ExecCallback = (error: ExecException | null, result: { stdout: string; stderr: string } | null) => void;
 
 // Import functions to test
 import {
@@ -773,12 +777,12 @@ describe('Trivy Handlers', () => {
     it('should scan a valid path successfully', async () => {
       const mockResult = { Results: [] };
       const mockExec = vi.mocked(exec);
-      mockExec.mockImplementation(((cmd: string, opts: any, callback?: any) => {
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
         if (callback) {
           callback(null, { stdout: JSON.stringify(mockResult), stderr: '' });
         }
-        return {} as any;
-      }) as any);
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
 
       const result = await trivyScanPath('/valid/path');
       expect(result).toEqual(mockResult);
@@ -787,14 +791,14 @@ describe('Trivy Handlers', () => {
     it('should handle exec errors with JSON stdout', async () => {
       const mockResult = { Results: [], error: true };
       const mockExec = vi.mocked(exec);
-      mockExec.mockImplementation(((cmd: string, opts: any, callback?: any) => {
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
         if (callback) {
-          const error: any = new Error('Command failed');
+          const error = new Error('Command failed') as ExecException & { stdout?: string };
           error.stdout = JSON.stringify(mockResult);
           callback(error, null);
         }
-        return {} as any;
-      }) as any);
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
 
       const result = await trivyScanPath('/valid/path');
       expect(result).toEqual(mockResult);
@@ -802,14 +806,14 @@ describe('Trivy Handlers', () => {
 
     it('should handle exec errors with non-JSON stdout', async () => {
       const mockExec = vi.mocked(exec);
-      mockExec.mockImplementation(((cmd: string, opts: any, callback?: any) => {
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
         if (callback) {
-          const error: any = new Error('Command failed');
+          const error = new Error('Command failed') as ExecException & { stdout?: string };
           error.stdout = 'Not JSON';
           callback(error, null);
         }
-        return {} as any;
-      }) as any);
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
 
       const result = await trivyScanPath('/valid/path');
       expect(result).toHaveProperty('error');
@@ -818,12 +822,12 @@ describe('Trivy Handlers', () => {
 
     it('should throw error when exec fails without stdout', async () => {
       const mockExec = vi.mocked(exec);
-      mockExec.mockImplementation(((cmd: string, opts: any, callback?: any) => {
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
         if (callback) {
-          callback(new Error('Command failed'), null);
+          callback(new Error('Command failed') as ExecException, null);
         }
-        return {} as any;
-      }) as any);
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
 
       await expect(trivyScanPath('/valid/path')).rejects.toThrow('Command failed');
     });
@@ -841,12 +845,12 @@ describe('Trivy Handlers', () => {
     it('should scan a valid image successfully', async () => {
       const mockResult = { Results: [] };
       const mockExec = vi.mocked(exec);
-      mockExec.mockImplementation(((cmd: string, opts: any, callback?: any) => {
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
         if (callback) {
           callback(null, { stdout: JSON.stringify(mockResult), stderr: '' });
         }
-        return {} as any;
-      }) as any);
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
 
       const result = await trivyScanImage('nginx:latest');
       expect(result).toEqual(mockResult);
@@ -937,12 +941,12 @@ describe('securityScanAll', () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
     const mockExec = vi.mocked(exec);
-    mockExec.mockImplementation(((cmd: string, opts: any, callback?: any) => {
+    mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
       if (callback) {
-        callback(new Error('Docker error'), null);
+        callback(new Error('Docker error') as ExecException, null);
       }
-      return {} as any;
-    }) as any);
+      return {} as ChildProcess;
+    }) as unknown as typeof exec);
 
     const result = await securityScanAll('/path', 'project-key', 'project-uuid');
     expect(result.trivy).toHaveProperty('error');

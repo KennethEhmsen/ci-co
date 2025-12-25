@@ -33,7 +33,7 @@ export { validateSeverity, sanitizePath, sanitizeImageName, config } from "@cicd
 // =============================================================================
 // Tool Handler Map
 // =============================================================================
-type ToolHandler = (input: Record<string, unknown>) => Promise<any>;
+type ToolHandler = (input: Record<string, unknown>) => Promise<unknown>;
 
 const toolHandlers: Record<string, ToolHandler> = {
   // Trivy
@@ -438,7 +438,8 @@ export async function executeTool(
     }
     const result = await handler(input);
     return JSON.stringify(result, null, 2);
-  } catch (error: any) {
-    return JSON.stringify({ error: error.message }, null, 2);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return JSON.stringify({ error: errorMessage }, null, 2);
   }
 }
