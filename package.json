@@ -9,7 +9,7 @@
     "cicd-agent"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build -w shared && npm run build -w mcp-server && npm run build -w cicd-agent",
     "test": "npm run test --workspaces",
     "test:coverage": "npm run test:coverage --workspaces",
     "lint": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src",
