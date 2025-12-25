@@ -39,6 +39,11 @@ vi.mock("./handlers.js", async (importOriginal) => {
     droneTriggerBuild: vi.fn().mockResolvedValue({ number: 2 }),
     registryGetCatalog: vi.fn().mockResolvedValue({ repositories: [] }),
     registryGetTags: vi.fn().mockResolvedValue({ tags: [] }),
+    trivyGenerateSbom: vi.fn().mockResolvedValue({ bomFormat: "CycloneDX", components: [] }),
+    trivyGenerateSbomImage: vi.fn().mockResolvedValue({ bomFormat: "CycloneDX", components: [] }),
+    trivyScanIac: vi.fn().mockResolvedValue({ Results: [] }),
+    trivyScanSecrets: vi.fn().mockResolvedValue({ Results: [] }),
+    trivyScanLicenses: vi.fn().mockResolvedValue({ Results: [] }),
     trivyScanSecretsImage: vi.fn().mockResolvedValue({ Results: [] }),
     trivyScanLicensesImage: vi.fn().mockResolvedValue({ Results: [] }),
     trivyScanImageFull: vi.fn().mockResolvedValue({
@@ -352,6 +357,96 @@ describe("handleCallTool", () => {
 
     it("should handle trivy_scan_image", async () => {
       const result = await handleCallTool("trivy_scan_image", { image: "nginx:latest" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_image_full with default sbomFormat", async () => {
+      const result = await handleCallTool("trivy_scan_image_full", { image: "nginx:latest" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_image_full with cyclonedx sbomFormat", async () => {
+      const result = await handleCallTool("trivy_scan_image_full", {
+        image: "nginx:latest",
+        sbomFormat: "cyclonedx",
+      });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_image_full with spdx-json sbomFormat", async () => {
+      const result = await handleCallTool("trivy_scan_image_full", {
+        image: "nginx:latest",
+        sbomFormat: "spdx-json",
+      });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_path_full with default sbomFormat", async () => {
+      const result = await handleCallTool("trivy_scan_path_full", { path: "/app" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_path_full with cyclonedx sbomFormat", async () => {
+      const result = await handleCallTool("trivy_scan_path_full", {
+        path: "/app",
+        sbomFormat: "cyclonedx",
+      });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_path_full with spdx-json sbomFormat", async () => {
+      const result = await handleCallTool("trivy_scan_path_full", {
+        path: "/app",
+        sbomFormat: "spdx-json",
+      });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_generate_sbom", async () => {
+      const result = await handleCallTool("trivy_generate_sbom", { path: "/app" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_generate_sbom_image", async () => {
+      const result = await handleCallTool("trivy_generate_sbom_image", { image: "nginx:latest" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_iac", async () => {
+      const result = await handleCallTool("trivy_scan_iac", { path: "/app" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_secrets", async () => {
+      const result = await handleCallTool("trivy_scan_secrets", { path: "/app" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_secrets_image", async () => {
+      const result = await handleCallTool("trivy_scan_secrets_image", { image: "nginx:latest" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_licenses", async () => {
+      const result = await handleCallTool("trivy_scan_licenses", { path: "/app" });
+      expect(result.content).toBeDefined();
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should handle trivy_scan_licenses_image", async () => {
+      const result = await handleCallTool("trivy_scan_licenses_image", { image: "nginx:latest" });
       expect(result.content).toBeDefined();
       expect(result.isError).toBeUndefined();
     });
