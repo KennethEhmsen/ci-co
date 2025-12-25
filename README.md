@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/KennethEhmsen/ci-co/actions/workflows/ci.yml/badge.svg)](https://github.com/KennethEhmsen/ci-co/actions/workflows/ci.yml)
 [![Security Scan](https://img.shields.io/badge/security-Trivy-00C9A7)](https://github.com/KennethEhmsen/ci-co/security)
+[![semantic-release](https://img.shields.io/badge/semantic--release-conventionalcommits-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 [![GitHub release](https://img.shields.io/github/v/release/KennethEhmsen/ci-co)](https://github.com/KennethEhmsen/ci-co/releases)
 [![GitHub stars](https://img.shields.io/github/stars/KennethEhmsen/ci-co)](https://github.com/KennethEhmsen/ci-co/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
