@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-12-25
+
+### Added
+- Branch protection rules for GitHub (required CI checks, PR reviews)
+- Branch protection rules for Gitea (push whitelist, stale review dismissal)
+- CI Security Features section in README
+
 ## [1.3.4] - 2025-12-25
 
 ### Added
@@ -160,7 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.4...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.4...v1.4.0
 [1.3.4]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/KennethEhmsen/ci-co/compare/v1.3.1...v1.3.2
