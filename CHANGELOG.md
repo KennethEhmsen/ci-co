@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2025-12-25
+
+### Fixed
+- Platform status health check now uses public endpoints for Drone (`/healthz`) and SonarQube (`/api/system/status`) to avoid authentication errors
+
 ## [1.13.0] - 2025-12-25
 
 ### Added
@@ -263,7 +268,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.10.0...v1.11.0
