@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Pre-commit hooks with Husky and lint-staged (auto-fix ESLint and Prettier)
+
 ## [1.4.0] - 2025-12-25
 
 ### Added
