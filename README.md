@@ -26,6 +26,19 @@ A complete, self-hosted CI/CD platform with **security scanning** that runs enti
 | **SonarQube** | Code quality & security analysis (SAST) |
 | **Dependency-Track** | Software composition analysis (SCA/SBOM) |
 
+### CI Security Features
+
+The GitHub Actions CI workflow includes comprehensive security checks:
+
+| Check | Description | Fails On |
+|-------|-------------|----------|
+| **Trivy Scan** | Vulnerabilities, secrets, misconfigurations | HIGH/CRITICAL findings |
+| **npm audit** | Dependency vulnerability scanning | HIGH severity |
+| **License Check** | Ensures permissive licenses only | GPL/copyleft licenses |
+| **Coverage Thresholds** | Maintains code quality | Coverage drops below minimum |
+
+Results are automatically uploaded to the [GitHub Security tab](https://github.com/KennethEhmsen/ci-co/security).
+
 ---
 
 ## Quick Start (One Click!)
