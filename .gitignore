@@ -38,3 +38,7 @@ coverage/
 
 # Test repositories
 test-repo/
+
+# Generated SBOM files
+sbom.json
+sbom-*.json
