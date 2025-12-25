@@ -1,6 +1,7 @@
 # Local CI/CD Platform
 
 [![CI](https://github.com/KennethEhmsen/ci-co/actions/workflows/ci.yml/badge.svg)](https://github.com/KennethEhmsen/ci-co/actions/workflows/ci.yml)
+[![Security Scan](https://img.shields.io/badge/security-Trivy-00C9A7)](https://github.com/KennethEhmsen/ci-co/security)
 [![GitHub release](https://img.shields.io/github/v/release/KennethEhmsen/ci-co)](https://github.com/KennethEhmsen/ci-co/releases)
 [![GitHub stars](https://img.shields.io/github/stars/KennethEhmsen/ci-co)](https://github.com/KennethEhmsen/ci-co/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
