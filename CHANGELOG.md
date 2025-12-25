@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2025-12-25
+
+### Added
+- **SBOM Format Option** for combined scans
+  - `trivy_scan_image_full` now accepts `sbomFormat` parameter (cyclonedx or spdx-json)
+  - `trivy_scan_path_full` now accepts `sbomFormat` parameter (cyclonedx or spdx-json)
+  - Default format remains CycloneDX for backwards compatibility
+
+## [1.14.0] - 2025-12-25
+
+### Added
+- **SBOM Generation** in combined scans
+  - `trivy_scan_image_full` now includes SBOM (4 operations: vuln, secret, license, SBOM)
+  - `trivy_scan_path_full` now includes SBOM (5 operations: vuln, secret, license, IaC, SBOM)
+
+## [1.13.0] - 2025-12-25
+
+### Added
+- **Combined Path Scan Tool** (`trivy_scan_path_full`)
+  - Runs vulnerability, secret, license, and IaC scanning in one operation
+  - Returns comprehensive results with individual error handling
+  - Tool count: 33
+
+## [1.12.0] - 2025-12-25
+
+### Added
+- **Combined Image Scan Tool** (`trivy_scan_image_full`)
+  - Runs vulnerability, secret, and license scanning in one operation
+  - Returns combined results with timestamp and individual error handling
+  - Tool count: 32
+
+## [1.11.0] - 2025-12-25
+
+### Added
+- **Secret Scanning for Container Images** (`trivy_scan_secrets_image`)
+  - Detects hardcoded secrets in Docker images
+  - Supports custom severity filtering
+  - Tool count: 31
+
+## [1.10.0] - 2025-12-25
+
+### Added
+- **License Scanning for Container Images** (`trivy_scan_licenses_image`)
+  - Detects licenses in Docker image dependencies
+  - Flags problematic licenses (GPL, copyleft, etc.)
+  - Tool count: 30
+
+## [1.9.0] - 2025-12-25
+
+### Added
+- **License Scanning Tool** (`trivy_scan_licenses`)
+  - Scans local paths for license information
+  - Detects and categorizes dependency licenses
+  - Tool count: 29
+
+## [1.8.0] - 2025-12-25
+
+### Added
+- **Secret Scanning Tool** (`trivy_scan_secrets`)
+  - Scans local paths for hardcoded secrets
+  - Detects API keys, passwords, tokens, private keys
+  - Tool count: 28
+
+## [1.7.0] - 2025-12-25
+
+### Added
+- **IaC Scanning Tool** (`trivy_scan_iac`)
+  - Scans Infrastructure as Code files for misconfigurations
+  - Supports Terraform, Kubernetes, Docker, CloudFormation, and more
+  - Tool count: 27
+
+## [1.6.0] - 2025-12-25
+
+### Added
+- **SBOM Generation Tools**
+  - `trivy_generate_sbom` - Generate SBOM for local paths
+  - `trivy_generate_sbom_image` - Generate SBOM for Docker images
+  - Supports CycloneDX and SPDX-JSON formats
+  - Tool count: 26
+
 ## [1.5.1] - 2025-12-25
 
 ### Fixed
@@ -188,7 +268,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.14.0...v1.15.0
+[1.14.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.0...v1.14.0
+[1.13.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.12.0...v1.13.0
+[1.12.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.11.0...v1.12.0
+[1.11.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.4.0...v1.4.1
