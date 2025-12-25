@@ -82,6 +82,7 @@ export {
   trivyScanIac,
   trivyScanSecrets,
   trivyScanLicenses,
+  trivyScanLicensesImage,
   // SonarQube
   sonarGetProjects,
   sonarGetIssues,

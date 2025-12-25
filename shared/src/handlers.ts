@@ -374,6 +374,51 @@ export async function trivyScanLicenses(
   }
 }
 
+/**
+ * Scan a Docker image for license information using Trivy.
+ * Detects licenses in dependencies and flags potentially problematic licenses.
+ *
+ * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
+ * @param severity - Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy license scan results in JSON format
+ * @throws Error if image name is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanLicensesImage('nginx:1.25');
+ * console.log(results.Results); // Array of license findings
+ * ```
+ */
+export async function trivyScanLicensesImage(
+  image: string,
+  severity: string = "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+): Promise<TrivyLicenseScanResult | ErrorResponse> {
+  const safeImage = sanitizeImageName(image);
+  const safeSeverity = validateSeverity(severity);
+
+  if (!safeImage || safeImage.length < 2) {
+    throw new Error("Invalid image name provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm aquasec/trivy:latest image --scanners license --format json --severity ${safeSeverity} ${safeImage}`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivyLicenseScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivyLicenseScanResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
 // =============================================================================
 // SonarQube Functions
 // =============================================================================

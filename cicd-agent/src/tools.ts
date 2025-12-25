@@ -8,6 +8,7 @@ import {
   trivyScanIac,
   trivyScanSecrets,
   trivyScanLicenses,
+  trivyScanLicensesImage,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -54,6 +55,8 @@ const toolHandlers: Record<string, ToolHandler> = {
     trivyScanSecrets(input.path as string, input.severity as string),
   trivy_scan_licenses: async (input) =>
     trivyScanLicenses(input.path as string, input.severity as string),
+  trivy_scan_licenses_image: async (input) =>
+    trivyScanLicensesImage(input.image as string, input.severity as string),
   // SonarQube
   sonar_list_projects: async () => sonarGetProjects(),
   sonar_get_issues: async (input) =>
@@ -240,6 +243,26 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_licenses_image",
+    description:
+      "Scan a Docker image for license information using Trivy. Detects licenses in dependencies and flags potentially problematic licenses (forbidden, restricted, etc.).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        severity: {
+          type: "string",
+          description:
+            "Severity levels to report: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL (default: all)",
+        },
+      },
+      required: ["image"],
     },
   },
 

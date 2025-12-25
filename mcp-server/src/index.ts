@@ -17,6 +17,7 @@ import {
   trivyScanIac,
   trivyScanSecrets,
   trivyScanLicenses,
+  trivyScanLicensesImage,
   sonarGetProjects,
   sonarGetIssues,
   sonarGetSecurityHotspots,
@@ -189,6 +190,26 @@ export const toolDefinitions = [
         },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_licenses_image",
+    description:
+      "Scan a Docker image for license information using Trivy. Detects licenses in dependencies and flags potentially problematic licenses (forbidden, restricted, etc.).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)",
+          default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL",
+        },
+      },
+      required: ["image"],
     },
   },
 
@@ -633,6 +654,9 @@ export async function handleCallTool(
         break;
       case "trivy_scan_licenses":
         result = await trivyScanLicenses(args?.path as string, args?.severity as string);
+        break;
+      case "trivy_scan_licenses_image":
+        result = await trivyScanLicensesImage(args?.image as string, args?.severity as string);
         break;
 
       // SonarQube
