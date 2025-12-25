@@ -224,3 +224,149 @@ Docker Network: ci-cd-network (bridge)
 | Registry | Docker Registry | Harbor, Nexus |
 | Database | PostgreSQL | MySQL, SQLite |
 | Proxy | Traefik | Nginx, Caddy |
+
+## Software Architecture
+
+The platform includes software components for AI integration and automation.
+
+### Software Components
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SOFTWARE COMPONENTS                                  │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                        @cicd/shared                                  │    │
+│  │                    (Core Business Logic)                             │    │
+│  │                                                                      │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │    │
+│  │  │   Handlers   │  │  Validation  │  │ HTTP Client  │               │    │
+│  │  │              │  │              │  │              │               │    │
+│  │  │ - Trivy      │  │ - Paths      │  │ - fetchJson  │               │    │
+│  │  │ - SonarQube  │  │ - Severity   │  │ - basicAuth  │               │    │
+│  │  │ - D-Track    │  │ - Images     │  │              │               │    │
+│  │  │ - Gitea      │  │              │  │              │               │    │
+│  │  │ - Drone      │  │              │  │              │               │    │
+│  │  │ - Registry   │  │              │  │              │               │    │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘               │    │
+│  │                                                                      │    │
+│  │  ┌──────────────┐  ┌──────────────┐                                 │    │
+│  │  │    Config    │  │    Types     │                                 │    │
+│  │  │              │  │              │                                 │    │
+│  │  │ Environment  │  │ TypeScript   │                                 │    │
+│  │  │ Variables    │  │ Interfaces   │                                 │    │
+│  │  └──────────────┘  └──────────────┘                                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                              │                                               │
+│              ┌───────────────┴───────────────┐                              │
+│              │                               │                              │
+│              ▼                               ▼                              │
+│  ┌─────────────────────┐        ┌─────────────────────┐                    │
+│  │     MCP Server      │        │    CI/CD Agent      │                    │
+│  │   (Claude Code)     │        │      (CLI)          │                    │
+│  │                     │        │                     │                    │
+│  │ • 23 Security Tools │        │ • Interactive Chat  │                    │
+│  │ • 2 Resources       │        │ • CLI Commands      │                    │
+│  │ • Stdio Transport   │        │ • Agentic Loop      │                    │
+│  └─────────────────────┘        └─────────────────────┘                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Package Structure
+
+```
+ci-co/
+├── shared/                 # @cicd/shared - Core library
+│   ├── src/
+│   │   ├── index.ts       # Public exports
+│   │   ├── config.ts      # Configuration loader
+│   │   ├── handlers.ts    # API handlers (23 functions)
+│   │   ├── validation.ts  # Input validation
+│   │   ├── http.ts        # HTTP utilities
+│   │   └── types.ts       # TypeScript definitions
+│   └── package.json
+│
+├── mcp-server/            # MCP Server for Claude Code
+│   ├── src/
+│   │   ├── index.ts       # MCP server entry point
+│   │   └── handlers.ts    # Re-exported handlers
+│   └── package.json
+│
+├── cicd-agent/            # CLI Agent
+│   ├── src/
+│   │   ├── index.ts       # CLI entry point
+│   │   └── tools.ts       # Tool definitions
+│   └── package.json
+│
+└── package.json           # Root workspace config
+```
+
+### Data Flow (Software)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                               │
+│    ┌──────────────┐                    ┌──────────────┐                      │
+│    │ Claude Code  │                    │   Terminal   │                      │
+│    │    (IDE)     │                    │    (CLI)     │                      │
+│    └──────┬───────┘                    └──────┬───────┘                      │
+│           │                                   │                               │
+│           │ MCP Protocol                      │ Commands                      │
+│           ▼                                   ▼                               │
+│    ┌──────────────┐                    ┌──────────────┐                      │
+│    │  MCP Server  │                    │ CI/CD Agent  │                      │
+│    │              │                    │              │                      │
+│    └──────┬───────┘                    └──────┬───────┘                      │
+│           │                                   │                               │
+│           └───────────────┬───────────────────┘                              │
+│                           │                                                   │
+│                           ▼                                                   │
+│                    ┌──────────────┐                                          │
+│                    │ @cicd/shared │                                          │
+│                    │  (Handlers)  │                                          │
+│                    └──────┬───────┘                                          │
+│                           │                                                   │
+│           ┌───────────────┼───────────────────┐                              │
+│           │               │                   │                               │
+│           ▼               ▼                   ▼                               │
+│    ┌──────────┐    ┌──────────┐       ┌──────────┐                          │
+│    │   HTTP   │    │  Docker  │       │  Exec    │                          │
+│    │  Fetch   │    │  Exec    │       │ (Trivy)  │                          │
+│    └────┬─────┘    └────┬─────┘       └────┬─────┘                          │
+│         │               │                  │                                  │
+│         ▼               ▼                  ▼                                  │
+│    ┌─────────────────────────────────────────────────────────────┐           │
+│    │                    Docker Services                          │           │
+│    │  Gitea │ Drone │ SonarQube │ D-Track │ Trivy │ Registry    │           │
+│    └─────────────────────────────────────────────────────────────┘           │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Tool Categories
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Trivy** | 2 | Vulnerability and secret scanning |
+| **SonarQube** | 4 | Code quality and SAST |
+| **Dependency-Track** | 4 | SCA and SBOM analysis |
+| **Gitea** | 6 | Git repository management |
+| **Drone CI** | 5 | CI/CD pipeline operations |
+| **Registry** | 2 | Docker image management |
+| **Platform** | 1 | Health status checks |
+| **Total** | **24** | |
+
+### Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| Runtime | Node.js 18+ |
+| Language | TypeScript 5.3+ |
+| Module System | ES Modules |
+| Testing | Vitest |
+| Linting | ESLint + Prettier |
+| Build | tsc (TypeScript Compiler) |
+| Package Manager | npm with Workspaces |
+| Protocol | MCP (Model Context Protocol) |
+| AI SDK | Anthropic SDK |

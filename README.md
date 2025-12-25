@@ -307,6 +307,39 @@ docker compose up -d
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [README.md](README.md) | Quick start guide (this file) |
+| [INSTALLATION.md](INSTALLATION.md) | Detailed setup instructions |
+| [CONFIGURATION.md](CONFIGURATION.md) | Advanced configuration options |
+| [USAGE.md](USAGE.md) | Workflows and usage examples |
+| [SECURITY-SCANNING.md](SECURITY-SCANNING.md) | Security scanning guide |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System design and architecture |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [SECURITY.md](SECURITY.md) | Security policy |
+
+### Developer & Admin Docs
+
+| Document | Description |
+|----------|-------------|
+| [docs/API.md](docs/API.md) | Complete API reference (23 tools) |
+| [docs/CLI.md](docs/CLI.md) | CI/CD Agent CLI reference |
+| [docs/DEVELOPER.md](docs/DEVELOPER.md) | Developer guide & extension |
+| [docs/ADMIN.md](docs/ADMIN.md) | Administrator operations guide |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Troubleshooting guide |
+
+### Package Documentation
+
+| Package | README |
+|---------|--------|
+| MCP Server | [mcp-server/README.md](mcp-server/README.md) |
+| CI/CD Agent | [cicd-agent/README.md](cicd-agent/README.md) |
+| Shared Library | [shared/README.md](shared/README.md) |
+
+---
+
 ## Files
 
 ```
@@ -315,11 +348,19 @@ ci-co/
 ├── STOP.bat               # One-click stop
 ├── docker-compose.yml     # Main configuration
 ├── README.md              # This file
+├── CHANGELOG.md           # Version history
+├── SECURITY.md            # Security policy
 ├── SECURITY-SCANNING.md   # Security scanning guide
 ├── ARCHITECTURE.md        # System design
 ├── INSTALLATION.md        # Detailed setup
 ├── CONFIGURATION.md       # Advanced config
 ├── USAGE.md               # Workflows & examples
+├── docs/                  # Additional documentation
+│   ├── API.md             # API reference
+│   ├── CLI.md             # CLI reference
+│   ├── DEVELOPER.md       # Developer guide
+│   ├── ADMIN.md           # Admin operations
+│   └── TROUBLESHOOTING.md # Troubleshooting
 ├── mcp-server/            # Claude Code MCP server
 ├── cicd-agent/            # CLI security agent
 ├── shared/                # Shared library

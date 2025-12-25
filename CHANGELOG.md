@@ -7,13 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-12-25
+
 ### Added
+- **Complete Documentation Suite**
+  - `docs/API.md` - Full API reference for all 23 tools with input schemas and examples
+  - `docs/CLI.md` - CI/CD Agent command-line reference
+  - `docs/DEVELOPER.md` - Developer guide with extension patterns
+  - `docs/ADMIN.md` - Administrator operations guide (deployment, monitoring, backup, scaling)
+  - `docs/TROUBLESHOOTING.md` - Comprehensive troubleshooting for all services
+- **Software Architecture** - Added software components section to `ARCHITECTURE.md`
+- **Shared Types** - TypeScript interfaces for configuration, errors, and API responses
+- **JSDoc Documentation** - Complete JSDoc comments for all public APIs
 - Root workspace configuration with npm workspaces
 - ESLint and Prettier for code quality
-- Shared TypeScript type definitions for all API responses
+
+### Changed
+- Updated `README.md` with comprehensive documentation links
+- Aligned `@types/node` version to `^20.10.0` across all packages
+- Enhanced `mcp-server/README.md` with development and architecture sections
 
 ### Fixed
 - ESLint errors in test files (unused variables)
+- Fixed placeholder email in `SECURITY.md`
 
 ## [1.1.0] - 2024-12-20
 
@@ -100,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/KennethEhmsen/ci-co/releases/tag/v1.0.0
