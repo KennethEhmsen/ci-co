@@ -22,10 +22,11 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          rm -f package-lock.json shared/package-lock.json mcp-server/package-lock.json cicd-agent/package-lock.json
+          npm install
 
       - name: Build
         run: npm run build
@@ -48,10 +49,11 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 20.x
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          rm -f package-lock.json shared/package-lock.json mcp-server/package-lock.json cicd-agent/package-lock.json
+          npm install
 
       - name: Build
         run: npm run build
