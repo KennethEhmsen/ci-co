@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2025-12-25
+
+### Fixed
+- CI workflow now uses npm workspaces correctly
+- Build order fixed: shared library builds first before dependent packages
+- Removed `prepare` scripts that caused parallel build issues
+- Cross-platform compatibility for rollup native bindings in CI
+
 ## [1.2.0] - 2025-12-25
 
 ### Added
@@ -116,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/KennethEhmsen/ci-co/releases/tag/v1.0.0

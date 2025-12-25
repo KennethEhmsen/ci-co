@@ -1,6 +1,6 @@
 {
   "name": "cicd-security-mcp-server",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "MCP Server for CI/CD Security Tools - Trivy, SonarQube, Dependency-Track, Gitea, Drone CI",
   "main": "dist/index.js",
   "type": "module",
