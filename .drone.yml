@@ -12,16 +12,21 @@ steps:
       - git clone http://gitea:3000/localadmin/ci-co.git .
       - git checkout $DRONE_COMMIT
 
+  - name: install-root
+    image: node:20-alpine
+    commands:
+      - npm install --ignore-scripts
+    depends_on:
+      - clone
+
   - name: install-shared
     image: node:20-alpine
-    environment:
-      HUSKY: "0"
     commands:
       - cd shared
       - npm install
       - npm run build
     depends_on:
-      - clone
+      - install-root
 
   - name: test-shared
     image: node:20-alpine
@@ -33,8 +38,6 @@ steps:
 
   - name: install-mcp-server
     image: node:20-alpine
-    environment:
-      HUSKY: "0"
     commands:
       - cd mcp-server
       - npm install
@@ -43,8 +46,6 @@ steps:
 
   - name: install-cicd-agent
     image: node:20-alpine
-    environment:
-      HUSKY: "0"
     commands:
       - cd cicd-agent
       - npm install
