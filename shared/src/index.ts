@@ -42,6 +42,14 @@ export {
   withRateLimit,
   type RateLimiterOptions,
 } from "./rate-limiter.js";
+export {
+  validateConfig,
+  validateConnectivity,
+  validateStartup,
+  logValidationResults,
+  type ValidationResult,
+  type ServiceValidation,
+} from "./config-validation.js";
 
 // Export all types
 export type {
