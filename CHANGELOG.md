@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Semantic-release for automated versioning and releases
+- Commitlint for conventional commit message validation
+- Commit-msg hook to enforce conventional commits
+
 ## [1.4.1] - 2025-12-25
 
 ### Added
