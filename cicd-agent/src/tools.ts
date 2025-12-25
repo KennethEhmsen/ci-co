@@ -7,6 +7,7 @@ import {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
   sonarGetProjects,
@@ -53,6 +54,8 @@ const toolHandlers: Record<string, ToolHandler> = {
   trivy_scan_iac: async (input) => trivyScanIac(input.path as string, input.severity as string),
   trivy_scan_secrets: async (input) =>
     trivyScanSecrets(input.path as string, input.severity as string),
+  trivy_scan_secrets_image: async (input) =>
+    trivyScanSecretsImage(input.image as string, input.severity as string),
   trivy_scan_licenses: async (input) =>
     trivyScanLicenses(input.path as string, input.severity as string),
   trivy_scan_licenses_image: async (input) =>
@@ -223,6 +226,26 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_secrets_image",
+    description:
+      "Scan a Docker image for hardcoded secrets using Trivy. Detects API keys, passwords, tokens, private keys, and other sensitive data in container images.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        severity: {
+          type: "string",
+          description:
+            "Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: MEDIUM,HIGH,CRITICAL)",
+        },
+      },
+      required: ["image"],
     },
   },
   {

@@ -16,6 +16,7 @@ import {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
   sonarGetProjects,
@@ -170,6 +171,26 @@ export const toolDefinitions = [
         },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "trivy_scan_secrets_image",
+    description:
+      "Scan a Docker image for hardcoded secrets using Trivy. Detects API keys, passwords, tokens, private keys, and other sensitive data in container images.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: MEDIUM,HIGH,CRITICAL)",
+          default: "MEDIUM,HIGH,CRITICAL",
+        },
+      },
+      required: ["image"],
     },
   },
   {
@@ -651,6 +672,9 @@ export async function handleCallTool(
         break;
       case "trivy_scan_secrets":
         result = await trivyScanSecrets(args?.path as string, args?.severity as string);
+        break;
+      case "trivy_scan_secrets_image":
+        result = await trivyScanSecretsImage(args?.image as string, args?.severity as string);
         break;
       case "trivy_scan_licenses":
         result = await trivyScanLicenses(args?.path as string, args?.severity as string);

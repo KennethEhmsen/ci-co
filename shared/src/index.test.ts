@@ -22,6 +22,7 @@ import {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
   sonarGetProjects,
@@ -1216,6 +1217,116 @@ describe("Trivy Handlers", () => {
       }) as unknown as typeof exec);
 
       const result = await trivyScanSecrets("/valid/path");
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe("trivyScanSecretsImage", () => {
+    it("should throw error for invalid image name", async () => {
+      await expect(trivyScanSecretsImage("")).rejects.toThrow("Invalid image name provided");
+    });
+
+    it("should throw error for short image name", async () => {
+      await expect(trivyScanSecretsImage("a")).rejects.toThrow("Invalid image name provided");
+    });
+
+    it("should scan for secrets in an image successfully", async () => {
+      const mockResult = {
+        SchemaVersion: 2,
+        Results: [
+          {
+            Target: "nginx:latest",
+            Class: "secret",
+            Secrets: [],
+          },
+        ],
+      };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanSecretsImage("nginx:latest");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should handle exec errors with JSON stdout", async () => {
+      const mockResult = {
+        SchemaVersion: 2,
+        Results: [{ Target: "nginx:latest", Secrets: [] }],
+      };
+      const mockExec = vi.mocked(exec);
+      const error = new Error("Command failed") as ExecException;
+      (error as ExecException & { stdout: string }).stdout = JSON.stringify(mockResult);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(error, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanSecretsImage("nginx:latest");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should handle exec errors with non-JSON stdout", async () => {
+      const mockExec = vi.mocked(exec);
+      const error = new Error("Command failed") as ExecException;
+      (error as ExecException & { stdout: string }).stdout = "Not JSON";
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(error, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanSecretsImage("nginx:latest");
+      expect(result).toHaveProperty("error");
+      expect(result).toHaveProperty("output", "Not JSON");
+    });
+
+    it("should throw error when exec fails without stdout", async () => {
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        if (callback) {
+          callback(new Error("Command failed") as ExecException, null);
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      await expect(trivyScanSecretsImage("nginx:latest")).rejects.toThrow("Command failed");
+    });
+
+    it("should pass custom severity levels", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        expect(cmd).toContain("--severity HIGH,CRITICAL");
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanSecretsImage("nginx:latest", "HIGH,CRITICAL");
+      expect(result).toEqual(mockResult);
+    });
+
+    it("should use --scanners secret flag with image command", async () => {
+      const mockResult = { SchemaVersion: 2, Results: [] };
+      const mockExec = vi.mocked(exec);
+      mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+        expect(cmd).toContain("image --scanners secret");
+        if (callback) {
+          callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
+        }
+        return {} as ChildProcess;
+      }) as unknown as typeof exec);
+
+      const result = await trivyScanSecretsImage("nginx:latest");
       expect(result).toEqual(mockResult);
     });
   });

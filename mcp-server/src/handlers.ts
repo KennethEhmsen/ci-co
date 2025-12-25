@@ -17,6 +17,7 @@ export {
   trivyGenerateSbomImage,
   trivyScanIac,
   trivyScanSecrets,
+  trivyScanSecretsImage,
   trivyScanLicenses,
   trivyScanLicensesImage,
   // SonarQube

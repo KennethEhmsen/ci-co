@@ -330,6 +330,51 @@ export async function trivyScanSecrets(
 }
 
 /**
+ * Scan a Docker image for secrets using Trivy.
+ * Detects hardcoded secrets, API keys, passwords, tokens, and other sensitive data in container images.
+ *
+ * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
+ * @param severity - Severity levels to report: LOW, MEDIUM, HIGH, CRITICAL (default: MEDIUM,HIGH,CRITICAL)
+ * @returns Promise resolving to Trivy secret scan results in JSON format
+ * @throws Error if image name is invalid or Trivy command fails
+ *
+ * @example
+ * ```typescript
+ * const results = await trivyScanSecretsImage('nginx:1.25');
+ * console.log(results.Results); // Array of secret findings
+ * ```
+ */
+export async function trivyScanSecretsImage(
+  image: string,
+  severity: string = "MEDIUM,HIGH,CRITICAL"
+): Promise<TrivySecretScanResult | ErrorResponse> {
+  const safeImage = sanitizeImageName(image);
+  const safeSeverity = validateSeverity(severity);
+
+  if (!safeImage || safeImage.length < 2) {
+    throw new Error("Invalid image name provided");
+  }
+
+  try {
+    const { stdout } = await execAsync(
+      `docker run --rm aquasec/trivy:latest image --scanners secret --format json --severity ${safeSeverity} ${safeImage}`,
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+    return JSON.parse(stdout) as TrivySecretScanResult;
+  } catch (error: unknown) {
+    const execError = error as ExecError;
+    if (execError.stdout) {
+      try {
+        return JSON.parse(execError.stdout) as TrivySecretScanResult;
+      } catch {
+        return { error: execError.message, output: execError.stdout };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
  * Scan a local filesystem path for license information using Trivy.
  * Detects licenses in dependencies and flags potentially problematic licenses.
  *
