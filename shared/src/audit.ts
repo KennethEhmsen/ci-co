@@ -42,7 +42,7 @@ export interface AuditLogger {
  * Generate a unique ID for audit entries
  */
 function generateId(): string {
-  return `audit-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return `audit-${crypto.randomUUID()}`;
 }
 
 /**
