@@ -51,4 +51,6 @@ export {
   // Combined
   securityScanAll,
   checkPlatformStatus,
+  // Security Dashboard
+  getSecurityDashboard,
 } from "@cicd/shared";
