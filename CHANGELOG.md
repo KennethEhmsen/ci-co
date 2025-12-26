@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2025-12-26
+
+### Added
+
+#### Developer Experience (Phase 4)
+- **Configuration File Support**
+  - Load settings from `.cicd-agent.yaml` or `.cicd-agent.json`
+  - Platform URL overrides, default repository context
+  - Simple YAML parser with nested object support
+- **Multiple Output Formats**
+  - JSON, table, markdown, and text output formats
+  - `--format` flag for CLI output control
+  - `--quiet` mode for scripting and automation
+- **Formatter Module**
+  - `setGlobalFormat()` and `setGlobalQuiet()` for programmatic control
+  - `formatOutput()` with format-aware rendering
+  - `log()` respects quiet mode
+
+#### API Tools (Phase 2)
+- **Pull Request Management**
+  - `gitea_list_pull_requests` - List PRs with state filtering
+  - `gitea_get_pull_request` - Get PR details by number
+  - `gitea_create_pull_request` - Create new PRs
+  - `gitea_merge_pull_request` - Merge PRs with strategy options
+- **Issue Management**
+  - `gitea_create_issue` - Create issues with labels and assignees
+  - `gitea_list_issues` - List issues with state filtering
+- **SBOM Generation**
+  - `trivy_generate_sbom` - Generate SBOM for local paths
+  - `trivy_generate_sbom_image` - Generate SBOM for container images
+- **Quality Gates**
+  - `sonar_get_quality_gate_status` - Check SonarQube quality gate status
+- **Policy-Based Gating**
+  - `evaluatePolicy()` - Evaluate scan results against security policies
+  - Built-in policies: strict, standard, permissive
+  - Configurable severity thresholds and license restrictions
+
+#### Resilience & Performance (Phase 3)
+- **Scan Result Caching**
+  - `ScanCache` class with TTL-based expiration
+  - `withCache()` decorator for async functions
+  - Pre-configured caches for Trivy, SonarQube, Dependency-Track
+- **Circuit Breaker Pattern**
+  - `CircuitBreaker` class with CLOSED/OPEN/HALF_OPEN states
+  - Automatic failure detection and recovery
+  - Pre-configured breakers for all external services
+- **Rate Limiting**
+  - `RateLimiter` with token bucket algorithm
+  - `QueuedRateLimiter` for request queuing
+  - Service-specific rate limits (Trivy: 10/min, Gitea/Drone: 60/min)
+
+#### Security & Compliance (Phase 1)
+- **Audit Logging**
+  - `AuditLogger` with structured log entries
+  - `auditOperation()` for tracking tool executions
+  - `auditSecurityEvent()` for security-relevant events
+  - `getFailedOperations()` and `getSecurityEvents()` queries
+- **Configuration Validation**
+  - `validateConfig()` - Validate URL formats and credentials
+  - `validateConnectivity()` - Check service reachability
+  - `validateStartup()` - Full startup validation with health checks
+  - `logValidationResults()` - Formatted validation output
+
+### Changed
+- Tool count increased to 41 (8 new tools)
+- Test count: 538 tests across all packages
+- Coverage: shared 84.2%, cicd-agent 65.82%
+
 ## [1.15.0] - 2025-12-25
 
 ### Added
@@ -291,7 +359,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.2...v1.14.0
 [1.13.2]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.1...v1.13.2
