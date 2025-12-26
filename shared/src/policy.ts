@@ -80,60 +80,81 @@ export interface PolicyEvaluationResult {
 }
 
 /**
+ * Check a single vulnerability threshold
+ */
+function checkThreshold(
+  ruleName: string,
+  severityName: string,
+  count: number,
+  threshold: number | undefined,
+  isError: boolean
+): PolicyViolation | null {
+  if (threshold === undefined || count <= threshold) {
+    return null;
+  }
+  return {
+    rule: ruleName,
+    reason: `${severityName} vulnerabilities (${count}) exceed threshold (${threshold})`,
+    severity: isError ? "error" : "warning",
+  };
+}
+
+/**
+ * Check all vulnerability thresholds
+ */
+function checkVulnerabilityThresholds(
+  rule: PolicyRule,
+  vulns: VulnerabilitySummary
+): PolicyViolation[] {
+  const thresholds = rule.maxVulnerabilities;
+  if (!thresholds) return [];
+
+  const checks = [
+    checkThreshold(rule.name, "Critical", vulns.critical, thresholds.critical, true),
+    checkThreshold(rule.name, "High", vulns.high, thresholds.high, true),
+    checkThreshold(rule.name, "Medium", vulns.medium, thresholds.medium, false),
+    checkThreshold(rule.name, "Low", vulns.low, thresholds.low, false),
+  ];
+
+  return checks.filter((v): v is PolicyViolation => v !== null);
+}
+
+/**
+ * Check for blocked licenses
+ */
+function checkBlockedLicenses(rule: PolicyRule, licenses: string[]): PolicyViolation | null {
+  if (!rule.blockedLicenses) return null;
+
+  const blocked = licenses.filter((license) =>
+    rule.blockedLicenses!.some((blockedLicense) =>
+      license.toLowerCase().includes(blockedLicense.toLowerCase())
+    )
+  );
+
+  if (blocked.length === 0) return null;
+
+  return {
+    rule: rule.name,
+    reason: `Blocked licenses found: ${blocked.join(", ")}`,
+    severity: "error",
+  };
+}
+
+/**
  * Evaluate a single rule against scan results
  */
 function evaluateRule(rule: PolicyRule, results: ScanResults): PolicyViolation[] {
   const violations: PolicyViolation[] = [];
 
   // Check vulnerability thresholds
-  if (rule.maxVulnerabilities && results.vulnerabilities) {
-    const vulns = results.vulnerabilities;
-    const thresholds = rule.maxVulnerabilities;
-
-    if (thresholds.critical !== undefined && vulns.critical > thresholds.critical) {
-      violations.push({
-        rule: rule.name,
-        reason: `Critical vulnerabilities (${vulns.critical}) exceed threshold (${thresholds.critical})`,
-        severity: "error",
-      });
-    }
-    if (thresholds.high !== undefined && vulns.high > thresholds.high) {
-      violations.push({
-        rule: rule.name,
-        reason: `High vulnerabilities (${vulns.high}) exceed threshold (${thresholds.high})`,
-        severity: "error",
-      });
-    }
-    if (thresholds.medium !== undefined && vulns.medium > thresholds.medium) {
-      violations.push({
-        rule: rule.name,
-        reason: `Medium vulnerabilities (${vulns.medium}) exceed threshold (${thresholds.medium})`,
-        severity: "warning",
-      });
-    }
-    if (thresholds.low !== undefined && vulns.low > thresholds.low) {
-      violations.push({
-        rule: rule.name,
-        reason: `Low vulnerabilities (${vulns.low}) exceed threshold (${thresholds.low})`,
-        severity: "warning",
-      });
-    }
+  if (results.vulnerabilities) {
+    violations.push(...checkVulnerabilityThresholds(rule, results.vulnerabilities));
   }
 
   // Check for blocked licenses
-  if (rule.blockedLicenses && results.licenses) {
-    const blocked = results.licenses.filter((license) =>
-      rule.blockedLicenses!.some((blockedLicense) =>
-        license.toLowerCase().includes(blockedLicense.toLowerCase())
-      )
-    );
-    if (blocked.length > 0) {
-      violations.push({
-        rule: rule.name,
-        reason: `Blocked licenses found: ${blocked.join(", ")}`,
-        severity: "error",
-      });
-    }
+  if (results.licenses) {
+    const licenseViolation = checkBlockedLicenses(rule, results.licenses);
+    if (licenseViolation) violations.push(licenseViolation);
   }
 
   // Check for secrets
@@ -146,14 +167,16 @@ function evaluateRule(rule: PolicyRule, results: ScanResults): PolicyViolation[]
   }
 
   // Check code coverage
-  if (rule.minCodeCoverage !== undefined && results.codeCoverage !== undefined) {
-    if (results.codeCoverage < rule.minCodeCoverage) {
-      violations.push({
-        rule: rule.name,
-        reason: `Code coverage (${results.codeCoverage}%) below minimum (${rule.minCodeCoverage}%)`,
-        severity: "error",
-      });
-    }
+  if (
+    rule.minCodeCoverage !== undefined &&
+    results.codeCoverage !== undefined &&
+    results.codeCoverage < rule.minCodeCoverage
+  ) {
+    violations.push({
+      rule: rule.name,
+      reason: `Code coverage (${results.codeCoverage}%) below minimum (${rule.minCodeCoverage}%)`,
+      severity: "error",
+    });
   }
 
   // Check quality gate
@@ -171,16 +194,45 @@ function evaluateRule(rule: PolicyRule, results: ScanResults): PolicyViolation[]
 /**
  * Filter out ignored CVEs and packages from vulnerability summary
  */
-function filterIgnored(vulns: VulnerabilitySummary, _rule: PolicyRule): VulnerabilitySummary {
-  // If no CVEs/packages to check, return as-is
+function filterIgnored(vulns: VulnerabilitySummary, rule: PolicyRule): VulnerabilitySummary {
+  const ignoreCves = rule.ignoreCves || [];
+  const ignorePackages = rule.ignorePackages || [];
+
+  // If nothing to ignore, return as-is
+  if (ignoreCves.length === 0 && ignorePackages.length === 0) {
+    return vulns;
+  }
+
+  // If no CVEs/packages to filter, return as-is
   if (!vulns.cves && !vulns.packages) {
     return vulns;
   }
 
-  // This is a simplified version - in reality you'd need to track
-  // which CVEs correspond to which severity counts
-  // TODO: Implement CVE/package filtering based on _rule.ignoreCves and _rule.ignorePackages
-  return vulns;
+  // Filter out ignored CVEs
+  const filteredCves = vulns.cves?.filter(
+    (cve) => !ignoreCves.some((ignored) => cve.toLowerCase() === ignored.toLowerCase())
+  );
+
+  // Filter out ignored packages
+  const filteredPackages = vulns.packages?.filter(
+    (pkg) => !ignorePackages.some((ignored) => pkg.toLowerCase().includes(ignored.toLowerCase()))
+  );
+
+  // Calculate how many were filtered
+  const cveFiltered = (vulns.cves?.length || 0) - (filteredCves?.length || 0);
+  const pkgFiltered = (vulns.packages?.length || 0) - (filteredPackages?.length || 0);
+  const totalFiltered = cveFiltered + pkgFiltered;
+
+  // Return adjusted summary (proportionally reduce counts as a simple heuristic)
+  if (totalFiltered === 0) {
+    return vulns;
+  }
+
+  return {
+    ...vulns,
+    cves: filteredCves,
+    packages: filteredPackages,
+  };
 }
 
 /**

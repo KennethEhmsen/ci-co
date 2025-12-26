@@ -1307,6 +1307,126 @@ function createEmptySummary(): SecurityDashboardSummary {
 }
 
 /**
+ * Process Trivy scan results into dashboard format.
+ */
+function processTrivyResult(
+  trivyResult: PromiseSettledResult<TrivyScanResult | ErrorResponse | null>,
+  allFindings: SecurityDashboardFinding[]
+): SecurityDashboardSummary | { error: string } {
+  if (trivyResult.status === "rejected") {
+    return { error: (trivyResult.reason as Error).message };
+  }
+
+  const trivyData = trivyResult.value;
+  // Handle error response or null
+  if (!trivyData) {
+    return createEmptySummary();
+  }
+  if ("error" in trivyData) {
+    return { error: trivyData.error };
+  }
+  if (!("Results" in trivyData) || !trivyData.Results) {
+    return createEmptySummary();
+  }
+
+  const summary = createEmptySummary();
+  for (const targetResult of trivyData.Results) {
+    if (!targetResult.Vulnerabilities) continue;
+    for (const vuln of targetResult.Vulnerabilities) {
+      const normalizedSev = normalizeSeverity(vuln.Severity, "trivy");
+      summary[normalizedSev.toLowerCase() as keyof SecurityDashboardSummary]++;
+      summary.total++;
+      allFindings.push({
+        id: vuln.VulnerabilityID,
+        severity: normalizedSev,
+        source: "trivy",
+        package: `${vuln.PkgName}@${vuln.InstalledVersion}`,
+        message: vuln.Title || vuln.Description?.substring(0, 100),
+      });
+    }
+  }
+  return summary;
+}
+
+/**
+ * Process SonarQube issues into dashboard format.
+ */
+function processSonarIssues(
+  issuesResult: PromiseSettledResult<SonarIssuesResponse | null>,
+  allFindings: SecurityDashboardFinding[]
+): { bugs: number; vulnerabilities: number; codeSmells: number; error?: string } {
+  const metrics = { bugs: 0, vulnerabilities: 0, codeSmells: 0 };
+
+  if (issuesResult.status === "rejected") {
+    return { ...metrics, error: (issuesResult.reason as Error).message };
+  }
+
+  const issuesData = issuesResult.value;
+  if (!issuesData?.issues) return metrics;
+
+  for (const issue of issuesData.issues) {
+    if (issue.type === "BUG") metrics.bugs++;
+    else if (issue.type === "VULNERABILITY") metrics.vulnerabilities++;
+    else if (issue.type === "CODE_SMELL") metrics.codeSmells++;
+
+    if (issue.type === "VULNERABILITY" || issue.type === "BUG") {
+      allFindings.push({
+        id: issue.key,
+        severity: normalizeSeverity(issue.severity, "sonarqube"),
+        source: "sonarqube",
+        message: issue.message,
+      });
+    }
+  }
+  return metrics;
+}
+
+/**
+ * Process Dependency-Track findings into dashboard format.
+ */
+function processDTrackResult(
+  dtrackResult: PromiseSettledResult<DTrackFinding[] | null>,
+  allFindings: SecurityDashboardFinding[]
+): SecurityDashboardSummary | { error: string } {
+  if (dtrackResult.status === "rejected") {
+    return { error: (dtrackResult.reason as Error).message };
+  }
+
+  const dtrackData = dtrackResult.value;
+  if (!dtrackData) return createEmptySummary();
+
+  const summary = createEmptySummary();
+  for (const finding of dtrackData) {
+    const normalizedSev = normalizeSeverity(finding.vulnerability.severity, "dtrack");
+    summary[normalizedSev.toLowerCase() as keyof SecurityDashboardSummary]++;
+    summary.total++;
+    allFindings.push({
+      id: finding.vulnerability.vulnId,
+      severity: normalizedSev,
+      source: "dtrack",
+      package: `${finding.component.name}@${finding.component.version}`,
+      message: finding.vulnerability.title || finding.vulnerability.description?.substring(0, 100),
+    });
+  }
+  return summary;
+}
+
+/**
+ * Add summary counts from a source if no error.
+ */
+function addToSummary(
+  target: SecurityDashboardSummary,
+  source: SecurityDashboardSummary | { error: string }
+): void {
+  if ("error" in source) return;
+  target.critical += source.critical;
+  target.high += source.high;
+  target.medium += source.medium;
+  target.low += source.low;
+  target.total += source.total;
+}
+
+/**
  * Get a unified security dashboard aggregating Trivy, SonarQube, and Dependency-Track results.
  * Uses parallel execution for performance with error resilience for each source.
  *
@@ -1379,67 +1499,20 @@ export async function getSecurityDashboard(
       dtrackProjectUuid ? dtrackGetFindings(dtrackProjectUuid) : Promise.resolve(null),
     ]);
 
-  // Process Trivy results
-  if (trivyResult.status === "fulfilled" && trivyResult.value) {
-    const trivyData = trivyResult.value as TrivyScanResult;
-    if ("Results" in trivyData && trivyData.Results) {
-      const trivySummary = createEmptySummary();
-      for (const targetResult of trivyData.Results) {
-        if (targetResult.Vulnerabilities) {
-          for (const vuln of targetResult.Vulnerabilities) {
-            const normalizedSev = normalizeSeverity(vuln.Severity, "trivy");
-            trivySummary[normalizedSev.toLowerCase() as keyof SecurityDashboardSummary]++;
-            trivySummary.total++;
+  // Process results using helper functions
+  result.bySource.trivy = processTrivyResult(trivyResult, allFindings);
+  result.bySource.dependencyTrack = processDTrackResult(dtrackResult, allFindings);
 
-            allFindings.push({
-              id: vuln.VulnerabilityID,
-              severity: normalizedSev,
-              source: "trivy",
-              package: `${vuln.PkgName}@${vuln.InstalledVersion}`,
-              message: vuln.Title || vuln.Description?.substring(0, 100),
-            });
-          }
-        }
-      }
-      result.bySource.trivy = trivySummary;
-    }
-  } else if (trivyResult.status === "rejected") {
-    result.bySource.trivy = { error: (trivyResult.reason as Error).message };
-  }
-
-  // Process SonarQube issues
+  // Process SonarQube results
+  const sonarIssueMetrics = processSonarIssues(sonarIssuesResult, allFindings);
   const sonarMetrics: SonarDashboardMetrics = {
-    bugs: 0,
-    vulnerabilities: 0,
-    codeSmells: 0,
+    bugs: sonarIssueMetrics.bugs,
+    vulnerabilities: sonarIssueMetrics.vulnerabilities,
+    codeSmells: sonarIssueMetrics.codeSmells,
     hotspots: 0,
     qualityGateStatus: "NONE",
+    error: sonarIssueMetrics.error,
   };
-
-  if (sonarIssuesResult.status === "fulfilled" && sonarIssuesResult.value) {
-    const issuesData = sonarIssuesResult.value as SonarIssuesResponse;
-    if (issuesData.issues) {
-      for (const issue of issuesData.issues) {
-        // Count by type
-        if (issue.type === "BUG") sonarMetrics.bugs++;
-        else if (issue.type === "VULNERABILITY") sonarMetrics.vulnerabilities++;
-        else if (issue.type === "CODE_SMELL") sonarMetrics.codeSmells++;
-
-        // Only add vulnerabilities and bugs to findings
-        if (issue.type === "VULNERABILITY" || issue.type === "BUG") {
-          const normalizedSev = normalizeSeverity(issue.severity, "sonarqube");
-          allFindings.push({
-            id: issue.key,
-            severity: normalizedSev,
-            source: "sonarqube",
-            message: issue.message,
-          });
-        }
-      }
-    }
-  } else if (sonarIssuesResult.status === "rejected") {
-    sonarMetrics.error = (sonarIssuesResult.reason as Error).message;
-  }
 
   // Process SonarQube hotspots
   if (sonarHotspotsResult.status === "fulfilled" && sonarHotspotsResult.value) {
@@ -1455,52 +1528,12 @@ export async function getSecurityDashboard(
 
   result.bySource.sonarqube = sonarMetrics;
 
-  // Process Dependency-Track results
-  if (dtrackResult.status === "fulfilled" && dtrackResult.value) {
-    const dtrackData = dtrackResult.value as DTrackFinding[];
-    const dtrackSummary = createEmptySummary();
-
-    for (const finding of dtrackData) {
-      const normalizedSev = normalizeSeverity(finding.vulnerability.severity, "dtrack");
-      dtrackSummary[normalizedSev.toLowerCase() as keyof SecurityDashboardSummary]++;
-      dtrackSummary.total++;
-
-      allFindings.push({
-        id: finding.vulnerability.vulnId,
-        severity: normalizedSev,
-        source: "dtrack",
-        package: `${finding.component.name}@${finding.component.version}`,
-        message:
-          finding.vulnerability.title || finding.vulnerability.description?.substring(0, 100),
-      });
-    }
-    result.bySource.dependencyTrack = dtrackSummary;
-  } else if (dtrackResult.status === "rejected") {
-    result.bySource.dependencyTrack = { error: (dtrackResult.reason as Error).message };
-  }
-
   // Calculate total summary from successful sources
-  const trivySum = result.bySource.trivy;
-  const dtrackSum = result.bySource.dependencyTrack;
-
-  if (!("error" in trivySum)) {
-    result.summary.critical += trivySum.critical;
-    result.summary.high += trivySum.high;
-    result.summary.medium += trivySum.medium;
-    result.summary.low += trivySum.low;
-    result.summary.total += trivySum.total;
-  }
-
-  if (!("error" in dtrackSum)) {
-    result.summary.critical += dtrackSum.critical;
-    result.summary.high += dtrackSum.high;
-    result.summary.medium += dtrackSum.medium;
-    result.summary.low += dtrackSum.low;
-    result.summary.total += dtrackSum.total;
-  }
+  addToSummary(result.summary, result.bySource.trivy);
+  addToSummary(result.summary, result.bySource.dependencyTrack);
 
   // Add SonarQube vulnerabilities to summary
-  result.summary.critical += sonarMetrics.vulnerabilities; // Simplified: count as critical
+  result.summary.critical += sonarMetrics.vulnerabilities;
   result.summary.total += sonarMetrics.vulnerabilities + sonarMetrics.bugs;
 
   // Sort findings by severity and take top 10

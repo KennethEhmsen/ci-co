@@ -65,6 +65,71 @@ function formatText(data: unknown): string {
 }
 
 /**
+ * Calculate column widths for array table
+ */
+function calculateColumnWidths(
+  data: Record<string, unknown>[],
+  keys: string[]
+): Record<string, number> {
+  const columnWidths: Record<string, number> = {};
+  for (const key of keys) {
+    columnWidths[key] = key.length;
+    for (const row of data) {
+      const val = String(row[key] ?? "");
+      columnWidths[key] = Math.max(columnWidths[key], Math.min(val.length, 40));
+    }
+  }
+  return columnWidths;
+}
+
+/**
+ * Format array data as ASCII table rows
+ */
+function formatArrayAsTable(data: Record<string, unknown>[], lines: string[]): void {
+  if (data.length === 0) {
+    lines.push("No data");
+    return;
+  }
+
+  const keys = Object.keys(data[0]);
+  const columnWidths = calculateColumnWidths(data, keys);
+
+  // Header
+  const header = keys.map((k) => k.padEnd(columnWidths[k])).join(" | ");
+  lines.push(header);
+  lines.push(keys.map((k) => "-".repeat(columnWidths[k])).join("-+-"));
+
+  // Rows
+  for (const row of data) {
+    const rowStr = keys
+      .map((k) => {
+        const val = String(row[k] ?? "");
+        return val.slice(0, 40).padEnd(columnWidths[k]);
+      })
+      .join(" | ");
+    lines.push(rowStr);
+  }
+}
+
+/**
+ * Format object as key-value pairs
+ */
+function formatObjectAsTable(obj: Record<string, unknown>, lines: string[]): void {
+  const keys = Object.keys(obj);
+  if (keys.length === 0) {
+    lines.push("No data");
+    return;
+  }
+
+  const maxKeyLen = Math.max(...keys.map((k) => k.length));
+
+  for (const [key, value] of Object.entries(obj)) {
+    const valStr = typeof value === "object" ? JSON.stringify(value) : String(value);
+    lines.push(`${key.padEnd(maxKeyLen)} : ${valStr}`);
+  }
+}
+
+/**
  * Table format - ASCII table for terminal
  */
 function formatTable(data: unknown, title?: string): string {
@@ -76,47 +141,9 @@ function formatTable(data: unknown, title?: string): string {
   }
 
   if (Array.isArray(data)) {
-    if (data.length === 0) {
-      return lines.join("\n") + "\nNo data";
-    }
-
-    // Get all keys from first item
-    const keys = Object.keys(data[0] as Record<string, unknown>);
-    const columnWidths: Record<string, number> = {};
-
-    // Calculate column widths
-    for (const key of keys) {
-      columnWidths[key] = key.length;
-      for (const row of data) {
-        const val = String((row as Record<string, unknown>)[key] ?? "");
-        columnWidths[key] = Math.max(columnWidths[key], Math.min(val.length, 40));
-      }
-    }
-
-    // Header
-    const header = keys.map((k) => k.padEnd(columnWidths[k])).join(" | ");
-    lines.push(header);
-    lines.push(keys.map((k) => "-".repeat(columnWidths[k])).join("-+-"));
-
-    // Rows
-    for (const row of data) {
-      const rowStr = keys
-        .map((k) => {
-          const val = String((row as Record<string, unknown>)[k] ?? "");
-          return val.slice(0, 40).padEnd(columnWidths[k]);
-        })
-        .join(" | ");
-      lines.push(rowStr);
-    }
+    formatArrayAsTable(data as Record<string, unknown>[], lines);
   } else if (typeof data === "object" && data !== null) {
-    // Single object - display as key-value pairs
-    const obj = data as Record<string, unknown>;
-    const maxKeyLen = Math.max(...Object.keys(obj).map((k) => k.length));
-
-    for (const [key, value] of Object.entries(obj)) {
-      const valStr = typeof value === "object" ? JSON.stringify(value) : String(value);
-      lines.push(`${key.padEnd(maxKeyLen)} : ${valStr}`);
-    }
+    formatObjectAsTable(data as Record<string, unknown>, lines);
   } else {
     lines.push(String(data));
   }
