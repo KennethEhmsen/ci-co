@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1] - 2025-12-26
+
 ### Changed
 - **Trivy Server API** - Image-based Trivy functions now use the Trivy server API (`--server` flag) instead of local database sync:
   - `trivy_scan_image`
@@ -368,7 +370,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.13.2...v1.14.0
