@@ -2859,3 +2859,553 @@ describe("Metrics", () => {
     });
   });
 });
+
+// Scan Diff tests
+import {
+  createFingerprint,
+  fingerprintTrivyVulnerability,
+  extractTrivyVulnerabilities,
+  compareVulnerabilities,
+  compareScanResults,
+  compareTrivyScans,
+  getScanHistory,
+  resetScanHistory,
+  createScanRecord,
+  storeTrivyScan,
+  storeAndCompare,
+} from "./scan-diff.js";
+import type { TrivyVulnerability, TrivyScanResult, FingerprintedVulnerability } from "./types.js";
+
+describe("Scan Diff", () => {
+  beforeEach(() => {
+    resetScanHistory();
+  });
+
+  describe("createFingerprint", () => {
+    it("should create consistent fingerprints for same input", () => {
+      const fp1 = createFingerprint(
+        "CVE-2023-1234",
+        "lodash",
+        "4.17.20",
+        "app/node_modules",
+        "trivy"
+      );
+      const fp2 = createFingerprint(
+        "CVE-2023-1234",
+        "lodash",
+        "4.17.20",
+        "app/node_modules",
+        "trivy"
+      );
+      expect(fp1).toBe(fp2);
+    });
+
+    it("should create different fingerprints for different inputs", () => {
+      const fp1 = createFingerprint(
+        "CVE-2023-1234",
+        "lodash",
+        "4.17.20",
+        "app/node_modules",
+        "trivy"
+      );
+      const fp2 = createFingerprint(
+        "CVE-2023-5678",
+        "lodash",
+        "4.17.20",
+        "app/node_modules",
+        "trivy"
+      );
+      expect(fp1).not.toBe(fp2);
+    });
+
+    it("should create 16-character fingerprints", () => {
+      const fp = createFingerprint(
+        "CVE-2023-1234",
+        "lodash",
+        "4.17.20",
+        "app/node_modules",
+        "trivy"
+      );
+      expect(fp.length).toBe(16);
+    });
+  });
+
+  describe("fingerprintTrivyVulnerability", () => {
+    it("should convert Trivy vulnerability to fingerprinted vulnerability", () => {
+      const trivyVuln: TrivyVulnerability = {
+        VulnerabilityID: "CVE-2023-1234",
+        PkgName: "lodash",
+        InstalledVersion: "4.17.20",
+        FixedVersion: "4.17.21",
+        Severity: "HIGH",
+        Title: "Test vulnerability",
+        Description: "A test vulnerability",
+      };
+
+      const result = fingerprintTrivyVulnerability(trivyVuln, "node_modules");
+
+      expect(result.fingerprint).toBeDefined();
+      expect(result.id).toBe("CVE-2023-1234");
+      expect(result.package).toBe("lodash");
+      expect(result.version).toBe("4.17.20");
+      expect(result.severity).toBe("HIGH");
+      expect(result.fixedVersion).toBe("4.17.21");
+      expect(result.source).toBe("trivy");
+    });
+  });
+
+  describe("extractTrivyVulnerabilities", () => {
+    it("should extract all vulnerabilities from scan result", () => {
+      const scanResult: TrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [
+          {
+            Target: "node_modules",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2023-1234",
+                PkgName: "lodash",
+                InstalledVersion: "4.17.20",
+                Severity: "HIGH",
+              },
+              {
+                VulnerabilityID: "CVE-2023-5678",
+                PkgName: "express",
+                InstalledVersion: "4.18.0",
+                Severity: "MEDIUM",
+              },
+            ],
+          },
+        ],
+      };
+
+      const vulns = extractTrivyVulnerabilities(scanResult);
+
+      expect(vulns.length).toBe(2);
+      expect(vulns[0].id).toBe("CVE-2023-1234");
+      expect(vulns[1].id).toBe("CVE-2023-5678");
+    });
+
+    it("should handle empty results", () => {
+      const scanResult: TrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [],
+      };
+
+      const vulns = extractTrivyVulnerabilities(scanResult);
+      expect(vulns.length).toBe(0);
+    });
+
+    it("should handle missing vulnerabilities array", () => {
+      const scanResult: TrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [
+          {
+            Target: "node_modules",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+          },
+        ],
+      };
+
+      const vulns = extractTrivyVulnerabilities(scanResult);
+      expect(vulns.length).toBe(0);
+    });
+  });
+
+  describe("compareVulnerabilities", () => {
+    const createVuln = (id: string, severity: string): FingerprintedVulnerability => ({
+      fingerprint: createFingerprint(id, "pkg", "1.0", "target", "trivy"),
+      id,
+      package: "pkg",
+      version: "1.0",
+      severity,
+      target: "target",
+      source: "trivy",
+    });
+
+    it("should identify new vulnerabilities", () => {
+      const current = [createVuln("CVE-1", "HIGH"), createVuln("CVE-2", "MEDIUM")];
+      const baseline = [createVuln("CVE-1", "HIGH")];
+
+      const result = compareVulnerabilities(current, baseline);
+
+      expect(result.new.length).toBe(1);
+      expect(result.new[0].id).toBe("CVE-2");
+      expect(result.fixed.length).toBe(0);
+      expect(result.unchanged.length).toBe(1);
+    });
+
+    it("should identify fixed vulnerabilities", () => {
+      const current = [createVuln("CVE-1", "HIGH")];
+      const baseline = [createVuln("CVE-1", "HIGH"), createVuln("CVE-2", "MEDIUM")];
+
+      const result = compareVulnerabilities(current, baseline);
+
+      expect(result.new.length).toBe(0);
+      expect(result.fixed.length).toBe(1);
+      expect(result.fixed[0].id).toBe("CVE-2");
+      expect(result.unchanged.length).toBe(1);
+    });
+
+    it("should identify unchanged vulnerabilities", () => {
+      const vuln = createVuln("CVE-1", "HIGH");
+      const current = [vuln];
+      const baseline = [vuln];
+
+      const result = compareVulnerabilities(current, baseline);
+
+      expect(result.new.length).toBe(0);
+      expect(result.fixed.length).toBe(0);
+      expect(result.unchanged.length).toBe(1);
+    });
+
+    it("should filter by minimum severity", () => {
+      const current = [
+        createVuln("CVE-1", "CRITICAL"),
+        createVuln("CVE-2", "HIGH"),
+        createVuln("CVE-3", "LOW"),
+      ];
+      const baseline: FingerprintedVulnerability[] = [];
+
+      const result = compareVulnerabilities(current, baseline, { minSeverity: "HIGH" });
+
+      expect(result.new.length).toBe(2);
+      expect(result.new.map((v) => v.id)).toContain("CVE-1");
+      expect(result.new.map((v) => v.id)).toContain("CVE-2");
+      expect(result.new.map((v) => v.id)).not.toContain("CVE-3");
+    });
+
+    it("should exclude unchanged when option is set", () => {
+      const vuln = createVuln("CVE-1", "HIGH");
+      const result = compareVulnerabilities([vuln], [vuln], { includeUnchanged: false });
+
+      expect(result.unchanged.length).toBe(0);
+    });
+  });
+
+  describe("compareScanResults", () => {
+    it("should generate full diff result with summary", () => {
+      const current: FingerprintedVulnerability[] = [
+        {
+          fingerprint: "fp1",
+          id: "CVE-NEW",
+          package: "pkg",
+          version: "1.0",
+          severity: "CRITICAL",
+          target: "t",
+          source: "trivy",
+        },
+        {
+          fingerprint: "fp2",
+          id: "CVE-UNCHANGED",
+          package: "pkg",
+          version: "1.0",
+          severity: "HIGH",
+          target: "t",
+          source: "trivy",
+        },
+      ];
+
+      const baseline: FingerprintedVulnerability[] = [
+        {
+          fingerprint: "fp2",
+          id: "CVE-UNCHANGED",
+          package: "pkg",
+          version: "1.0",
+          severity: "HIGH",
+          target: "t",
+          source: "trivy",
+        },
+        {
+          fingerprint: "fp3",
+          id: "CVE-FIXED",
+          package: "pkg",
+          version: "1.0",
+          severity: "MEDIUM",
+          target: "t",
+          source: "trivy",
+        },
+      ];
+
+      const result = compareScanResults(
+        current,
+        baseline,
+        { target: "image:latest", scannedAt: "2025-01-01" },
+        { target: "image:latest", scannedAt: "2024-12-01" }
+      );
+
+      expect(result.summary.currentTotal).toBe(2);
+      expect(result.summary.baselineTotal).toBe(2);
+      expect(result.summary.new).toBe(1);
+      expect(result.summary.fixed).toBe(1);
+      expect(result.summary.unchanged).toBe(1);
+      expect(result.summary.bySeverity.critical.new).toBe(1);
+      expect(result.summary.bySeverity.high.unchanged).toBe(1);
+      expect(result.summary.bySeverity.medium.fixed).toBe(1);
+      expect(result.newVulnerabilities[0].id).toBe("CVE-NEW");
+      expect(result.fixedVulnerabilities[0].id).toBe("CVE-FIXED");
+    });
+  });
+
+  describe("compareTrivyScans", () => {
+    it("should compare two Trivy scan results", () => {
+      const current: TrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [
+          {
+            Target: "app",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2023-NEW",
+                PkgName: "pkg",
+                InstalledVersion: "1.0",
+                Severity: "HIGH",
+              },
+            ],
+          },
+        ],
+      };
+
+      const baseline: TrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [
+          {
+            Target: "app",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2023-OLD",
+                PkgName: "pkg",
+                InstalledVersion: "1.0",
+                Severity: "MEDIUM",
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = compareTrivyScans(current, baseline);
+
+      expect(result.summary.new).toBe(1);
+      expect(result.summary.fixed).toBe(1);
+      expect(result.newVulnerabilities[0].id).toBe("CVE-2023-NEW");
+      expect(result.fixedVulnerabilities[0].id).toBe("CVE-2023-OLD");
+    });
+  });
+
+  describe("Scan History", () => {
+    it("should store and retrieve scan records", () => {
+      const history = getScanHistory();
+      const record = createScanRecord("node:20", [
+        {
+          fingerprint: "fp1",
+          id: "CVE-1",
+          package: "pkg",
+          version: "1.0",
+          severity: "HIGH",
+          target: "t",
+          source: "trivy",
+        },
+      ]);
+
+      history.store(record);
+      const retrieved = history.getHistory("node:20");
+
+      expect(retrieved.length).toBe(1);
+      expect(retrieved[0].id).toBe(record.id);
+    });
+
+    it("should retrieve latest scan", () => {
+      const history = getScanHistory();
+
+      const record1 = createScanRecord("node:20", []);
+      history.store(record1);
+
+      const record2 = createScanRecord("node:20", []);
+      history.store(record2);
+
+      const latest = history.getLatest("node:20");
+      expect(latest?.id).toBe(record2.id);
+    });
+
+    it("should limit history per target", () => {
+      resetScanHistory();
+      const history = getScanHistory({ maxRecordsPerTarget: 3 });
+
+      for (let i = 0; i < 5; i++) {
+        history.store(createScanRecord("node:20", []));
+      }
+
+      const records = history.getHistory("node:20");
+      expect(records.length).toBe(3);
+    });
+
+    it("should clear history", () => {
+      const history = getScanHistory();
+      history.store(createScanRecord("node:20", []));
+      history.clear();
+
+      expect(history.getHistory("node:20").length).toBe(0);
+    });
+  });
+
+  describe("storeTrivyScan", () => {
+    it("should store scan and return record", () => {
+      const scanResult: TrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [
+          {
+            Target: "app",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-1",
+                PkgName: "pkg",
+                InstalledVersion: "1.0",
+                Severity: "HIGH",
+              },
+            ],
+          },
+        ],
+      };
+
+      const record = storeTrivyScan(scanResult, "v1.0.0");
+
+      expect(record.target).toBe("node:20");
+      expect(record.identifier).toBe("v1.0.0");
+      expect(record.vulnerabilities.length).toBe(1);
+      expect(record.summary.high).toBe(1);
+      expect(record.summary.total).toBe(1);
+    });
+  });
+
+  describe("storeAndCompare", () => {
+    it("should return null diff on first scan", () => {
+      const scanResult: TrivyScanResult = {
+        ArtifactName: "python:3.12",
+        Results: [],
+      };
+
+      const { record, diff } = storeAndCompare(scanResult);
+
+      expect(record).toBeDefined();
+      expect(diff).toBeNull();
+    });
+
+    it("should return diff on subsequent scans", () => {
+      const scan1: TrivyScanResult = {
+        ArtifactName: "python:3.12",
+        Results: [
+          {
+            Target: "app",
+            Class: "lang-pkgs",
+            Type: "python-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-OLD",
+                PkgName: "pkg",
+                InstalledVersion: "1.0",
+                Severity: "HIGH",
+              },
+            ],
+          },
+        ],
+      };
+
+      const scan2: TrivyScanResult = {
+        ArtifactName: "python:3.12",
+        Results: [
+          {
+            Target: "app",
+            Class: "lang-pkgs",
+            Type: "python-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-NEW",
+                PkgName: "pkg",
+                InstalledVersion: "2.0",
+                Severity: "CRITICAL",
+              },
+            ],
+          },
+        ],
+      };
+
+      storeAndCompare(scan1, "v1.0");
+      const { diff } = storeAndCompare(scan2, "v2.0");
+
+      expect(diff).not.toBeNull();
+      expect(diff!.summary.new).toBe(1);
+      expect(diff!.summary.fixed).toBe(1);
+      expect(diff!.newVulnerabilities[0].id).toBe("CVE-NEW");
+      expect(diff!.fixedVulnerabilities[0].id).toBe("CVE-OLD");
+    });
+  });
+
+  describe("createScanRecord", () => {
+    it("should calculate summary correctly", () => {
+      const vulns: FingerprintedVulnerability[] = [
+        {
+          fingerprint: "1",
+          id: "1",
+          package: "p",
+          version: "1",
+          severity: "CRITICAL",
+          target: "t",
+          source: "trivy",
+        },
+        {
+          fingerprint: "2",
+          id: "2",
+          package: "p",
+          version: "1",
+          severity: "CRITICAL",
+          target: "t",
+          source: "trivy",
+        },
+        {
+          fingerprint: "3",
+          id: "3",
+          package: "p",
+          version: "1",
+          severity: "HIGH",
+          target: "t",
+          source: "trivy",
+        },
+        {
+          fingerprint: "4",
+          id: "4",
+          package: "p",
+          version: "1",
+          severity: "MEDIUM",
+          target: "t",
+          source: "trivy",
+        },
+        {
+          fingerprint: "5",
+          id: "5",
+          package: "p",
+          version: "1",
+          severity: "LOW",
+          target: "t",
+          source: "trivy",
+        },
+      ];
+
+      const record = createScanRecord("target", vulns, "test");
+
+      expect(record.summary.critical).toBe(2);
+      expect(record.summary.high).toBe(1);
+      expect(record.summary.medium).toBe(1);
+      expect(record.summary.low).toBe(1);
+      expect(record.summary.total).toBe(5);
+    });
+  });
+});

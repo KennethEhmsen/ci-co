@@ -1332,3 +1332,147 @@ export interface PushgatewayResult {
   statusCode?: number;
   error?: string;
 }
+
+// =============================================================================
+// Scan Diff Types
+// =============================================================================
+
+/**
+ * Unique identifier for a vulnerability finding
+ */
+export interface VulnerabilityFingerprint {
+  /** CVE or vulnerability ID */
+  id: string;
+  /** Package name */
+  package: string;
+  /** Installed version */
+  version: string;
+  /** Target file or layer */
+  target: string;
+  /** Source of the finding */
+  source: "trivy" | "sonarqube" | "dtrack";
+}
+
+/**
+ * A vulnerability with its fingerprint for comparison
+ */
+export interface FingerprintedVulnerability {
+  fingerprint: string;
+  id: string;
+  package: string;
+  version: string;
+  severity: string;
+  title?: string;
+  fixedVersion?: string;
+  target: string;
+  source: "trivy" | "sonarqube" | "dtrack";
+}
+
+/**
+ * Status of a vulnerability in a diff
+ */
+export type VulnerabilityDiffStatus = "new" | "fixed" | "unchanged";
+
+/**
+ * A vulnerability in a diff result
+ */
+export interface DiffVulnerability extends FingerprintedVulnerability {
+  status: VulnerabilityDiffStatus;
+}
+
+/**
+ * Summary counts for a scan diff
+ */
+export interface ScanDiffSummary {
+  /** Total vulnerabilities in current scan */
+  currentTotal: number;
+  /** Total vulnerabilities in baseline scan */
+  baselineTotal: number;
+  /** New vulnerabilities introduced */
+  new: number;
+  /** Vulnerabilities that were fixed */
+  fixed: number;
+  /** Vulnerabilities unchanged between scans */
+  unchanged: number;
+  /** Breakdown by severity */
+  bySeverity: {
+    critical: { new: number; fixed: number; unchanged: number };
+    high: { new: number; fixed: number; unchanged: number };
+    medium: { new: number; fixed: number; unchanged: number };
+    low: { new: number; fixed: number; unchanged: number };
+  };
+}
+
+/**
+ * Result of comparing two scans
+ */
+export interface ScanDiffResult {
+  /** Timestamp of the comparison */
+  timestamp: string;
+  /** Current scan identifier */
+  current: {
+    target: string;
+    scannedAt: string;
+    identifier?: string;
+  };
+  /** Baseline scan identifier */
+  baseline: {
+    target: string;
+    scannedAt: string;
+    identifier?: string;
+  };
+  /** Summary of changes */
+  summary: ScanDiffSummary;
+  /** New vulnerabilities (not in baseline) */
+  newVulnerabilities: FingerprintedVulnerability[];
+  /** Fixed vulnerabilities (in baseline but not current) */
+  fixedVulnerabilities: FingerprintedVulnerability[];
+  /** Unchanged vulnerabilities (in both) */
+  unchangedVulnerabilities: FingerprintedVulnerability[];
+}
+
+/**
+ * Stored scan record for history tracking
+ */
+export interface StoredScanRecord {
+  /** Unique ID for this scan */
+  id: string;
+  /** Target that was scanned (image name or path) */
+  target: string;
+  /** When the scan was performed */
+  scannedAt: string;
+  /** Optional identifier (git commit, tag, etc.) */
+  identifier?: string;
+  /** Fingerprinted vulnerabilities for comparison */
+  vulnerabilities: FingerprintedVulnerability[];
+  /** Summary counts */
+  summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    total: number;
+  };
+}
+
+/**
+ * Options for scan comparison
+ */
+export interface ScanCompareOptions {
+  /** Include unchanged vulnerabilities in result */
+  includeUnchanged?: boolean;
+  /** Filter by minimum severity */
+  minSeverity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}
+
+/**
+ * Options for scan history storage
+ */
+export interface ScanHistoryOptions {
+  /** Maximum number of records to keep per target */
+  maxRecordsPerTarget?: number;
+  /** Storage backend */
+  storage?: "memory" | "file";
+  /** File path for file storage */
+  filePath?: string;
+}

@@ -182,6 +182,16 @@ export type {
   ScanMetrics,
   PushgatewayConfig,
   PushgatewayResult,
+  // Scan Diff Types
+  VulnerabilityFingerprint,
+  FingerprintedVulnerability,
+  VulnerabilityDiffStatus,
+  DiffVulnerability,
+  ScanDiffSummary,
+  ScanDiffResult,
+  StoredScanRecord,
+  ScanCompareOptions,
+  ScanHistoryOptions,
 } from "./types.js";
 export {
   // Trivy
@@ -305,3 +315,23 @@ export {
   resetMetrics,
   getMetricsSnapshot,
 } from "./metrics.js";
+
+// Scan diff exports
+export {
+  createFingerprint,
+  fingerprintTrivyVulnerability,
+  fingerprintDtrackFinding,
+  fingerprintSonarIssue,
+  extractTrivyVulnerabilities,
+  extractDtrackVulnerabilities,
+  extractSonarVulnerabilities,
+  compareVulnerabilities,
+  compareScanResults,
+  compareTrivyScans,
+  getScanHistory,
+  resetScanHistory,
+  createScanRecord,
+  storeTrivyScan,
+  compareWithPrevious,
+  storeAndCompare,
+} from "./scan-diff.js";
