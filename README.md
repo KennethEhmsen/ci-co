@@ -40,6 +40,24 @@ The GitHub Actions CI workflow includes comprehensive security checks:
 
 Results are automatically uploaded to the [GitHub Security tab](https://github.com/KennethEhmsen/ci-co/security).
 
+### What's New in v1.17.0
+
+| Feature | Description |
+|---------|-------------|
+| **Security Dashboard** | Unified security posture view aggregating Trivy, SonarQube, and Dependency-Track results in a single call |
+
+```typescript
+// Get unified security overview
+const dashboard = await getSecurityDashboard({
+  image: 'nginx:latest',
+  sonarProject: 'my-project',
+  dtrackProjectUuid: '12345-uuid'
+});
+
+console.log(dashboard.summary);     // { critical: 5, high: 12, medium: 8, low: 3, total: 28 }
+console.log(dashboard.topFindings); // Top 10 most severe findings across all sources
+```
+
 ### What's New in v1.16.1
 
 | Feature | Description |
