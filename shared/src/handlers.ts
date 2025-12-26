@@ -32,7 +32,6 @@ import type {
   SecurityDashboardResult,
   SecurityDashboardSummary,
   SecurityDashboardFinding,
-  SonarDashboardMetrics,
   SecurityDashboardOptions,
 } from "./types.js";
 
@@ -1427,6 +1426,41 @@ function addToSummary(
 }
 
 /**
+ * Process SonarQube hotspots result.
+ */
+function processSonarHotspots(
+  hotspotsResult: PromiseSettledResult<SonarHotspotsResponse | ErrorResponse | null>
+): number {
+  if (hotspotsResult.status !== "fulfilled" || !hotspotsResult.value) {
+    return 0;
+  }
+  const hotspotsData = hotspotsResult.value;
+  if ("paging" in hotspotsData && hotspotsData.paging) {
+    return hotspotsData.paging.total || 0;
+  }
+  if ("hotspots" in hotspotsData && hotspotsData.hotspots) {
+    return hotspotsData.hotspots.length;
+  }
+  return 0;
+}
+
+/**
+ * Process SonarQube quality gate result.
+ */
+function processSonarQualityGate(
+  qgResult: PromiseSettledResult<QualityGateStatus | ErrorResponse | null>
+): string {
+  if (qgResult.status !== "fulfilled" || !qgResult.value) {
+    return "NONE";
+  }
+  const qgData = qgResult.value;
+  if ("projectStatus" in qgData && qgData.projectStatus) {
+    return qgData.projectStatus.status || "NONE";
+  }
+  return "NONE";
+}
+
+/**
  * Get a unified security dashboard aggregating Trivy, SonarQube, and Dependency-Track results.
  * Uses parallel execution for performance with error resilience for each source.
  *
@@ -1508,44 +1542,24 @@ export async function getSecurityDashboard(
   result.bySource.trivy = processTrivyResult(trivyResult, allFindings);
   result.bySource.dependencyTrack = processDTrackResult(dtrackResult, allFindings);
 
-  // Process SonarQube results
+  // Process SonarQube results using helper functions
   const sonarIssueMetrics = processSonarIssues(sonarIssuesResult, allFindings);
-  const sonarMetrics: SonarDashboardMetrics = {
+  result.bySource.sonarqube = {
     bugs: sonarIssueMetrics.bugs,
     vulnerabilities: sonarIssueMetrics.vulnerabilities,
     codeSmells: sonarIssueMetrics.codeSmells,
-    hotspots: 0,
-    qualityGateStatus: "NONE",
+    hotspots: processSonarHotspots(sonarHotspotsResult),
+    qualityGateStatus: processSonarQualityGate(sonarQgResult),
     error: sonarIssueMetrics.error,
   };
-
-  // Process SonarQube hotspots
-  if (sonarHotspotsResult.status === "fulfilled" && sonarHotspotsResult.value) {
-    const hotspotsData = sonarHotspotsResult.value;
-    if ("paging" in hotspotsData && hotspotsData.paging) {
-      sonarMetrics.hotspots = hotspotsData.paging.total || 0;
-    } else if ("hotspots" in hotspotsData && hotspotsData.hotspots) {
-      sonarMetrics.hotspots = hotspotsData.hotspots.length;
-    }
-  }
-
-  // Process SonarQube quality gate
-  if (sonarQgResult.status === "fulfilled" && sonarQgResult.value) {
-    const qgData = sonarQgResult.value;
-    if ("projectStatus" in qgData && qgData.projectStatus) {
-      sonarMetrics.qualityGateStatus = qgData.projectStatus.status || "NONE";
-    }
-  }
-
-  result.bySource.sonarqube = sonarMetrics;
 
   // Calculate total summary from successful sources
   addToSummary(result.summary, result.bySource.trivy);
   addToSummary(result.summary, result.bySource.dependencyTrack);
 
   // Add SonarQube vulnerabilities to summary
-  result.summary.critical += sonarMetrics.vulnerabilities;
-  result.summary.total += sonarMetrics.vulnerabilities + sonarMetrics.bugs;
+  result.summary.critical += sonarIssueMetrics.vulnerabilities;
+  result.summary.total += sonarIssueMetrics.vulnerabilities + sonarIssueMetrics.bugs;
 
   // Sort findings by severity and take top 10
   const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
