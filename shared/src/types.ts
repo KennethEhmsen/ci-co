@@ -1204,3 +1204,131 @@ export interface ParallelScanResult {
   /** Whether all policy checks passed */
   policyPassed?: boolean;
 }
+
+// =============================================================================
+// Metrics Types
+// =============================================================================
+
+/**
+ * Metric type enumeration
+ */
+export type MetricType = "counter" | "gauge" | "histogram";
+
+/**
+ * Labels for a metric
+ */
+export type MetricLabels = Record<string, string>;
+
+/**
+ * Base metric definition
+ */
+export interface MetricDefinition {
+  /** Metric name (Prometheus format) */
+  name: string;
+  /** Human-readable description */
+  help: string;
+  /** Metric type */
+  type: MetricType;
+  /** Label names */
+  labelNames?: readonly string[];
+}
+
+/**
+ * Counter metric value
+ */
+export interface CounterValue {
+  value: number;
+  labels?: MetricLabels;
+}
+
+/**
+ * Gauge metric value
+ */
+export interface GaugeValue {
+  value: number;
+  labels?: MetricLabels;
+}
+
+/**
+ * Histogram bucket
+ */
+export interface HistogramBucket {
+  le: number | "+Inf";
+  count: number;
+}
+
+/**
+ * Histogram metric value
+ */
+export interface HistogramValue {
+  buckets: HistogramBucket[];
+  sum: number;
+  count: number;
+  labels?: MetricLabels;
+}
+
+/**
+ * Collected metric data
+ */
+export interface CollectedMetric {
+  definition: MetricDefinition;
+  values: Array<CounterValue | GaugeValue | HistogramValue>;
+}
+
+/**
+ * All metrics snapshot
+ */
+export interface MetricsSnapshot {
+  timestamp: string;
+  metrics: CollectedMetric[];
+}
+
+/**
+ * Scan metrics for a single scan
+ */
+export interface ScanMetrics {
+  /** Scan target */
+  target: string;
+  /** Scan type (image/path) */
+  type: "image" | "path";
+  /** Duration in seconds */
+  durationSeconds: number;
+  /** Whether scan succeeded */
+  success: boolean;
+  /** Vulnerability counts by severity */
+  vulnerabilities?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Pushgateway configuration
+ */
+export interface PushgatewayConfig {
+  /** Pushgateway URL */
+  url: string;
+  /** Job name */
+  job: string;
+  /** Instance label */
+  instance?: string;
+  /** Additional labels */
+  labels?: MetricLabels;
+  /** Basic auth username */
+  username?: string;
+  /** Basic auth password */
+  password?: string;
+}
+
+/**
+ * Pushgateway result
+ */
+export interface PushgatewayResult {
+  success: boolean;
+  statusCode?: number;
+  error?: string;
+}

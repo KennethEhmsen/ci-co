@@ -169,6 +169,19 @@ export type {
   TargetScanResult,
   VulnerabilityCounts,
   ParallelScanResult,
+  // Metrics Types
+  MetricType,
+  MetricLabels,
+  MetricDefinition,
+  CounterValue,
+  GaugeValue,
+  HistogramBucket,
+  HistogramValue,
+  CollectedMetric,
+  MetricsSnapshot,
+  ScanMetrics,
+  PushgatewayConfig,
+  PushgatewayResult,
 } from "./types.js";
 export {
   // Trivy
@@ -276,3 +289,19 @@ export {
   scanPathsParallel,
   scanMixedParallel,
 } from "./parallel-scanner.js";
+
+// Metrics exports
+export {
+  METRICS,
+  metricsCollector,
+  toPrometheusFormat,
+  getMetrics,
+  pushToGateway,
+  deleteFromGateway,
+  recordScanMetrics,
+  recordCacheHit,
+  recordCacheMiss,
+  recordCircuitBreakerFailure,
+  resetMetrics,
+  getMetricsSnapshot,
+} from "./metrics.js";

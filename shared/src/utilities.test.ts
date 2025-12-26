@@ -2573,3 +2573,289 @@ describe("Parallel Scanner", () => {
     });
   });
 });
+
+// Metrics tests
+import {
+  METRICS,
+  recordScanMetrics,
+  recordCacheHit,
+  recordCacheMiss,
+  recordCircuitBreakerFailure,
+  resetMetrics,
+  getMetrics,
+  getMetricsSnapshot,
+  toPrometheusFormat,
+} from "./metrics.js";
+import type { ScanMetrics, MetricsSnapshot } from "./types.js";
+
+describe("Metrics", () => {
+  beforeEach(() => {
+    resetMetrics();
+  });
+
+  describe("METRICS definitions", () => {
+    it("should define scan duration histogram", () => {
+      expect(METRICS.scanDuration.name).toContain("scan_duration_seconds");
+      expect(METRICS.scanDuration.type).toBe("histogram");
+    });
+
+    it("should define scan total counter", () => {
+      expect(METRICS.scanTotal.name).toContain("scan_total");
+      expect(METRICS.scanTotal.type).toBe("counter");
+    });
+
+    it("should define vulnerabilities counter", () => {
+      expect(METRICS.vulnerabilitiesTotal.name).toContain("vulnerabilities_total");
+      expect(METRICS.vulnerabilitiesTotal.type).toBe("counter");
+    });
+
+    it("should define circuit breaker state gauge", () => {
+      expect(METRICS.circuitBreakerState.name).toContain("circuit_breaker_state");
+      expect(METRICS.circuitBreakerState.type).toBe("gauge");
+    });
+
+    it("should define cache metrics", () => {
+      expect(METRICS.cacheHits.name).toContain("cache_hits_total");
+      expect(METRICS.cacheMisses.name).toContain("cache_misses_total");
+    });
+  });
+
+  describe("recordScanMetrics", () => {
+    it("should record successful scan", () => {
+      const metrics: ScanMetrics = {
+        target: "node:20",
+        type: "image",
+        durationSeconds: 5.5,
+        success: true,
+        vulnerabilities: {
+          critical: 1,
+          high: 2,
+          medium: 3,
+          low: 4,
+        },
+      };
+
+      recordScanMetrics(metrics);
+
+      const snapshot = getMetricsSnapshot();
+      const scanTotal = snapshot.metrics.find((m) => m.definition.name.includes("scan_total"));
+
+      expect(scanTotal).toBeDefined();
+      expect(scanTotal!.values.length).toBeGreaterThan(0);
+    });
+
+    it("should record failed scan", () => {
+      const metrics: ScanMetrics = {
+        target: "invalid:image",
+        type: "image",
+        durationSeconds: 1.0,
+        success: false,
+        error: "Connection timeout",
+      };
+
+      recordScanMetrics(metrics);
+
+      const snapshot = getMetricsSnapshot();
+      const errorTotal = snapshot.metrics.find((m) => m.definition.name.includes("errors_total"));
+
+      expect(errorTotal).toBeDefined();
+    });
+
+    it("should record vulnerability counts", () => {
+      const metrics: ScanMetrics = {
+        target: "python:3.12",
+        type: "image",
+        durationSeconds: 3.0,
+        success: true,
+        vulnerabilities: {
+          critical: 2,
+          high: 5,
+          medium: 10,
+          low: 20,
+        },
+      };
+
+      recordScanMetrics(metrics);
+
+      const snapshot = getMetricsSnapshot();
+      const vulnTotal = snapshot.metrics.find((m) =>
+        m.definition.name.includes("vulnerabilities_total")
+      );
+
+      expect(vulnTotal).toBeDefined();
+      expect(vulnTotal!.values.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("cache metrics", () => {
+    it("should record cache hits", () => {
+      recordCacheHit("trivy");
+      recordCacheHit("trivy");
+      recordCacheHit("sonar");
+
+      const snapshot = getMetricsSnapshot();
+      const cacheHits = snapshot.metrics.find((m) => m.definition.name.includes("cache_hits"));
+
+      expect(cacheHits).toBeDefined();
+      expect(cacheHits!.values.length).toBe(2); // trivy and sonar
+    });
+
+    it("should record cache misses", () => {
+      recordCacheMiss("trivy");
+      recordCacheMiss("dtrack");
+
+      const snapshot = getMetricsSnapshot();
+      const cacheMisses = snapshot.metrics.find((m) => m.definition.name.includes("cache_misses"));
+
+      expect(cacheMisses).toBeDefined();
+      expect(cacheMisses!.values.length).toBe(2);
+    });
+  });
+
+  describe("circuit breaker metrics", () => {
+    it("should record circuit breaker failures", () => {
+      recordCircuitBreakerFailure("trivy");
+      recordCircuitBreakerFailure("trivy");
+      recordCircuitBreakerFailure("sonar");
+
+      const snapshot = getMetricsSnapshot();
+      const cbFailures = snapshot.metrics.find((m) =>
+        m.definition.name.includes("circuit_breaker_failures")
+      );
+
+      expect(cbFailures).toBeDefined();
+    });
+
+    it("should collect circuit breaker state", () => {
+      const snapshot = getMetricsSnapshot();
+      const cbState = snapshot.metrics.find((m) =>
+        m.definition.name.includes("circuit_breaker_state")
+      );
+
+      expect(cbState).toBeDefined();
+      // Should have entries for each service
+      expect(cbState!.values.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("getMetrics", () => {
+    it("should return Prometheus format string", () => {
+      recordScanMetrics({
+        target: "test:latest",
+        type: "image",
+        durationSeconds: 1.0,
+        success: true,
+      });
+
+      const output = getMetrics();
+
+      expect(typeof output).toBe("string");
+      expect(output).toContain("# HELP");
+      expect(output).toContain("# TYPE");
+    });
+
+    it("should include cache sizes when provided", () => {
+      const output = getMetrics({
+        cacheSizes: { trivy: 10, sonar: 5 },
+      });
+
+      expect(output).toContain("cache_size");
+    });
+
+    it("should include rate limiter queues when provided", () => {
+      const output = getMetrics({
+        rateLimiterQueues: { trivy: 3, sonar: 0 },
+      });
+
+      expect(output).toContain("rate_limiter_queue_size");
+    });
+  });
+
+  describe("toPrometheusFormat", () => {
+    it("should format counter metrics", () => {
+      recordCacheHit("test-cache");
+
+      const snapshot = getMetricsSnapshot();
+      const output = toPrometheusFormat(snapshot);
+
+      expect(output).toContain('cache_hits_total{cache="test-cache"}');
+    });
+
+    it("should format gauge metrics", () => {
+      const snapshot = getMetricsSnapshot();
+      const output = toPrometheusFormat(snapshot);
+
+      expect(output).toContain("circuit_breaker_state");
+    });
+
+    it("should format histogram metrics", () => {
+      recordScanMetrics({
+        target: "test:latest",
+        type: "image",
+        durationSeconds: 2.5,
+        success: true,
+      });
+
+      const snapshot = getMetricsSnapshot();
+      const output = toPrometheusFormat(snapshot);
+
+      expect(output).toContain("scan_duration_seconds_bucket");
+      expect(output).toContain("scan_duration_seconds_sum");
+      expect(output).toContain("scan_duration_seconds_count");
+    });
+
+    it("should escape label values", () => {
+      // The circuit breaker service names shouldn't need escaping,
+      // but the format function should handle special chars
+      const snapshot = getMetricsSnapshot();
+      const output = toPrometheusFormat(snapshot);
+
+      // Should be valid Prometheus format (no unclosed quotes)
+      const quoteCount = (output.match(/"/g) || []).length;
+      expect(quoteCount % 2).toBe(0);
+    });
+  });
+
+  describe("resetMetrics", () => {
+    it("should clear all collected metrics", () => {
+      recordScanMetrics({
+        target: "test:latest",
+        type: "image",
+        durationSeconds: 1.0,
+        success: true,
+        vulnerabilities: { critical: 1, high: 2, medium: 3, low: 4 },
+      });
+      recordCacheHit("test");
+
+      resetMetrics();
+
+      const snapshot = getMetricsSnapshot();
+      const vulnMetric = snapshot.metrics.find((m) =>
+        m.definition.name.includes("vulnerabilities_total")
+      );
+
+      // After reset, vulnerability counter should have no values
+      expect(vulnMetric!.values.length).toBe(0);
+    });
+  });
+
+  describe("MetricsSnapshot type", () => {
+    it("should have correct structure", () => {
+      const snapshot: MetricsSnapshot = getMetricsSnapshot();
+
+      expect(snapshot.timestamp).toBeDefined();
+      expect(Array.isArray(snapshot.metrics)).toBe(true);
+      expect(snapshot.metrics.length).toBeGreaterThan(0);
+    });
+
+    it("should include metric definitions", () => {
+      const snapshot = getMetricsSnapshot();
+
+      for (const metric of snapshot.metrics) {
+        expect(metric.definition.name).toBeDefined();
+        expect(metric.definition.help).toBeDefined();
+        expect(metric.definition.type).toBeDefined();
+      }
+    });
+  });
+});
