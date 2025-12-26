@@ -154,6 +154,13 @@ export type {
   TeamsAdaptiveCardElement,
   TeamsWebhookPayload,
   GenericWebhookPayload,
+  // Policy File Types
+  PolicyLoadResult,
+  PolicyFileSchema,
+  PolicyFileRule,
+  PolicySettings,
+  PolicyValidationError,
+  PolicyValidationResult,
 } from "./types.js";
 export {
   // Trivy
@@ -237,3 +244,16 @@ export {
   createScanSummary,
   parseWebhookConfig,
 } from "./webhook.js";
+
+// Policy loader exports
+export {
+  findPolicyFile,
+  readPolicyFile,
+  validatePolicySchema,
+  convertToPolicy,
+  mergePolicies,
+  loadPolicyFromFile,
+  loadPolicyFromDirectory,
+  resolvePolicy,
+  loadPolicy,
+} from "./policy-loader.js";

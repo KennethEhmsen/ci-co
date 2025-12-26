@@ -84,6 +84,36 @@ export const config = {
     teamsUrl: process.env.WEBHOOK_TEAMS_URL || "",
     severityThreshold: process.env.WEBHOOK_SEVERITY_THRESHOLD || "HIGH",
   },
+  /**
+   * Policy configuration for security scan gating.
+   *
+   * Can be set via environment variables:
+   * - `SECURITY_POLICY_FILE` - Path to custom policy file (.yaml, .yml, or .json)
+   * - `SECURITY_POLICY_DIR` - Directory to search for policy files (default: current directory)
+   * - `SECURITY_POLICY_DEFAULT` - Default policy name if no file found (strict, standard, permissive)
+   * - `SECURITY_POLICY_STRICT` - Fail if policy file cannot be loaded (true/false)
+   *
+   * @example
+   * ```bash
+   * # Use a specific policy file
+   * SECURITY_POLICY_FILE=./my-policy.yaml
+   *
+   * # Search in a specific directory
+   * SECURITY_POLICY_DIR=/app/config
+   *
+   * # Set default policy when no file found
+   * SECURITY_POLICY_DEFAULT=strict
+   *
+   * # Fail on policy load errors
+   * SECURITY_POLICY_STRICT=true
+   * ```
+   */
+  policy: {
+    file: process.env.SECURITY_POLICY_FILE || "",
+    directory: process.env.SECURITY_POLICY_DIR || "",
+    defaultPolicy: process.env.SECURITY_POLICY_DEFAULT || "standard",
+    strict: process.env.SECURITY_POLICY_STRICT === "true",
+  },
 };
 
 /**

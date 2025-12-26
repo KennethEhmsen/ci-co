@@ -891,6 +891,14 @@ describe("ConfigValidation", () => {
     severityThreshold: "HIGH",
   };
 
+  // Default policy config for tests
+  const defaultPolicy = {
+    file: "",
+    directory: "",
+    defaultPolicy: "standard",
+    strict: false,
+  };
+
   describe("validateConfig", () => {
     it("should validate correct config", () => {
       const result = validateConfig({
@@ -901,6 +909,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -915,6 +924,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Gitea URL"))).toBe(true);
@@ -929,6 +939,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.warnings.length).toBeGreaterThan(0);
     });
@@ -942,6 +953,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "" },
         registry: { url: "" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -956,6 +968,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "not-valid-url" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Registry URL"))).toBe(true);
@@ -970,6 +983,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Drone URL"))).toBe(true);
@@ -984,6 +998,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid SonarQube URL"))).toBe(true);
@@ -998,6 +1013,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Dependency-Track URL"))).toBe(true);
@@ -1014,6 +1030,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       };
       const results = await validateConnectivity(testConfig);
       expect(results).toHaveLength(5);
@@ -1029,6 +1046,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       };
       const results = await validateConnectivity(testConfig);
       const serviceNames = results.map((r) => r.service);
@@ -1048,6 +1066,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       };
       const results = await validateConnectivity(testConfig);
       const failedServices = results.filter((r) => !r.reachable);
@@ -1066,6 +1085,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       };
       const result = await validateStartup(testConfig);
       expect(result.config).toBeDefined();
@@ -1082,6 +1102,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       };
       const result = await validateStartup(testConfig);
       // With no services reachable, should not be ready
@@ -1097,6 +1118,7 @@ describe("ConfigValidation", () => {
         trivy: { url: "invalid" },
         registry: { url: "invalid" },
         webhook: defaultWebhook,
+        policy: defaultPolicy,
       };
       const result = await validateStartup(testConfig);
       expect(result.config.valid).toBe(false);
@@ -1924,6 +1946,465 @@ describe("Webhook", () => {
       expect(config!.endpoints).toHaveLength(2);
       expect(config!.endpoints[0].format).toBe("generic");
       expect(config!.endpoints[1].url).toBe("https://hook2.example.com");
+    });
+  });
+});
+
+// Policy loader tests
+import {
+  validatePolicySchema,
+  convertToPolicy,
+  mergePolicies,
+  resolvePolicy,
+} from "./policy-loader.js";
+import type { PolicyFileSchema, PolicyLoadResult } from "./types.js";
+
+describe("Policy Loader", () => {
+  describe("validatePolicySchema", () => {
+    it("should validate a minimal valid policy", () => {
+      const policy = {
+        name: "test-policy",
+        version: "1.0.0",
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("should require name field", () => {
+      const policy = {
+        version: "1.0.0",
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "name")).toBe(true);
+    });
+
+    it("should require version field", () => {
+      const policy = {
+        name: "test-policy",
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "version")).toBe(true);
+    });
+
+    it("should reject non-object input", () => {
+      const result = validatePolicySchema("invalid");
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toBe("Policy must be an object");
+    });
+
+    it("should validate mode field", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        mode: "invalid",
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "mode")).toBe(true);
+    });
+
+    it("should accept valid mode values", () => {
+      const policy1 = { name: "test", version: "1.0.0", mode: "all" };
+      const policy2 = { name: "test", version: "1.0.0", mode: "any" };
+
+      expect(validatePolicySchema(policy1).valid).toBe(true);
+      expect(validatePolicySchema(policy2).valid).toBe(true);
+    });
+
+    it("should warn about unknown extends value", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        extends: "unknown-policy",
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(true); // warnings don't fail validation
+      expect(result.warnings.some((w) => w.path === "extends")).toBe(true);
+    });
+
+    it("should validate rules array", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        rules: "not-an-array",
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "rules")).toBe(true);
+    });
+
+    it("should validate individual rules", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        rules: [
+          { name: "valid-rule" },
+          { notname: "invalid" }, // missing name
+        ],
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "rules[1].name")).toBe(true);
+    });
+
+    it("should validate maxVulnerabilities structure", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "vuln-rule",
+            maxVulnerabilities: {
+              critical: 0,
+              high: 5,
+              invalid: 10, // unknown severity
+            },
+          },
+        ],
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(true); // unknown severity is a warning
+      expect(result.warnings.some((w) => w.path.includes("invalid"))).toBe(true);
+    });
+
+    it("should reject negative vulnerability counts", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "vuln-rule",
+            maxVulnerabilities: {
+              critical: -1,
+            },
+          },
+        ],
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path.includes("critical"))).toBe(true);
+    });
+
+    it("should validate ignoreCves array", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "cve-rule",
+            ignoreCves: "not-an-array",
+          },
+        ],
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path.includes("ignoreCves"))).toBe(true);
+    });
+
+    it("should validate minCodeCoverage range", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "coverage-rule",
+            minCodeCoverage: 150, // invalid: > 100
+          },
+        ],
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path.includes("minCodeCoverage"))).toBe(true);
+    });
+
+    it("should validate settings", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        settings: {
+          failOpen: "not-a-boolean",
+        },
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "settings.failOpen")).toBe(true);
+    });
+
+    it("should validate settings reportFormat", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        settings: {
+          reportFormat: "invalid",
+        },
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.path === "settings.reportFormat")).toBe(true);
+    });
+
+    it("should accept valid settings", () => {
+      const policy = {
+        name: "test",
+        version: "1.0.0",
+        settings: {
+          failOpen: true,
+          reportFormat: "sarif",
+          includeWarnings: false,
+        },
+      };
+
+      const result = validatePolicySchema(policy);
+
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("convertToPolicy", () => {
+    it("should convert a file schema to runtime policy", () => {
+      const fileSchema: PolicyFileSchema = {
+        name: "my-policy",
+        version: "1.0.0",
+        description: "Test policy",
+        mode: "any",
+        rules: [
+          {
+            name: "rule1",
+            maxVulnerabilities: { critical: 0 },
+          },
+        ],
+      };
+
+      const policy = convertToPolicy(fileSchema);
+
+      expect(policy.name).toBe("my-policy");
+      expect(policy.version).toBe("1.0.0");
+      expect(policy.mode).toBe("any");
+      expect(policy.rules).toHaveLength(1);
+    });
+
+    it("should default mode to all", () => {
+      const fileSchema: PolicyFileSchema = {
+        name: "my-policy",
+        version: "1.0.0",
+      };
+
+      const policy = convertToPolicy(fileSchema);
+
+      expect(policy.mode).toBe("all");
+    });
+
+    it("should filter disabled rules", () => {
+      const fileSchema: PolicyFileSchema = {
+        name: "my-policy",
+        version: "1.0.0",
+        rules: [
+          { name: "enabled-rule", enabled: true },
+          { name: "disabled-rule", enabled: false },
+          { name: "default-enabled" }, // enabled by default
+        ],
+      };
+
+      const policy = convertToPolicy(fileSchema);
+
+      expect(policy.rules).toHaveLength(2);
+      expect(policy.rules.map((r) => r.name)).toContain("enabled-rule");
+      expect(policy.rules.map((r) => r.name)).toContain("default-enabled");
+      expect(policy.rules.map((r) => r.name)).not.toContain("disabled-rule");
+    });
+  });
+
+  describe("mergePolicies", () => {
+    it("should merge file policy with base policy", () => {
+      const filePolicy: PolicyFileSchema = {
+        name: "custom-policy",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "custom-rule",
+            maxVulnerabilities: { critical: 5 },
+          },
+        ],
+      };
+
+      const merged = mergePolicies(filePolicy, standardPolicy);
+
+      expect(merged.name).toBe("custom-policy");
+      expect(merged.rules.length).toBeGreaterThan(1); // includes base rules
+      expect(merged.rules.some((r) => r.name === "custom-rule")).toBe(true);
+    });
+
+    it("should override base rules by name", () => {
+      const filePolicy: PolicyFileSchema = {
+        name: "custom-policy",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "vuln-limits", // same name as standard policy rule
+            maxVulnerabilities: { critical: 10 }, // override threshold
+          },
+        ],
+      };
+
+      const merged = mergePolicies(filePolicy, standardPolicy);
+
+      const vulnRule = merged.rules.find((r) => r.name === "vuln-limits");
+      expect(vulnRule?.maxVulnerabilities?.critical).toBe(10);
+    });
+
+    it("should disable base rules when enabled: false", () => {
+      const filePolicy: PolicyFileSchema = {
+        name: "custom-policy",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "no-secrets", // exists in standard policy
+            enabled: false,
+          },
+        ],
+      };
+
+      const merged = mergePolicies(filePolicy, standardPolicy);
+
+      expect(merged.rules.some((r) => r.name === "no-secrets")).toBe(false);
+    });
+
+    it("should merge arrays in rules", () => {
+      const basePolicy = {
+        ...standardPolicy,
+        rules: [
+          {
+            name: "ignore-rule",
+            ignoreCves: ["CVE-2023-0001"],
+            ignorePackages: ["old-package"],
+          },
+        ],
+      };
+
+      const filePolicy: PolicyFileSchema = {
+        name: "custom",
+        version: "1.0.0",
+        rules: [
+          {
+            name: "ignore-rule",
+            ignoreCves: ["CVE-2023-0002"],
+            ignorePackages: ["another-package"],
+          },
+        ],
+      };
+
+      const merged = mergePolicies(filePolicy, basePolicy);
+
+      const rule = merged.rules.find((r) => r.name === "ignore-rule");
+      expect(rule?.ignoreCves).toContain("CVE-2023-0001");
+      expect(rule?.ignoreCves).toContain("CVE-2023-0002");
+      expect(rule?.ignorePackages).toContain("old-package");
+      expect(rule?.ignorePackages).toContain("another-package");
+    });
+
+    it("should inherit mode from file policy", () => {
+      const filePolicy: PolicyFileSchema = {
+        name: "custom",
+        version: "1.0.0",
+        mode: "any",
+      };
+
+      const merged = mergePolicies(filePolicy, standardPolicy);
+
+      expect(merged.mode).toBe("any");
+    });
+  });
+
+  describe("resolvePolicy", () => {
+    it("should return default policy on load failure", () => {
+      const loadResult: PolicyLoadResult = {
+        success: false,
+        error: "File not found",
+        source: "file",
+      };
+
+      const policy = resolvePolicy(loadResult);
+
+      expect(policy.name).toBe("standard"); // default
+    });
+
+    it("should use specified default policy on failure", () => {
+      const loadResult: PolicyLoadResult = {
+        success: false,
+        error: "File not found",
+        source: "file",
+      };
+
+      const policy = resolvePolicy(loadResult, "strict");
+
+      expect(policy.name).toBe("strict");
+    });
+
+    it("should merge with extended policy", () => {
+      const loadResult: PolicyLoadResult = {
+        success: true,
+        policy: {
+          name: "my-policy",
+          version: "1.0.0",
+          extends: "permissive",
+          rules: [{ name: "extra-rule" }],
+        },
+        source: "file",
+      };
+
+      const policy = resolvePolicy(loadResult);
+
+      expect(policy.name).toBe("my-policy");
+      expect(policy.rules.some((r) => r.name === "extra-rule")).toBe(true);
+      // Should include rules from permissive
+      expect(policy.rules.some((r) => r.name === "critical-only")).toBe(true);
+    });
+
+    it("should convert directly without extends", () => {
+      const loadResult: PolicyLoadResult = {
+        success: true,
+        policy: {
+          name: "standalone",
+          version: "2.0.0",
+          rules: [{ name: "only-rule" }],
+        },
+        source: "file",
+      };
+
+      const policy = resolvePolicy(loadResult);
+
+      expect(policy.name).toBe("standalone");
+      expect(policy.rules).toHaveLength(1);
     });
   });
 });

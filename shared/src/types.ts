@@ -976,3 +976,111 @@ export interface GenericWebhookPayload {
   topFindings?: WebhookScanSummary["topFindings"];
   detailsUrl?: string;
 }
+
+// =============================================================================
+// Policy File Types
+// =============================================================================
+
+/**
+ * Result of loading a policy file
+ */
+export interface PolicyLoadResult {
+  /** Whether the policy was loaded successfully */
+  success: boolean;
+  /** The loaded policy (if successful) */
+  policy?: PolicyFileSchema;
+  /** Error message (if failed) */
+  error?: string;
+  /** Path to the loaded policy file */
+  filePath?: string;
+  /** Source of the policy (file, default, merged) */
+  source: "file" | "default" | "merged";
+}
+
+/**
+ * Policy file schema - matches what users write in YAML/JSON
+ */
+export interface PolicyFileSchema {
+  /** Policy name */
+  name: string;
+  /** Policy version (semver) */
+  version: string;
+  /** Policy description */
+  description?: string;
+  /** Base policy to extend (strict, standard, permissive) */
+  extends?: string;
+  /** Rule evaluation mode */
+  mode?: "all" | "any";
+  /** Policy rules */
+  rules?: PolicyFileRule[];
+  /** Global settings */
+  settings?: PolicySettings;
+}
+
+/**
+ * Policy rule as defined in file
+ */
+export interface PolicyFileRule {
+  /** Rule name */
+  name: string;
+  /** Rule description */
+  description?: string;
+  /** Whether this rule is enabled */
+  enabled?: boolean;
+  /** Maximum vulnerabilities by severity */
+  maxVulnerabilities?: {
+    critical?: number;
+    high?: number;
+    medium?: number;
+    low?: number;
+    unknown?: number;
+  };
+  /** CVEs to ignore */
+  ignoreCves?: string[];
+  /** Packages to ignore */
+  ignorePackages?: string[];
+  /** Blocked license patterns */
+  blockedLicenses?: string[];
+  /** Minimum code coverage percentage */
+  minCodeCoverage?: number;
+  /** Require quality gate to pass */
+  requireQualityGatePass?: boolean;
+  /** Block on secrets found */
+  blockOnSecrets?: boolean;
+}
+
+/**
+ * Global policy settings
+ */
+export interface PolicySettings {
+  /** Fail open (continue on policy load error) */
+  failOpen?: boolean;
+  /** Report format for violations */
+  reportFormat?: "text" | "json" | "sarif";
+  /** Include warnings in output */
+  includeWarnings?: boolean;
+}
+
+/**
+ * Policy validation error
+ */
+export interface PolicyValidationError {
+  /** Path to the invalid field */
+  path: string;
+  /** Error message */
+  message: string;
+  /** Suggested fix */
+  suggestion?: string;
+}
+
+/**
+ * Result of validating a policy file
+ */
+export interface PolicyValidationResult {
+  /** Whether the policy is valid */
+  valid: boolean;
+  /** Validation errors */
+  errors: PolicyValidationError[];
+  /** Validation warnings */
+  warnings: PolicyValidationError[];
+}
