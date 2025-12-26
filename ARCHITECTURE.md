@@ -265,7 +265,7 @@ The platform includes software components for AI integration and automation.
 │  │     MCP Server      │        │    CI/CD Agent      │                    │
 │  │   (Claude Code)     │        │      (CLI)          │                    │
 │  │                     │        │                     │                    │
-│  │ • 23 Security Tools │        │ • Interactive Chat  │                    │
+│  │ • 41 Security Tools │        │ • Interactive Chat  │                    │
 │  │ • 2 Resources       │        │ • CLI Commands      │                    │
 │  │ • Stdio Transport   │        │ • Agentic Loop      │                    │
 │  └─────────────────────┘        └─────────────────────┘                    │
@@ -281,7 +281,7 @@ ci-co/
 │   ├── src/
 │   │   ├── index.ts       # Public exports
 │   │   ├── config.ts      # Configuration loader
-│   │   ├── handlers.ts    # API handlers (23 functions)
+│   │   ├── handlers.ts    # API handlers (41 functions)
 │   │   ├── validation.ts  # Input validation
 │   │   ├── http.ts        # HTTP utilities
 │   │   └── types.ts       # TypeScript definitions
@@ -348,14 +348,16 @@ ci-co/
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Trivy** | 2 | Vulnerability and secret scanning |
-| **SonarQube** | 4 | Code quality and SAST |
-| **Dependency-Track** | 4 | SCA and SBOM analysis |
-| **Gitea** | 6 | Git repository management |
+| **Trivy** | 11 | Vulnerability, secret, license, IaC scanning + SBOM |
+| **SonarQube** | 5 | Code quality and SAST |
+| **Dependency-Track** | 5 | SCA and SBOM analysis |
+| **Gitea** | 12 | Git repository and PR/issue management |
 | **Drone CI** | 5 | CI/CD pipeline operations |
 | **Registry** | 2 | Docker image management |
 | **Platform** | 1 | Health status checks |
-| **Total** | **24** | |
+| **Total** | **41** | |
+
+> **Note:** Image-based Trivy scans use the Trivy server API for faster scanning.
 
 ### Technology Stack
 
