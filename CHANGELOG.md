@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Trivy Server API** - Image-based Trivy functions now use the Trivy server API (`--server` flag) instead of local database sync:
+  - `trivy_scan_image`
+  - `trivy_generate_sbom_image`
+  - `trivy_scan_secrets_image`
+  - `trivy_scan_licenses_image`
+  - Benefits: Faster scans, reduced bandwidth, centralized vulnerability database management
+  - Path-based scans continue to use local Docker execution
+
 ## [1.16.0] - 2025-12-26
 
 ### Added
