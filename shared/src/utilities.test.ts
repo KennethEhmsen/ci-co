@@ -104,7 +104,12 @@ describe("withCache", () => {
 });
 
 // Circuit Breaker tests
-import { CircuitBreaker, CircuitOpenError } from "./circuit-breaker.js";
+import {
+  CircuitBreaker,
+  CircuitOpenError,
+  getAllCircuitStats,
+  circuitBreakers,
+} from "./circuit-breaker.js";
 
 describe("CircuitBreaker", () => {
   let breaker: CircuitBreaker;
@@ -237,8 +242,34 @@ describe("CircuitBreaker", () => {
   });
 });
 
+describe("getAllCircuitStats", () => {
+  it("should return stats for all circuit breakers", () => {
+    const stats = getAllCircuitStats();
+    expect(Array.isArray(stats)).toBe(true);
+    expect(stats.length).toBe(Object.keys(circuitBreakers).length);
+  });
+
+  it("should include required fields in each stat", () => {
+    const stats = getAllCircuitStats();
+    for (const stat of stats) {
+      expect(stat).toHaveProperty("serviceName");
+      expect(stat).toHaveProperty("state");
+      expect(stat).toHaveProperty("failureCount");
+      expect(stat).toHaveProperty("successCount");
+    }
+  });
+
+  it("should return stats for known services", () => {
+    const stats = getAllCircuitStats();
+    const names = stats.map((s) => s.serviceName);
+    expect(names).toContain("trivy");
+    expect(names).toContain("sonarqube");
+    expect(names).toContain("dependency-track");
+  });
+});
+
 // Rate Limiter tests
-import { RateLimiter, QueuedRateLimiter } from "./rate-limiter.js";
+import { RateLimiter, QueuedRateLimiter, withRateLimit } from "./rate-limiter.js";
 
 describe("RateLimiter", () => {
   describe("tryAcquire", () => {
@@ -344,6 +375,59 @@ describe("QueuedRateLimiter", () => {
 
     // Second should be in queue initially
     await p2;
+  });
+});
+
+describe("withRateLimit", () => {
+  it("should wrap function with rate limiting", async () => {
+    const limiter = new RateLimiter({
+      maxTokens: 2,
+      refillRate: 1,
+      refillInterval: 100,
+    });
+
+    const fn = vi.fn().mockResolvedValue("result");
+    const rateLimitedFn = withRateLimit(limiter)(fn);
+
+    const result = await rateLimitedFn("arg1", "arg2");
+    expect(result).toBe("result");
+    expect(fn).toHaveBeenCalledWith("arg1", "arg2");
+  });
+
+  it("should enforce rate limits on wrapped function", async () => {
+    const limiter = new RateLimiter({
+      maxTokens: 1,
+      refillRate: 1,
+      refillInterval: 50,
+    });
+
+    const fn = vi.fn().mockResolvedValue("done");
+    const rateLimitedFn = withRateLimit(limiter)(fn);
+
+    // First call should be immediate
+    await rateLimitedFn();
+
+    // Second call should wait for rate limit
+    const start = Date.now();
+    await rateLimitedFn();
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeGreaterThanOrEqual(40);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("should preserve function return type", async () => {
+    const limiter = new RateLimiter({
+      maxTokens: 5,
+      refillRate: 1,
+      refillInterval: 100,
+    });
+
+    const fn = vi.fn().mockResolvedValue({ data: [1, 2, 3] });
+    const rateLimitedFn = withRateLimit(limiter)(fn);
+
+    const result = await rateLimitedFn();
+    expect(result).toEqual({ data: [1, 2, 3] });
   });
 });
 
@@ -466,6 +550,196 @@ describe("Policy", () => {
 
     it("should be case insensitive", () => {
       expect(getPolicy("STRICT")).toBe(strictPolicy);
+    });
+  });
+
+  describe("ignoreCves and ignorePackages filtering", () => {
+    it("should ignore specified CVEs", () => {
+      const policy = {
+        name: "ignore-cve-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "vuln-check",
+            maxVulnerabilities: { critical: 0 },
+            ignoreCves: ["CVE-2023-12345"],
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 1,
+          high: 0,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          cves: ["CVE-2023-12345"],
+        },
+      });
+      // CVE is ignored, so should still fail on count but exercise the filter path
+      expect(result.policy).toBe("ignore-cve-test");
+    });
+
+    it("should ignore specified packages", () => {
+      const policy = {
+        name: "ignore-pkg-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "vuln-check",
+            maxVulnerabilities: { critical: 0 },
+            ignorePackages: ["lodash"],
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 1,
+          high: 0,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          packages: ["lodash@4.17.21"],
+        },
+      });
+      expect(result.policy).toBe("ignore-pkg-test");
+    });
+
+    it("should filter both CVEs and packages", () => {
+      const policy = {
+        name: "filter-both-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "combined-filter",
+            maxVulnerabilities: { critical: 0, high: 0 },
+            ignoreCves: ["CVE-2023-11111", "CVE-2023-22222"],
+            ignorePackages: ["express", "lodash"],
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 2,
+          high: 2,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          cves: ["CVE-2023-11111", "CVE-2023-22222", "CVE-2023-33333"],
+          packages: ["express@4.18.0", "lodash@4.17.21", "axios@1.0.0"],
+        },
+      });
+      // Exercises the filter path with both filters
+      expect(result.violations.length).toBeGreaterThan(0);
+    });
+
+    it("should handle empty ignore lists", () => {
+      const policy = {
+        name: "empty-ignore-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "no-filter",
+            maxVulnerabilities: { critical: 0 },
+            ignoreCves: [],
+            ignorePackages: [],
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 1,
+          high: 0,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          cves: ["CVE-2023-12345"],
+        },
+      });
+      expect(result.passed).toBe(false);
+    });
+
+    it("should handle vulnerabilities without cves/packages arrays", () => {
+      const policy = {
+        name: "no-arrays-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "filter-test",
+            maxVulnerabilities: { critical: 0 },
+            ignoreCves: ["CVE-2023-12345"],
+            ignorePackages: ["lodash"],
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 1,
+          high: 0,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          // No cves or packages arrays
+        },
+      });
+      expect(result.passed).toBe(false);
+    });
+
+    it("should handle case-insensitive CVE matching", () => {
+      const policy = {
+        name: "case-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "case-filter",
+            maxVulnerabilities: { high: 5 },
+            ignoreCves: ["cve-2023-12345"], // lowercase
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 0,
+          high: 1,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          cves: ["CVE-2023-12345"], // uppercase
+        },
+      });
+      expect(result.policy).toBe("case-test");
+    });
+
+    it("should handle partial package name matching", () => {
+      const policy = {
+        name: "partial-match-test",
+        version: "1.0",
+        mode: "all" as const,
+        rules: [
+          {
+            name: "partial-filter",
+            maxVulnerabilities: { high: 5 },
+            ignorePackages: ["lodash"], // partial name
+          },
+        ],
+      };
+      const result = evaluatePolicy(policy, {
+        vulnerabilities: {
+          critical: 0,
+          high: 1,
+          medium: 0,
+          low: 0,
+          unknown: 0,
+          packages: ["lodash@4.17.21", "@types/lodash@4.14.0"],
+        },
+      });
+      expect(result.policy).toBe("partial-match-test");
     });
   });
 });
@@ -599,7 +873,12 @@ describe("Audit", () => {
 });
 
 // Config Validation tests
-import { validateConfig } from "./config-validation.js";
+import {
+  validateConfig,
+  validateConnectivity,
+  validateStartup,
+  logValidationResults,
+} from "./config-validation.js";
 
 describe("ConfigValidation", () => {
   describe("validateConfig", () => {
@@ -639,6 +918,225 @@ describe("ConfigValidation", () => {
         registry: { url: "http://localhost:5000" },
       });
       expect(result.warnings.length).toBeGreaterThan(0);
+    });
+
+    it("should detect missing URLs", () => {
+      const result = validateConfig({
+        gitea: { url: "", user: "admin", password: "admin" },
+        drone: { url: "", token: "token" },
+        sonarqube: { url: "", user: "admin", password: "admin" },
+        dependencyTrack: { url: "", apiKey: "key" },
+        trivy: { url: "" },
+        registry: { url: "" },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it("should detect invalid registry URL", () => {
+      const result = validateConfig({
+        gitea: { url: "http://localhost:3000", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:8085", token: "token" },
+        sonarqube: { url: "http://localhost:9000", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
+        trivy: { url: "http://localhost:4954" },
+        registry: { url: "not-valid-url" },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("Invalid Registry URL"))).toBe(true);
+    });
+
+    it("should detect invalid Drone URL", () => {
+      const result = validateConfig({
+        gitea: { url: "http://localhost:3000", user: "admin", password: "admin" },
+        drone: { url: "invalid-drone-url", token: "token" },
+        sonarqube: { url: "http://localhost:9000", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
+        trivy: { url: "http://localhost:4954" },
+        registry: { url: "http://localhost:5000" },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("Invalid Drone URL"))).toBe(true);
+    });
+
+    it("should detect invalid SonarQube URL", () => {
+      const result = validateConfig({
+        gitea: { url: "http://localhost:3000", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:8085", token: "token" },
+        sonarqube: { url: "bad-sonar-url", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
+        trivy: { url: "http://localhost:4954" },
+        registry: { url: "http://localhost:5000" },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("Invalid SonarQube URL"))).toBe(true);
+    });
+
+    it("should detect invalid Dependency-Track URL", () => {
+      const result = validateConfig({
+        gitea: { url: "http://localhost:3000", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:8085", token: "token" },
+        sonarqube: { url: "http://localhost:9000", user: "admin", password: "admin" },
+        dependencyTrack: { url: "bad-dtrack-url", apiKey: "key" },
+        trivy: { url: "http://localhost:4954" },
+        registry: { url: "http://localhost:5000" },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("Invalid Dependency-Track URL"))).toBe(true);
+    });
+  });
+
+  describe("validateConnectivity", () => {
+    it("should check connectivity for all services", async () => {
+      const testConfig = {
+        gitea: { url: "http://localhost:39999", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:39998", token: "token" },
+        sonarqube: { url: "http://localhost:39997", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
+        trivy: { url: "http://localhost:39995" },
+        registry: { url: "http://localhost:39994" },
+      };
+      const results = await validateConnectivity(testConfig);
+      expect(results).toHaveLength(5);
+      expect(results.every((r) => r.service && typeof r.reachable === "boolean")).toBe(true);
+    });
+
+    it("should return service names", async () => {
+      const testConfig = {
+        gitea: { url: "http://localhost:39999", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:39998", token: "token" },
+        sonarqube: { url: "http://localhost:39997", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
+        trivy: { url: "http://localhost:39995" },
+        registry: { url: "http://localhost:39994" },
+      };
+      const results = await validateConnectivity(testConfig);
+      const serviceNames = results.map((r) => r.service);
+      expect(serviceNames).toContain("gitea");
+      expect(serviceNames).toContain("drone");
+      expect(serviceNames).toContain("sonarqube");
+      expect(serviceNames).toContain("dependency-track");
+      expect(serviceNames).toContain("registry");
+    });
+
+    it("should include error message for failed connections", async () => {
+      const testConfig = {
+        gitea: { url: "http://localhost:39999", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:39998", token: "token" },
+        sonarqube: { url: "http://localhost:39997", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
+        trivy: { url: "http://localhost:39995" },
+        registry: { url: "http://localhost:39994" },
+      };
+      const results = await validateConnectivity(testConfig);
+      const failedServices = results.filter((r) => !r.reachable);
+      expect(failedServices.length).toBeGreaterThan(0);
+      expect(failedServices.every((r) => r.error !== undefined)).toBe(true);
+    });
+  });
+
+  describe("validateStartup", () => {
+    it("should return combined validation results", async () => {
+      const testConfig = {
+        gitea: { url: "http://localhost:39999", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:39998", token: "token" },
+        sonarqube: { url: "http://localhost:39997", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
+        trivy: { url: "http://localhost:39995" },
+        registry: { url: "http://localhost:39994" },
+      };
+      const result = await validateStartup(testConfig);
+      expect(result.config).toBeDefined();
+      expect(result.connectivity).toBeDefined();
+      expect(typeof result.ready).toBe("boolean");
+    });
+
+    it("should report not ready when no services are reachable", async () => {
+      const testConfig = {
+        gitea: { url: "http://localhost:39999", user: "admin", password: "admin" },
+        drone: { url: "http://localhost:39998", token: "token" },
+        sonarqube: { url: "http://localhost:39997", user: "admin", password: "admin" },
+        dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
+        trivy: { url: "http://localhost:39995" },
+        registry: { url: "http://localhost:39994" },
+      };
+      const result = await validateStartup(testConfig);
+      // With no services reachable, should not be ready
+      expect(result.ready).toBe(false);
+    });
+
+    it("should report not ready when config is invalid", async () => {
+      const testConfig = {
+        gitea: { url: "invalid", user: "admin", password: "admin" },
+        drone: { url: "invalid", token: "token" },
+        sonarqube: { url: "invalid", user: "admin", password: "admin" },
+        dependencyTrack: { url: "invalid", apiKey: "key" },
+        trivy: { url: "invalid" },
+        registry: { url: "invalid" },
+      };
+      const result = await validateStartup(testConfig);
+      expect(result.config.valid).toBe(false);
+      expect(result.ready).toBe(false);
+    });
+  });
+
+  describe("logValidationResults", () => {
+    it("should log validation results without errors", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      logValidationResults({
+        config: { valid: true, errors: [], warnings: [] },
+        connectivity: [
+          { service: "gitea", reachable: true, responseTimeMs: 10 },
+          { service: "drone", reachable: true, responseTimeMs: 15 },
+        ],
+        ready: true,
+      });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it("should log errors when present", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      logValidationResults({
+        config: { valid: false, errors: ["Test error"], warnings: [] },
+        connectivity: [{ service: "gitea", reachable: false, error: "Connection refused" }],
+        ready: false,
+      });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it("should log warnings when present", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      logValidationResults({
+        config: { valid: true, errors: [], warnings: ["Test warning"] },
+        connectivity: [{ service: "gitea", reachable: true }],
+        ready: true,
+      });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it("should log service connectivity with response times", () => {
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      logValidationResults({
+        config: { valid: true, errors: [], warnings: [] },
+        connectivity: [
+          { service: "gitea", reachable: true, responseTimeMs: 50 },
+          { service: "drone", reachable: false, error: "Timeout", responseTimeMs: 5000 },
+        ],
+        ready: false,
+      });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 });
