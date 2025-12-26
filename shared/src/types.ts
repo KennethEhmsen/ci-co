@@ -521,6 +521,75 @@ export interface SecurityScanResult {
 }
 
 // =============================================================================
+// Security Dashboard Types
+// =============================================================================
+
+/**
+ * Summary of vulnerability counts by severity level
+ */
+export interface SecurityDashboardSummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  total: number;
+}
+
+/**
+ * SonarQube-specific metrics for the dashboard
+ */
+export interface SonarDashboardMetrics {
+  bugs: number;
+  vulnerabilities: number;
+  codeSmells: number;
+  hotspots: number;
+  qualityGateStatus: string;
+  error?: string;
+}
+
+/**
+ * Individual finding from any security source
+ */
+export interface SecurityDashboardFinding {
+  id: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  source: "trivy" | "sonarqube" | "dtrack";
+  package?: string;
+  message?: string;
+}
+
+/**
+ * Unified security dashboard result aggregating all sources
+ */
+export interface SecurityDashboardResult {
+  timestamp: string;
+  summary: SecurityDashboardSummary;
+  bySource: {
+    trivy: SecurityDashboardSummary | { error: string };
+    sonarqube: SonarDashboardMetrics;
+    dependencyTrack: SecurityDashboardSummary | { error: string };
+  };
+  topFindings: SecurityDashboardFinding[];
+  scanTargets: {
+    image?: string;
+    path?: string;
+    sonarProject?: string;
+    dtrackProject?: string;
+  };
+}
+
+/**
+ * Options for getSecurityDashboard function
+ */
+export interface SecurityDashboardOptions {
+  image?: string;
+  path?: string;
+  sonarProject?: string;
+  dtrackProjectUuid?: string;
+  severity?: string;
+}
+
+// =============================================================================
 // Configuration Types
 // =============================================================================
 

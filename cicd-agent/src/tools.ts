@@ -42,6 +42,7 @@ import {
   registryGetCatalog,
   registryGetTags,
   checkPlatformStatus,
+  getSecurityDashboard,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -173,6 +174,15 @@ const toolHandlers: Record<string, ToolHandler> = {
   registry_get_tags: async (input) => registryGetTags(input.image as string),
   // Platform
   check_platform_status: async () => checkPlatformStatus(),
+  // Security Dashboard
+  get_security_dashboard: async (input) =>
+    getSecurityDashboard({
+      image: input.image as string | undefined,
+      path: input.path as string | undefined,
+      sonarProject: input.sonarProject as string | undefined,
+      dtrackProjectUuid: input.dtrackProjectUuid as string | undefined,
+      severity: input.severity as string | undefined,
+    }),
 };
 
 // =============================================================================
@@ -845,6 +855,37 @@ export const tools: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+  // Security Dashboard
+  {
+    name: "get_security_dashboard",
+    description:
+      "Get unified security dashboard aggregating Trivy, SonarQube, and Dependency-Track results. Provides a single-call overview of security posture with aggregated counts and top findings.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy (optional)",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy (optional)",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key (optional)",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID (optional)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter for Trivy (default: HIGH,CRITICAL)",
+        },
+      },
     },
   },
 ];

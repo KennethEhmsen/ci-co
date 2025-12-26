@@ -123,6 +123,12 @@ export type {
   ServiceHealthStatus,
   PlatformHealthResponse,
   McpConfigResource,
+  // Security Dashboard Types
+  SecurityDashboardSummary,
+  SonarDashboardMetrics,
+  SecurityDashboardFinding,
+  SecurityDashboardResult,
+  SecurityDashboardOptions,
 } from "./types.js";
 export {
   // Trivy
@@ -174,4 +180,6 @@ export {
   // Combined
   securityScanAll,
   checkPlatformStatus,
+  // Security Dashboard
+  getSecurityDashboard,
 } from "./handlers.js";

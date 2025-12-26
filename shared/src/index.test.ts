@@ -50,6 +50,7 @@ import {
   registryGetTags,
   securityScanAll,
   checkPlatformStatus,
+  getSecurityDashboard,
 } from "./handlers.js";
 
 // Mock child_process
@@ -1884,5 +1885,350 @@ describe("securityScanAll", () => {
     expect(result.trivy).toHaveProperty("error");
     expect(result.sonarqube).toHaveProperty("error");
     expect(result.dependencyTrack).toHaveProperty("error");
+  });
+});
+
+// =============================================================================
+// Handler Tests - Security Dashboard
+// =============================================================================
+describe("getSecurityDashboard", () => {
+  const originalApiKey = config.dependencyTrack.apiKey;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    config.dependencyTrack.apiKey = "test-key";
+  });
+
+  afterEach(() => {
+    config.dependencyTrack.apiKey = originalApiKey;
+  });
+
+  it("should return empty dashboard when no parameters provided", async () => {
+    const result = await getSecurityDashboard({});
+    expect(result).toHaveProperty("timestamp");
+    expect(result.summary).toEqual({ critical: 0, high: 0, medium: 0, low: 0, total: 0 });
+    expect(result.topFindings).toEqual([]);
+    expect(result.scanTargets).toEqual({
+      image: undefined,
+      path: undefined,
+      sonarProject: undefined,
+      dtrackProject: undefined,
+    });
+  });
+
+  it("should aggregate Trivy image scan results", async () => {
+    const trivyResult = {
+      SchemaVersion: 2,
+      Results: [
+        {
+          Target: "nginx:latest",
+          Vulnerabilities: [
+            {
+              VulnerabilityID: "CVE-2023-1234",
+              PkgName: "openssl",
+              InstalledVersion: "1.0.0",
+              Severity: "CRITICAL",
+              Title: "Critical vulnerability",
+            },
+            {
+              VulnerabilityID: "CVE-2023-5678",
+              PkgName: "curl",
+              InstalledVersion: "7.68.0",
+              Severity: "HIGH",
+              Title: "High vulnerability",
+            },
+          ],
+        },
+      ],
+    };
+
+    const mockExec = vi.mocked(exec);
+    mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+      if (callback) {
+        callback(null, { stdout: JSON.stringify(trivyResult), stderr: "" });
+      }
+      return {} as ChildProcess;
+    }) as unknown as typeof exec);
+
+    const result = await getSecurityDashboard({ image: "nginx:latest" });
+
+    expect(result.summary.critical).toBe(1);
+    expect(result.summary.high).toBe(1);
+    expect(result.summary.total).toBe(2);
+    expect(result.topFindings).toHaveLength(2);
+    expect(result.topFindings[0].id).toBe("CVE-2023-1234");
+    expect(result.topFindings[0].source).toBe("trivy");
+  });
+
+  it("should aggregate SonarQube results", async () => {
+    const sonarIssuesResult = {
+      total: 2,
+      issues: [
+        {
+          key: "issue-1",
+          rule: "security:S001",
+          severity: "BLOCKER",
+          component: "src/main.ts",
+          project: "my-project",
+          message: "SQL Injection vulnerability",
+          type: "VULNERABILITY",
+          status: "OPEN",
+        },
+        {
+          key: "issue-2",
+          rule: "bugs:B001",
+          severity: "MAJOR",
+          component: "src/utils.ts",
+          project: "my-project",
+          message: "Null pointer dereference",
+          type: "BUG",
+          status: "OPEN",
+        },
+      ],
+    };
+
+    const sonarHotspotsResult = { paging: { total: 3 }, hotspots: [] };
+    const sonarQgResult = { projectStatus: { status: "ERROR", conditions: [] } };
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/issues/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(sonarIssuesResult),
+        });
+      }
+      if (url.includes("/api/hotspots/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(sonarHotspotsResult),
+        });
+      }
+      if (url.includes("/api/qualitygates/project_status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(sonarQgResult),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    const result = await getSecurityDashboard({ sonarProject: "my-project" });
+
+    expect(result.bySource.sonarqube.vulnerabilities).toBe(1);
+    expect(result.bySource.sonarqube.bugs).toBe(1);
+    expect(result.bySource.sonarqube.hotspots).toBe(3);
+    expect(result.bySource.sonarqube.qualityGateStatus).toBe("ERROR");
+    expect(result.topFindings).toHaveLength(2);
+  });
+
+  it("should aggregate Dependency-Track results", async () => {
+    const dtrackResult = [
+      {
+        component: { uuid: "comp-1", name: "lodash", version: "4.17.0" },
+        vulnerability: {
+          uuid: "vuln-1",
+          vulnId: "CVE-2020-1234",
+          source: "NVD",
+          severity: "HIGH",
+          title: "Prototype pollution",
+        },
+      },
+      {
+        component: { uuid: "comp-2", name: "axios", version: "0.21.0" },
+        vulnerability: {
+          uuid: "vuln-2",
+          vulnId: "CVE-2020-5678",
+          source: "NVD",
+          severity: "MEDIUM",
+          title: "SSRF vulnerability",
+        },
+      },
+    ];
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(dtrackResult),
+    });
+
+    const result = await getSecurityDashboard({ dtrackProjectUuid: "project-uuid" });
+
+    const dtrackSummary = result.bySource.dependencyTrack;
+    expect("error" in dtrackSummary).toBe(false);
+    if (!("error" in dtrackSummary)) {
+      expect(dtrackSummary.high).toBe(1);
+      expect(dtrackSummary.medium).toBe(1);
+      expect(dtrackSummary.total).toBe(2);
+    }
+    expect(result.topFindings).toHaveLength(2);
+  });
+
+  it("should handle partial failures gracefully", async () => {
+    // Trivy fails
+    const mockExec = vi.mocked(exec);
+    mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+      if (callback) {
+        callback(new Error("Trivy scan failed") as ExecException, null);
+      }
+      return {} as ChildProcess;
+    }) as unknown as typeof exec);
+
+    // SonarQube works
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/issues/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              total: 1,
+              issues: [
+                {
+                  key: "issue-1",
+                  severity: "CRITICAL",
+                  type: "VULNERABILITY",
+                  message: "Test",
+                  rule: "test",
+                  component: "test",
+                  project: "test",
+                  status: "OPEN",
+                },
+              ],
+            }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ paging: { total: 0 }, hotspots: [] }),
+      });
+    });
+
+    const result = await getSecurityDashboard({
+      image: "nginx:latest",
+      sonarProject: "my-project",
+    });
+
+    // Trivy should have error
+    expect(result.bySource.trivy).toHaveProperty("error");
+
+    // SonarQube should work
+    expect(result.bySource.sonarqube.vulnerabilities).toBe(1);
+
+    // Summary should still include SonarQube findings
+    expect(result.summary.total).toBeGreaterThan(0);
+  });
+
+  it("should sort findings by severity (CRITICAL first)", async () => {
+    const trivyResult = {
+      SchemaVersion: 2,
+      Results: [
+        {
+          Target: "nginx:latest",
+          Vulnerabilities: [
+            {
+              VulnerabilityID: "CVE-LOW",
+              PkgName: "pkg1",
+              InstalledVersion: "1.0.0",
+              Severity: "LOW",
+              Title: "Low issue",
+            },
+            {
+              VulnerabilityID: "CVE-CRITICAL",
+              PkgName: "pkg2",
+              InstalledVersion: "1.0.0",
+              Severity: "CRITICAL",
+              Title: "Critical issue",
+            },
+            {
+              VulnerabilityID: "CVE-HIGH",
+              PkgName: "pkg3",
+              InstalledVersion: "1.0.0",
+              Severity: "HIGH",
+              Title: "High issue",
+            },
+          ],
+        },
+      ],
+    };
+
+    const mockExec = vi.mocked(exec);
+    mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+      if (callback) {
+        callback(null, { stdout: JSON.stringify(trivyResult), stderr: "" });
+      }
+      return {} as ChildProcess;
+    }) as unknown as typeof exec);
+
+    const result = await getSecurityDashboard({ image: "nginx:latest" });
+
+    expect(result.topFindings[0].severity).toBe("CRITICAL");
+    expect(result.topFindings[1].severity).toBe("HIGH");
+    expect(result.topFindings[2].severity).toBe("LOW");
+  });
+
+  it("should limit top findings to 10", async () => {
+    const vulnerabilities = Array.from({ length: 15 }, (_, i) => ({
+      VulnerabilityID: `CVE-${i}`,
+      PkgName: `pkg-${i}`,
+      InstalledVersion: "1.0.0",
+      Severity: "HIGH",
+      Title: `Vulnerability ${i}`,
+    }));
+
+    const trivyResult = {
+      SchemaVersion: 2,
+      Results: [{ Target: "nginx:latest", Vulnerabilities: vulnerabilities }],
+    };
+
+    const mockExec = vi.mocked(exec);
+    mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+      if (callback) {
+        callback(null, { stdout: JSON.stringify(trivyResult), stderr: "" });
+      }
+      return {} as ChildProcess;
+    }) as unknown as typeof exec);
+
+    const result = await getSecurityDashboard({ image: "nginx:latest" });
+
+    expect(result.topFindings).toHaveLength(10);
+    expect(result.summary.total).toBe(15);
+  });
+
+  it("should include scan targets in result", async () => {
+    // Mock to prevent actual scans
+    const mockExec = vi.mocked(exec);
+    mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
+      if (callback) {
+        callback(null, { stdout: JSON.stringify({ Results: [] }), stderr: "" });
+      }
+      return {} as ChildProcess;
+    }) as unknown as typeof exec);
+
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/v1/finding/")) {
+        // Dependency-Track returns an array of findings
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([]),
+        });
+      }
+      // SonarQube responses
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ issues: [], hotspots: [], paging: { total: 0 } }),
+      });
+    });
+
+    const result = await getSecurityDashboard({
+      image: "nginx:latest",
+      path: "/app",
+      sonarProject: "my-project",
+      dtrackProjectUuid: "uuid-123",
+    });
+
+    expect(result.scanTargets).toEqual({
+      image: "nginx:latest",
+      path: "/app",
+      sonarProject: "my-project",
+      dtrackProject: "uuid-123",
+    });
   });
 });

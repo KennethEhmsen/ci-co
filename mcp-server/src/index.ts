@@ -44,6 +44,7 @@ import {
   registryGetTags,
   securityScanAll,
   checkPlatformStatus,
+  getSecurityDashboard,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -664,6 +665,37 @@ export const toolDefinitions = [
       required: ["path"],
     },
   },
+  {
+    name: "get_security_dashboard",
+    description:
+      "Get unified security dashboard aggregating Trivy, SonarQube, and Dependency-Track results. Provides a single-call overview of security posture with aggregated counts and top findings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy (optional)",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy (optional)",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key (optional)",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID (optional)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter for Trivy (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
+        },
+      },
+    },
+  },
 ];
 
 // =============================================================================
@@ -857,6 +889,17 @@ export async function handleCallTool(
           args?.sonarProjectKey as string,
           args?.dtrackProjectUuid as string
         );
+        break;
+
+      // Security Dashboard
+      case "get_security_dashboard":
+        result = await getSecurityDashboard({
+          image: args?.image as string | undefined,
+          path: args?.path as string | undefined,
+          sonarProject: args?.sonarProject as string | undefined,
+          dtrackProjectUuid: args?.dtrackProjectUuid as string | undefined,
+          severity: args?.severity as string | undefined,
+        });
         break;
 
       default:
