@@ -796,3 +796,183 @@ export interface SarifConversionOptions {
   /** Include only findings at or above this level */
   minLevel?: "none" | "note" | "warning" | "error";
 }
+
+// =============================================================================
+// Webhook Types
+// =============================================================================
+
+/**
+ * Supported webhook formats
+ */
+export type WebhookFormat = "slack" | "teams" | "generic";
+
+/**
+ * Severity threshold for webhook notifications
+ */
+export type WebhookSeverityThreshold = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+/**
+ * Configuration for a single webhook endpoint
+ */
+export interface WebhookEndpoint {
+  /** Unique identifier for this webhook */
+  id: string;
+  /** Display name for the webhook */
+  name: string;
+  /** Webhook URL to POST to */
+  url: string;
+  /** Format of the webhook payload */
+  format: WebhookFormat;
+  /** Only notify if findings meet this severity threshold */
+  severityThreshold?: WebhookSeverityThreshold;
+  /** Custom headers to include in the request */
+  headers?: Record<string, string>;
+  /** Whether this webhook is enabled */
+  enabled?: boolean;
+}
+
+/**
+ * Configuration for all webhooks
+ */
+export interface WebhookConfig {
+  /** List of webhook endpoints */
+  endpoints: WebhookEndpoint[];
+  /** Default severity threshold if not specified per endpoint */
+  defaultSeverityThreshold?: WebhookSeverityThreshold;
+  /** Number of retry attempts for failed deliveries */
+  retryAttempts?: number;
+  /** Delay between retries in milliseconds */
+  retryDelayMs?: number;
+}
+
+/**
+ * Summary of scan results for webhook notifications
+ */
+export interface WebhookScanSummary {
+  /** Scan target (image name, path, project) */
+  target: string;
+  /** Type of scan performed */
+  scanType: "image" | "path" | "combined" | "dashboard";
+  /** Timestamp of the scan */
+  timestamp: string;
+  /** Vulnerability counts by severity */
+  vulnerabilities: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    total: number;
+  };
+  /** Whether the scan passed policy checks */
+  policyPassed?: boolean;
+  /** Top findings to highlight */
+  topFindings?: Array<{
+    id: string;
+    severity: string;
+    title: string;
+    package?: string;
+  }>;
+  /** Link to full scan results */
+  detailsUrl?: string;
+}
+
+/**
+ * Result of sending a webhook notification
+ */
+export interface WebhookDeliveryResult {
+  /** Webhook endpoint ID */
+  endpointId: string;
+  /** Whether the delivery was successful */
+  success: boolean;
+  /** HTTP status code received */
+  statusCode?: number;
+  /** Error message if failed */
+  error?: string;
+  /** Number of attempts made */
+  attempts: number;
+  /** Timestamp of the delivery */
+  timestamp: string;
+}
+
+/**
+ * Slack message block types
+ */
+export interface SlackBlock {
+  type: "section" | "header" | "divider" | "context" | "actions";
+  text?: {
+    type: "mrkdwn" | "plain_text";
+    text: string;
+    emoji?: boolean;
+  };
+  fields?: Array<{
+    type: "mrkdwn" | "plain_text";
+    text: string;
+  }>;
+  elements?: Array<{
+    type: string;
+    text?: { type: string; text: string; emoji?: boolean };
+    url?: string;
+    action_id?: string;
+  }>;
+}
+
+/**
+ * Slack webhook payload
+ */
+export interface SlackWebhookPayload {
+  text?: string;
+  blocks?: SlackBlock[];
+  attachments?: Array<{
+    color?: string;
+    title?: string;
+    text?: string;
+    fields?: Array<{ title: string; value: string; short?: boolean }>;
+  }>;
+}
+
+/**
+ * Microsoft Teams Adaptive Card element
+ */
+export interface TeamsAdaptiveCardElement {
+  type: "TextBlock" | "FactSet" | "Container" | "ColumnSet" | "ActionSet";
+  text?: string;
+  size?: "small" | "default" | "medium" | "large" | "extraLarge";
+  weight?: "lighter" | "default" | "bolder";
+  color?: "default" | "dark" | "light" | "accent" | "good" | "warning" | "attention";
+  wrap?: boolean;
+  facts?: Array<{ title: string; value: string }>;
+  items?: TeamsAdaptiveCardElement[];
+  columns?: Array<{ type: "Column"; width: string; items: TeamsAdaptiveCardElement[] }>;
+  actions?: Array<{ type: string; title: string; url?: string }>;
+}
+
+/**
+ * Microsoft Teams webhook payload (Adaptive Card)
+ */
+export interface TeamsWebhookPayload {
+  type: "message";
+  attachments: Array<{
+    contentType: "application/vnd.microsoft.card.adaptive";
+    content: {
+      $schema: string;
+      type: "AdaptiveCard";
+      version: string;
+      body: TeamsAdaptiveCardElement[];
+      actions?: Array<{ type: string; title: string; url: string }>;
+    };
+  }>;
+}
+
+/**
+ * Generic webhook payload
+ */
+export interface GenericWebhookPayload {
+  event: "scan_completed";
+  timestamp: string;
+  target: string;
+  scanType: string;
+  summary: WebhookScanSummary["vulnerabilities"];
+  policyPassed?: boolean;
+  topFindings?: WebhookScanSummary["topFindings"];
+  detailsUrl?: string;
+}

@@ -881,6 +881,16 @@ import {
 } from "./config-validation.js";
 
 describe("ConfigValidation", () => {
+  // Default webhook config for tests
+  const defaultWebhook = {
+    url: "",
+    urls: "",
+    config: "",
+    slackUrl: "",
+    teamsUrl: "",
+    severityThreshold: "HIGH",
+  };
+
   describe("validateConfig", () => {
     it("should validate correct config", () => {
       const result = validateConfig({
@@ -890,6 +900,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -903,6 +914,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Gitea URL"))).toBe(true);
@@ -916,6 +928,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:8081", apiKey: "" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
+        webhook: defaultWebhook,
       });
       expect(result.warnings.length).toBeGreaterThan(0);
     });
@@ -928,6 +941,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "", apiKey: "key" },
         trivy: { url: "" },
         registry: { url: "" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -941,6 +955,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "not-valid-url" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Registry URL"))).toBe(true);
@@ -954,6 +969,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Drone URL"))).toBe(true);
@@ -967,6 +983,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:8081", apiKey: "key" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid SonarQube URL"))).toBe(true);
@@ -980,6 +997,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "bad-dtrack-url", apiKey: "key" },
         trivy: { url: "http://localhost:4954" },
         registry: { url: "http://localhost:5000" },
+        webhook: defaultWebhook,
       });
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes("Invalid Dependency-Track URL"))).toBe(true);
@@ -995,6 +1013,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
+        webhook: defaultWebhook,
       };
       const results = await validateConnectivity(testConfig);
       expect(results).toHaveLength(5);
@@ -1009,6 +1028,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
+        webhook: defaultWebhook,
       };
       const results = await validateConnectivity(testConfig);
       const serviceNames = results.map((r) => r.service);
@@ -1027,6 +1047,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
+        webhook: defaultWebhook,
       };
       const results = await validateConnectivity(testConfig);
       const failedServices = results.filter((r) => !r.reachable);
@@ -1044,6 +1065,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
+        webhook: defaultWebhook,
       };
       const result = await validateStartup(testConfig);
       expect(result.config).toBeDefined();
@@ -1059,6 +1081,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "http://localhost:39996", apiKey: "key" },
         trivy: { url: "http://localhost:39995" },
         registry: { url: "http://localhost:39994" },
+        webhook: defaultWebhook,
       };
       const result = await validateStartup(testConfig);
       // With no services reachable, should not be ready
@@ -1073,6 +1096,7 @@ describe("ConfigValidation", () => {
         dependencyTrack: { url: "invalid", apiKey: "key" },
         trivy: { url: "invalid" },
         registry: { url: "invalid" },
+        webhook: defaultWebhook,
       };
       const result = await validateStartup(testConfig);
       expect(result.config.valid).toBe(false);
@@ -1531,6 +1555,375 @@ describe("SARIF", () => {
 
       // Clean up
       await fs.unlink(testPath);
+    });
+  });
+});
+
+// Webhook tests
+import {
+  meetsSeverityThreshold,
+  formatSlackMessage,
+  formatTeamsMessage,
+  formatGenericMessage,
+  sendWebhook,
+  sendWebhooks,
+  createScanSummary,
+  parseWebhookConfig,
+} from "./webhook.js";
+import type { WebhookScanSummary, WebhookEndpoint, WebhookConfig } from "./types.js";
+
+describe("Webhook", () => {
+  const baseSummary: WebhookScanSummary = {
+    target: "node:20-alpine",
+    scanType: "image",
+    timestamp: "2024-01-15T10:00:00Z",
+    vulnerabilities: {
+      critical: 2,
+      high: 5,
+      medium: 10,
+      low: 20,
+      total: 37,
+    },
+  };
+
+  describe("meetsSeverityThreshold", () => {
+    it("should return true when critical > 0 and threshold is CRITICAL", () => {
+      expect(meetsSeverityThreshold(baseSummary, "CRITICAL")).toBe(true);
+    });
+
+    it("should return true when high > 0 and threshold is HIGH", () => {
+      const summary = {
+        ...baseSummary,
+        vulnerabilities: { ...baseSummary.vulnerabilities, critical: 0 },
+      };
+      expect(meetsSeverityThreshold(summary, "HIGH")).toBe(true);
+    });
+
+    it("should return false when no vulns meet threshold", () => {
+      const summary = {
+        ...baseSummary,
+        vulnerabilities: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+      };
+      expect(meetsSeverityThreshold(summary, "HIGH")).toBe(false);
+    });
+
+    it("should return true for LOW threshold with any vulns", () => {
+      const summary = {
+        ...baseSummary,
+        vulnerabilities: { critical: 0, high: 0, medium: 0, low: 1, total: 1 },
+      };
+      expect(meetsSeverityThreshold(summary, "LOW")).toBe(true);
+    });
+  });
+
+  describe("formatSlackMessage", () => {
+    it("should format scan summary as Slack payload", () => {
+      const payload = formatSlackMessage(baseSummary);
+
+      expect(payload.text).toContain("node:20-alpine");
+      expect(payload.blocks).toBeDefined();
+      expect(payload.blocks!.length).toBeGreaterThan(0);
+      expect(payload.blocks![0].type).toBe("header");
+    });
+
+    it("should include policy status when provided", () => {
+      const summary = { ...baseSummary, policyPassed: false };
+      const payload = formatSlackMessage(summary);
+
+      const policyBlock = payload.blocks?.find((b) => b.text?.text?.includes("Policy Check"));
+      expect(policyBlock).toBeDefined();
+    });
+
+    it("should include top findings when provided", () => {
+      const summary = {
+        ...baseSummary,
+        topFindings: [
+          { id: "CVE-2024-1234", severity: "CRITICAL", title: "Test vuln", package: "pkg@1.0" },
+        ],
+      };
+      const payload = formatSlackMessage(summary);
+
+      const findingsBlock = payload.blocks?.find((b) => b.text?.text?.includes("CVE-2024-1234"));
+      expect(findingsBlock).toBeDefined();
+    });
+
+    it("should include details URL when provided", () => {
+      const summary = { ...baseSummary, detailsUrl: "https://example.com/scan/123" };
+      const payload = formatSlackMessage(summary);
+
+      const actionsBlock = payload.blocks?.find((b) => b.type === "actions");
+      expect(actionsBlock).toBeDefined();
+      expect(actionsBlock!.elements![0].url).toBe("https://example.com/scan/123");
+    });
+  });
+
+  describe("formatTeamsMessage", () => {
+    it("should format scan summary as Teams Adaptive Card", () => {
+      const payload = formatTeamsMessage(baseSummary);
+
+      expect(payload.type).toBe("message");
+      expect(payload.attachments).toHaveLength(1);
+      expect(payload.attachments[0].contentType).toBe("application/vnd.microsoft.card.adaptive");
+      expect(payload.attachments[0].content.type).toBe("AdaptiveCard");
+    });
+
+    it("should include vulnerability counts", () => {
+      const payload = formatTeamsMessage(baseSummary);
+      const body = payload.attachments[0].content.body;
+
+      const columnSet = body.find((e) => e.type === "ColumnSet");
+      expect(columnSet).toBeDefined();
+      expect(columnSet!.columns).toHaveLength(4);
+    });
+
+    it("should include details URL as action", () => {
+      const summary = { ...baseSummary, detailsUrl: "https://example.com/scan/123" };
+      const payload = formatTeamsMessage(summary);
+
+      expect(payload.attachments[0].content.actions).toBeDefined();
+      expect(payload.attachments[0].content.actions![0].url).toBe("https://example.com/scan/123");
+    });
+  });
+
+  describe("formatGenericMessage", () => {
+    it("should format scan summary as generic payload", () => {
+      const payload = formatGenericMessage(baseSummary);
+
+      expect(payload.event).toBe("scan_completed");
+      expect(payload.target).toBe("node:20-alpine");
+      expect(payload.scanType).toBe("image");
+      expect(payload.summary).toEqual(baseSummary.vulnerabilities);
+    });
+
+    it("should include optional fields when provided", () => {
+      const summary = {
+        ...baseSummary,
+        policyPassed: true,
+        topFindings: [{ id: "CVE-1", severity: "HIGH", title: "Test" }],
+        detailsUrl: "https://example.com",
+      };
+      const payload = formatGenericMessage(summary);
+
+      expect(payload.policyPassed).toBe(true);
+      expect(payload.topFindings).toHaveLength(1);
+      expect(payload.detailsUrl).toBe("https://example.com");
+    });
+  });
+
+  describe("sendWebhook", () => {
+    it("should send webhook and return success result", async () => {
+      const mockResponse = { ok: true, status: 200 };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as typeof fetch;
+
+      try {
+        const endpoint: WebhookEndpoint = {
+          id: "test-1",
+          name: "Test Webhook",
+          url: "https://hooks.example.com/webhook",
+          format: "generic",
+        };
+
+        const result = await sendWebhook(endpoint, baseSummary);
+
+        expect(result.success).toBe(true);
+        expect(result.endpointId).toBe("test-1");
+        expect(result.attempts).toBe(1);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should skip notification if severity threshold not met", async () => {
+      const endpoint: WebhookEndpoint = {
+        id: "test-2",
+        name: "Test Webhook",
+        url: "https://hooks.example.com/webhook",
+        format: "generic",
+        severityThreshold: "CRITICAL",
+      };
+
+      const lowSeveritySummary = {
+        ...baseSummary,
+        vulnerabilities: { critical: 0, high: 0, medium: 1, low: 0, total: 1 },
+      };
+
+      const result = await sendWebhook(endpoint, lowSeveritySummary);
+
+      expect(result.success).toBe(true);
+      expect(result.attempts).toBe(0); // No attempt made
+    });
+
+    it("should retry on failure", async () => {
+      let attempts = 0;
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        text: async () => "Server Error",
+      };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        attempts++;
+        return Promise.resolve(mockResponse);
+      }) as typeof fetch;
+
+      try {
+        const endpoint: WebhookEndpoint = {
+          id: "test-3",
+          name: "Test Webhook",
+          url: "https://hooks.example.com/webhook",
+          format: "generic",
+        };
+
+        const result = await sendWebhook(endpoint, baseSummary, {
+          endpoints: [],
+          retryAttempts: 3,
+          retryDelayMs: 10,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.attempts).toBe(3);
+        expect(attempts).toBe(3);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should not retry on 4xx errors except 429", async () => {
+      const mockResponse = {
+        ok: false,
+        status: 400,
+        text: async () => "Bad Request",
+      };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as typeof fetch;
+
+      try {
+        const endpoint: WebhookEndpoint = {
+          id: "test-4",
+          name: "Test Webhook",
+          url: "https://hooks.example.com/webhook",
+          format: "generic",
+        };
+
+        const result = await sendWebhook(endpoint, baseSummary, {
+          endpoints: [],
+          retryAttempts: 3,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.attempts).toBe(1); // Only one attempt
+        expect(result.statusCode).toBe(400);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("sendWebhooks", () => {
+    it("should send to all enabled endpoints", async () => {
+      const mockResponse = { ok: true, status: 200 };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as typeof fetch;
+
+      try {
+        const config: WebhookConfig = {
+          endpoints: [
+            {
+              id: "slack",
+              name: "Slack",
+              url: "https://slack.com/hook",
+              format: "slack",
+              enabled: true,
+            },
+            {
+              id: "teams",
+              name: "Teams",
+              url: "https://teams.com/hook",
+              format: "teams",
+              enabled: true,
+            },
+            {
+              id: "disabled",
+              name: "Disabled",
+              url: "https://disabled.com",
+              format: "generic",
+              enabled: false,
+            },
+          ],
+        };
+
+        const results = await sendWebhooks(config, baseSummary);
+
+        expect(results).toHaveLength(2);
+        expect(results.every((r) => r.success)).toBe(true);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("createScanSummary", () => {
+    it("should create a scan summary with required fields", () => {
+      const summary = createScanSummary("myimage:latest", "image", {
+        critical: 1,
+        high: 2,
+        medium: 3,
+        low: 4,
+        total: 10,
+      });
+
+      expect(summary.target).toBe("myimage:latest");
+      expect(summary.scanType).toBe("image");
+      expect(summary.timestamp).toBeDefined();
+      expect(summary.vulnerabilities.total).toBe(10);
+    });
+
+    it("should include optional fields", () => {
+      const summary = createScanSummary(
+        "myimage:latest",
+        "image",
+        { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+        {
+          policyPassed: true,
+          topFindings: [{ id: "CVE-1", severity: "HIGH", title: "Test" }],
+          detailsUrl: "https://example.com",
+        }
+      );
+
+      expect(summary.policyPassed).toBe(true);
+      expect(summary.topFindings).toHaveLength(1);
+      expect(summary.detailsUrl).toBe("https://example.com");
+    });
+  });
+
+  describe("parseWebhookConfig", () => {
+    it("should return null for empty input", () => {
+      expect(parseWebhookConfig(undefined)).toBeNull();
+      expect(parseWebhookConfig("")).toBeNull();
+    });
+
+    it("should parse JSON configuration", () => {
+      const jsonConfig = JSON.stringify({
+        endpoints: [{ id: "test", name: "Test", url: "https://example.com", format: "slack" }],
+      });
+
+      const config = parseWebhookConfig(jsonConfig);
+
+      expect(config).not.toBeNull();
+      expect(config!.endpoints).toHaveLength(1);
+      expect(config!.endpoints[0].format).toBe("slack");
+    });
+
+    it("should parse comma-separated URLs", () => {
+      const urls = "https://hook1.example.com,https://hook2.example.com";
+
+      const config = parseWebhookConfig(urls);
+
+      expect(config).not.toBeNull();
+      expect(config!.endpoints).toHaveLength(2);
+      expect(config!.endpoints[0].format).toBe("generic");
+      expect(config!.endpoints[1].url).toBe("https://hook2.example.com");
     });
   });
 });

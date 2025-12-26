@@ -142,6 +142,18 @@ export type {
   SarifRegion,
   SarifMessage,
   SarifConversionOptions,
+  // Webhook Types
+  WebhookFormat,
+  WebhookSeverityThreshold,
+  WebhookEndpoint,
+  WebhookConfig,
+  WebhookScanSummary,
+  WebhookDeliveryResult,
+  SlackBlock,
+  SlackWebhookPayload,
+  TeamsAdaptiveCardElement,
+  TeamsWebhookPayload,
+  GenericWebhookPayload,
 } from "./types.js";
 export {
   // Trivy
@@ -213,3 +225,15 @@ export {
   type GitHubUploadOptions,
   type GitHubUploadResult,
 } from "./sarif.js";
+
+// Webhook exports
+export {
+  meetsSeverityThreshold,
+  formatSlackMessage,
+  formatTeamsMessage,
+  formatGenericMessage,
+  sendWebhook,
+  sendWebhooks,
+  createScanSummary,
+  parseWebhookConfig,
+} from "./webhook.js";

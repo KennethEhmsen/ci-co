@@ -53,6 +53,37 @@ export const config = {
   registry: {
     url: process.env.REGISTRY_URL || "http://localhost:5000",
   },
+  /**
+   * Webhook configuration for scan notifications.
+   *
+   * Can be set via environment variables:
+   * - `WEBHOOK_URL` - Single webhook URL (generic format)
+   * - `WEBHOOK_URLS` - Comma-separated list of webhook URLs
+   * - `WEBHOOK_CONFIG` - Full JSON configuration
+   * - `WEBHOOK_SLACK_URL` - Slack webhook URL
+   * - `WEBHOOK_TEAMS_URL` - Microsoft Teams webhook URL
+   * - `WEBHOOK_SEVERITY_THRESHOLD` - Minimum severity to trigger notifications (LOW, MEDIUM, HIGH, CRITICAL)
+   *
+   * @example
+   * ```bash
+   * # Single webhook
+   * WEBHOOK_URL=https://hooks.example.com/webhook
+   *
+   * # Multiple webhooks
+   * WEBHOOK_URLS=https://hooks.slack.com/xxx,https://teams.microsoft.com/xxx
+   *
+   * # Full configuration
+   * WEBHOOK_CONFIG='{"endpoints":[{"id":"slack","name":"Slack","url":"https://hooks.slack.com/xxx","format":"slack"}]}'
+   * ```
+   */
+  webhook: {
+    url: process.env.WEBHOOK_URL || "",
+    urls: process.env.WEBHOOK_URLS || "",
+    config: process.env.WEBHOOK_CONFIG || "",
+    slackUrl: process.env.WEBHOOK_SLACK_URL || "",
+    teamsUrl: process.env.WEBHOOK_TEAMS_URL || "",
+    severityThreshold: process.env.WEBHOOK_SEVERITY_THRESHOLD || "HIGH",
+  },
 };
 
 /**
