@@ -110,6 +110,7 @@ export async function trivyScanPath(
 
 /**
  * Scan a Docker image for vulnerabilities using Trivy.
+ * Uses the Trivy server API for faster scanning (offloads vulnerability DB to server).
  * Works with local images and registry images.
  *
  * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
@@ -134,9 +135,12 @@ export async function trivyScanImage(
     throw new Error("Invalid image name provided");
   }
 
+  // Use Trivy server for vulnerability database lookups (faster, no local DB sync needed)
+  const serverFlag = config.trivy.url ? `--server ${config.trivy.url}` : "";
+
   try {
     const { stdout } = await execAsync(
-      `docker run --rm aquasec/trivy:latest image --format json --severity ${safeSeverity} ${safeImage}`,
+      `docker run --rm --network host aquasec/trivy:latest image ${serverFlag} --format json --severity ${safeSeverity} ${safeImage}`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
     return JSON.parse(stdout) as TrivyScanResult;
@@ -199,6 +203,7 @@ export async function trivyGenerateSbom(
 
 /**
  * Generate a Software Bill of Materials (SBOM) for a Docker image using Trivy.
+ * Uses the Trivy server API for faster scanning.
  * Creates a CycloneDX format SBOM listing all components in the container image.
  *
  * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
@@ -222,9 +227,12 @@ export async function trivyGenerateSbomImage(
     throw new Error("Invalid image name provided");
   }
 
+  // Use Trivy server for vulnerability database lookups
+  const serverFlag = config.trivy.url ? `--server ${config.trivy.url}` : "";
+
   try {
     const { stdout } = await execAsync(
-      `docker run --rm aquasec/trivy:latest image --format ${format} ${safeImage}`,
+      `docker run --rm --network host aquasec/trivy:latest image ${serverFlag} --format ${format} ${safeImage}`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
     return JSON.parse(stdout) as TrivySbomResult;
@@ -333,6 +341,7 @@ export async function trivyScanSecrets(
 
 /**
  * Scan a Docker image for secrets using Trivy.
+ * Uses the Trivy server API for faster scanning.
  * Detects hardcoded secrets, API keys, passwords, tokens, and other sensitive data in container images.
  *
  * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
@@ -357,9 +366,12 @@ export async function trivyScanSecretsImage(
     throw new Error("Invalid image name provided");
   }
 
+  // Use Trivy server for vulnerability database lookups
+  const serverFlag = config.trivy.url ? `--server ${config.trivy.url}` : "";
+
   try {
     const { stdout } = await execAsync(
-      `docker run --rm aquasec/trivy:latest image --scanners secret --format json --severity ${safeSeverity} ${safeImage}`,
+      `docker run --rm --network host aquasec/trivy:latest image ${serverFlag} --scanners secret --format json --severity ${safeSeverity} ${safeImage}`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
     return JSON.parse(stdout) as TrivySecretScanResult;
@@ -423,6 +435,7 @@ export async function trivyScanLicenses(
 
 /**
  * Scan a Docker image for license information using Trivy.
+ * Uses the Trivy server API for faster scanning.
  * Detects licenses in dependencies and flags potentially problematic licenses.
  *
  * @param image - Docker image to scan (e.g., nginx:latest, localhost:5000/myapp:v1)
@@ -447,9 +460,12 @@ export async function trivyScanLicensesImage(
     throw new Error("Invalid image name provided");
   }
 
+  // Use Trivy server for vulnerability database lookups
+  const serverFlag = config.trivy.url ? `--server ${config.trivy.url}` : "";
+
   try {
     const { stdout } = await execAsync(
-      `docker run --rm aquasec/trivy:latest image --scanners license --format json --severity ${safeSeverity} ${safeImage}`,
+      `docker run --rm --network host aquasec/trivy:latest image ${serverFlag} --scanners license --format json --severity ${safeSeverity} ${safeImage}`,
       { maxBuffer: 10 * 1024 * 1024 }
     );
     return JSON.parse(stdout) as TrivyLicenseScanResult;

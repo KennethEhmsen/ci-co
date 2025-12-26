@@ -1321,7 +1321,9 @@ describe("Trivy Handlers", () => {
       const mockResult = { SchemaVersion: 2, Results: [] };
       const mockExec = vi.mocked(exec);
       mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
-        expect(cmd).toContain("image --scanners secret");
+        expect(cmd).toContain("image");
+        expect(cmd).toContain("--scanners secret");
+        expect(cmd).toContain("--server"); // Uses Trivy server API
         if (callback) {
           callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
         }
@@ -1541,7 +1543,9 @@ describe("Trivy Handlers", () => {
       const mockResult = { SchemaVersion: 2, Results: [] };
       const mockExec = vi.mocked(exec);
       mockExec.mockImplementation(((cmd: string, opts: ExecOptions, callback?: ExecCallback) => {
-        expect(cmd).toContain("image --scanners license");
+        expect(cmd).toContain("image");
+        expect(cmd).toContain("--scanners license");
+        expect(cmd).toContain("--server"); // Uses Trivy server API
         if (callback) {
           callback(null, { stdout: JSON.stringify(mockResult), stderr: "" });
         }
