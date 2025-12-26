@@ -723,6 +723,115 @@ export function handleListTools() {
   return { tools: toolDefinitions };
 }
 
+// Tool handler type
+type ToolHandler = (args?: Record<string, unknown>) => Promise<unknown>;
+
+// Trivy handlers
+const trivyHandlers: Record<string, ToolHandler> = {
+  trivy_scan_path: (args) => trivyScanPath(args?.path as string, args?.severity as string),
+  trivy_scan_image: (args) => trivyScanImage(args?.image as string, args?.severity as string),
+  trivy_generate_sbom: (args) =>
+    trivyGenerateSbom(args?.path as string, args?.format as "cyclonedx" | "spdx-json"),
+  trivy_generate_sbom_image: (args) =>
+    trivyGenerateSbomImage(args?.image as string, args?.format as "cyclonedx" | "spdx-json"),
+  trivy_scan_iac: (args) => trivyScanIac(args?.path as string, args?.severity as string),
+  trivy_scan_secrets: (args) => trivyScanSecrets(args?.path as string, args?.severity as string),
+  trivy_scan_secrets_image: (args) =>
+    trivyScanSecretsImage(args?.image as string, args?.severity as string),
+  trivy_scan_licenses: (args) => trivyScanLicenses(args?.path as string, args?.severity as string),
+  trivy_scan_licenses_image: (args) =>
+    trivyScanLicensesImage(args?.image as string, args?.severity as string),
+  trivy_scan_image_full: (args) =>
+    trivyScanImageFull(
+      args?.image as string,
+      args?.severity as string,
+      args?.sbomFormat as "cyclonedx" | "spdx-json"
+    ),
+  trivy_scan_path_full: (args) =>
+    trivyScanPathFull(
+      args?.path as string,
+      args?.severity as string,
+      args?.sbomFormat as "cyclonedx" | "spdx-json"
+    ),
+};
+
+// SonarQube handlers
+const sonarHandlers: Record<string, ToolHandler> = {
+  sonar_list_projects: () => sonarGetProjects(),
+  sonar_get_issues: (args) => sonarGetIssues(args?.projectKey as string, args?.types as string),
+  sonar_get_security_hotspots: (args) => sonarGetSecurityHotspots(args?.projectKey as string),
+  sonar_get_metrics: (args) => sonarGetMetrics(args?.projectKey as string),
+};
+
+// Dependency-Track handlers
+const dtrackHandlers: Record<string, ToolHandler> = {
+  dtrack_list_projects: () => dtrackGetProjects(),
+  dtrack_get_vulnerabilities: (args) => dtrackGetVulnerabilities(args?.projectUuid as string),
+  dtrack_get_findings: (args) => dtrackGetFindings(args?.projectUuid as string),
+  dtrack_get_components: (args) => dtrackGetComponents(args?.projectUuid as string),
+};
+
+// Gitea handlers
+const giteaHandlers: Record<string, ToolHandler> = {
+  gitea_list_repos: () => giteaGetRepos(),
+  gitea_get_repo: (args) => giteaGetRepo(args?.owner as string, args?.repo as string),
+  gitea_get_branches: (args) => giteaGetBranches(args?.owner as string, args?.repo as string),
+  gitea_get_commits: (args) =>
+    giteaGetCommits(args?.owner as string, args?.repo as string, args?.limit as number),
+  gitea_create_repo: (args) =>
+    giteaCreateRepo(args?.name as string, args?.description as string, args?.private as boolean),
+  gitea_migrate_repo: (args) =>
+    giteaMigrateRepo(args?.cloneUrl as string, args?.repoName as string, args?.authToken as string),
+};
+
+// Drone handlers
+const droneHandlers: Record<string, ToolHandler> = {
+  drone_list_repos: () => droneGetRepos(),
+  drone_get_builds: (args) => droneGetBuilds(args?.owner as string, args?.repo as string),
+  drone_get_build: (args) =>
+    droneGetBuild(args?.owner as string, args?.repo as string, args?.build as number),
+  drone_get_build_logs: (args) =>
+    droneGetBuildLogs(
+      args?.owner as string,
+      args?.repo as string,
+      args?.build as number,
+      args?.stage as number,
+      args?.step as number
+    ),
+  drone_trigger_build: (args) =>
+    droneTriggerBuild(args?.owner as string, args?.repo as string, args?.branch as string),
+};
+
+// Other handlers
+const otherHandlers: Record<string, ToolHandler> = {
+  registry_list_images: () => registryGetCatalog(),
+  registry_get_tags: (args) => registryGetTags(args?.image as string),
+  security_scan_all: (args) =>
+    securityScanAll(
+      args?.path as string,
+      args?.sonarProjectKey as string,
+      args?.dtrackProjectUuid as string
+    ),
+  get_security_dashboard: (args) =>
+    getSecurityDashboard({
+      image: args?.image as string | undefined,
+      path: args?.path as string | undefined,
+      sonarProject: args?.sonarProject as string | undefined,
+      dtrackProjectUuid: args?.dtrackProjectUuid as string | undefined,
+      severity: args?.severity as string | undefined,
+    }),
+};
+
+// Combined handler map
+const toolHandlers: Record<string, ToolHandler> = {
+  ...trivyHandlers,
+  ...sonarHandlers,
+  ...dtrackHandlers,
+  ...giteaHandlers,
+  ...droneHandlers,
+  ...otherHandlers,
+};
+
 export async function handleCallTool(
   name: string,
   args?: Record<string, unknown>
@@ -731,180 +840,12 @@ export async function handleCallTool(
   isError?: boolean;
 }> {
   try {
-    let result: unknown;
-
-    switch (name) {
-      // Trivy
-      case "trivy_scan_path":
-        result = await trivyScanPath(args?.path as string, args?.severity as string);
-        break;
-      case "trivy_scan_image":
-        result = await trivyScanImage(args?.image as string, args?.severity as string);
-        break;
-      case "trivy_generate_sbom":
-        result = await trivyGenerateSbom(
-          args?.path as string,
-          args?.format as "cyclonedx" | "spdx-json"
-        );
-        break;
-      case "trivy_generate_sbom_image":
-        result = await trivyGenerateSbomImage(
-          args?.image as string,
-          args?.format as "cyclonedx" | "spdx-json"
-        );
-        break;
-      case "trivy_scan_iac":
-        result = await trivyScanIac(args?.path as string, args?.severity as string);
-        break;
-      case "trivy_scan_secrets":
-        result = await trivyScanSecrets(args?.path as string, args?.severity as string);
-        break;
-      case "trivy_scan_secrets_image":
-        result = await trivyScanSecretsImage(args?.image as string, args?.severity as string);
-        break;
-      case "trivy_scan_licenses":
-        result = await trivyScanLicenses(args?.path as string, args?.severity as string);
-        break;
-      case "trivy_scan_licenses_image":
-        result = await trivyScanLicensesImage(args?.image as string, args?.severity as string);
-        break;
-      case "trivy_scan_image_full":
-        result = await trivyScanImageFull(
-          args?.image as string,
-          args?.severity as string,
-          args?.sbomFormat as "cyclonedx" | "spdx-json"
-        );
-        break;
-      case "trivy_scan_path_full":
-        result = await trivyScanPathFull(
-          args?.path as string,
-          args?.severity as string,
-          args?.sbomFormat as "cyclonedx" | "spdx-json"
-        );
-        break;
-
-      // SonarQube
-      case "sonar_list_projects":
-        result = await sonarGetProjects();
-        break;
-      case "sonar_get_issues":
-        result = await sonarGetIssues(args?.projectKey as string, args?.types as string);
-        break;
-      case "sonar_get_security_hotspots":
-        result = await sonarGetSecurityHotspots(args?.projectKey as string);
-        break;
-      case "sonar_get_metrics":
-        result = await sonarGetMetrics(args?.projectKey as string);
-        break;
-
-      // Dependency-Track
-      case "dtrack_list_projects":
-        result = await dtrackGetProjects();
-        break;
-      case "dtrack_get_vulnerabilities":
-        result = await dtrackGetVulnerabilities(args?.projectUuid as string);
-        break;
-      case "dtrack_get_findings":
-        result = await dtrackGetFindings(args?.projectUuid as string);
-        break;
-      case "dtrack_get_components":
-        result = await dtrackGetComponents(args?.projectUuid as string);
-        break;
-
-      // Gitea
-      case "gitea_list_repos":
-        result = await giteaGetRepos();
-        break;
-      case "gitea_get_repo":
-        result = await giteaGetRepo(args?.owner as string, args?.repo as string);
-        break;
-      case "gitea_get_branches":
-        result = await giteaGetBranches(args?.owner as string, args?.repo as string);
-        break;
-      case "gitea_get_commits":
-        result = await giteaGetCommits(
-          args?.owner as string,
-          args?.repo as string,
-          args?.limit as number
-        );
-        break;
-      case "gitea_create_repo":
-        result = await giteaCreateRepo(
-          args?.name as string,
-          args?.description as string,
-          args?.private as boolean
-        );
-        break;
-      case "gitea_migrate_repo":
-        result = await giteaMigrateRepo(
-          args?.cloneUrl as string,
-          args?.repoName as string,
-          args?.authToken as string
-        );
-        break;
-
-      // Drone
-      case "drone_list_repos":
-        result = await droneGetRepos();
-        break;
-      case "drone_get_builds":
-        result = await droneGetBuilds(args?.owner as string, args?.repo as string);
-        break;
-      case "drone_get_build":
-        result = await droneGetBuild(
-          args?.owner as string,
-          args?.repo as string,
-          args?.build as number
-        );
-        break;
-      case "drone_get_build_logs":
-        result = await droneGetBuildLogs(
-          args?.owner as string,
-          args?.repo as string,
-          args?.build as number,
-          args?.stage as number,
-          args?.step as number
-        );
-        break;
-      case "drone_trigger_build":
-        result = await droneTriggerBuild(
-          args?.owner as string,
-          args?.repo as string,
-          args?.branch as string
-        );
-        break;
-
-      // Registry
-      case "registry_list_images":
-        result = await registryGetCatalog();
-        break;
-      case "registry_get_tags":
-        result = await registryGetTags(args?.image as string);
-        break;
-
-      // Combined security scan
-      case "security_scan_all":
-        result = await securityScanAll(
-          args?.path as string,
-          args?.sonarProjectKey as string,
-          args?.dtrackProjectUuid as string
-        );
-        break;
-
-      // Security Dashboard
-      case "get_security_dashboard":
-        result = await getSecurityDashboard({
-          image: args?.image as string | undefined,
-          path: args?.path as string | undefined,
-          sonarProject: args?.sonarProject as string | undefined,
-          dtrackProjectUuid: args?.dtrackProjectUuid as string | undefined,
-          severity: args?.severity as string | undefined,
-        });
-        break;
-
-      default:
-        throw new Error(`Unknown tool: ${name}`);
+    const handler = toolHandlers[name];
+    if (!handler) {
+      throw new Error(`Unknown tool: ${name}`);
     }
+
+    const result = await handler(args);
 
     return {
       content: [

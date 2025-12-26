@@ -97,7 +97,7 @@ export class RateLimiter {
  * Rate limiter that queues requests instead of rejecting
  */
 export class QueuedRateLimiter {
-  private queue: Array<{ resolve: () => void }> = [];
+  private readonly queue: Array<{ resolve: () => void }> = [];
   private readonly limiter: RateLimiter;
   private processing = false;
 

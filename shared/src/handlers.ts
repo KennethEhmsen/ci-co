@@ -1480,15 +1480,17 @@ export async function getSecurityDashboard(
 
   const allFindings: SecurityDashboardFinding[] = [];
 
+  // Determine Trivy scan type
+  const trivyScanPromise = image
+    ? trivyScanImage(image, severity)
+    : path
+      ? trivyScanPath(path, severity)
+      : Promise.resolve(null);
+
   // Run all scans in parallel
   const [trivyResult, sonarIssuesResult, sonarHotspotsResult, sonarQgResult, dtrackResult] =
     await Promise.allSettled([
-      // Trivy scan (image or path)
-      image
-        ? trivyScanImage(image, severity)
-        : path
-          ? trivyScanPath(path, severity)
-          : Promise.resolve(null),
+      trivyScanPromise,
       // SonarQube issues
       sonarProject ? sonarGetIssues(sonarProject) : Promise.resolve(null),
       // SonarQube hotspots

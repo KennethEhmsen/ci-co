@@ -8,7 +8,7 @@ interface CacheEntry<T> {
 }
 
 export class ScanCache<T = unknown> {
-  private cache: Map<string, CacheEntry<T>> = new Map();
+  private readonly cache: Map<string, CacheEntry<T>> = new Map();
   private readonly defaultTtlMs: number;
 
   /**
