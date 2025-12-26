@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2025-12-26
+
+### Fixed
+- **Security Hotspot** - Replaced `Math.random()` with `crypto.randomUUID()` in audit log ID generation
+- **Code Quality** - Reduced cognitive complexity in `handlers.ts`, `policy.ts`, and `formatter.ts`
+  - Extracted helper functions: `processTrivyResult`, `processSonarIssues`, `processDTrackResult`
+  - Extracted `checkThreshold`, `checkVulnerabilityThresholds`, `checkBlockedLicenses` in policy evaluation
+  - Added `stringifyValue` helper to properly handle object stringification in table formatting
+- **Policy Evaluation** - `filterIgnored()` now actually filters CVEs and packages instead of returning unchanged data
+
+### Changed
+- SonarQube code smells reduced from 26 to 20
+- All BLOCKER and CRITICAL code smells resolved
+
 ## [1.17.0] - 2025-12-26
 
 ### Added
