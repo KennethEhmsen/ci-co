@@ -22,7 +22,7 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides 33 tools for security scanning and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides 41 tools for security scanning and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration
@@ -34,9 +34,9 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 | Category | Tools | Description |
 |----------|-------|-------------|
 | **Trivy** | 11 | Vulnerability, secret, license, IaC scanning + SBOM |
-| **SonarQube** | 4 | Code quality and SAST analysis |
-| **Dependency-Track** | 4 | Software composition analysis |
-| **Gitea** | 6 | Git repository management |
+| **SonarQube** | 5 | Code quality, SAST analysis, quality gates |
+| **Dependency-Track** | 5 | Software composition analysis + SBOM upload |
+| **Gitea** | 12 | Git repos, branches, commits, PRs, issues |
 | **Drone CI** | 5 | CI/CD pipeline management |
 | **Docker Registry** | 2 | Container image management |
 | **Platform** | 1 | Platform health monitoring |
@@ -476,6 +476,46 @@ Get quality metrics for a project.
 
 ---
 
+#### `sonar_get_quality_gate_status`
+
+Get the quality gate status for a SonarQube project. Returns whether the project passes or fails the configured quality gate.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "projectKey": {
+      "type": "string",
+      "description": "The SonarQube project key"
+    }
+  },
+  "required": ["projectKey"]
+}
+```
+
+**Response:**
+```json
+{
+  "projectStatus": {
+    "status": "OK",
+    "conditions": [
+      {
+        "status": "OK",
+        "metricKey": "new_reliability_rating",
+        "comparator": "GT",
+        "errorThreshold": "1",
+        "actualValue": "1"
+      }
+    ]
+  }
+}
+```
+
+**Status values:** `OK` (passed), `ERROR` (failed), `WARN` (warning)
+
+---
+
 ### Dependency-Track Tools
 
 #### `dtrack_list_projects`
@@ -569,6 +609,57 @@ Get all components (dependencies) for a project with their details.
   "required": ["projectUuid"]
 }
 ```
+
+---
+
+#### `dtrack_upload_sbom`
+
+Upload a Software Bill of Materials (SBOM) to Dependency-Track for analysis.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "projectName": {
+      "type": "string",
+      "description": "Name of the project in Dependency-Track"
+    },
+    "projectVersion": {
+      "type": "string",
+      "description": "Version of the project"
+    },
+    "sbom": {
+      "type": "string",
+      "description": "SBOM content as a JSON string (CycloneDX or SPDX format)"
+    },
+    "autoCreate": {
+      "type": "boolean",
+      "description": "Auto-create the project if it doesn't exist (default: true)"
+    }
+  },
+  "required": ["projectName", "projectVersion", "sbom"]
+}
+```
+
+**Example:**
+```json
+{
+  "projectName": "my-application",
+  "projectVersion": "1.0.0",
+  "sbom": "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.4\",...}",
+  "autoCreate": true
+}
+```
+
+**Response:**
+```json
+{
+  "token": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+The token can be used to check the processing status of the uploaded SBOM.
 
 ---
 
@@ -715,6 +806,266 @@ Migrate a repository from GitHub to Gitea (preserves issues, PRs, releases).
     }
   },
   "required": ["cloneUrl", "repoName"]
+}
+```
+
+---
+
+#### `gitea_list_pull_requests`
+
+List pull requests in a Gitea repository with optional state filtering.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "owner": {
+      "type": "string",
+      "description": "Repository owner username"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "state": {
+      "type": "string",
+      "description": "Filter by state: open, closed, or all (default: open)",
+      "enum": ["open", "closed", "all"]
+    }
+  },
+  "required": ["owner", "repo"]
+}
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "number": 42,
+    "title": "Add new feature",
+    "body": "This PR adds...",
+    "state": "open",
+    "user": { "login": "developer" },
+    "created_at": "2024-12-20T10:00:00Z",
+    "merged": false,
+    "mergeable": true,
+    "html_url": "http://localhost:3000/owner/repo/pulls/42",
+    "head": { "ref": "feature-branch" },
+    "base": { "ref": "main" }
+  }
+]
+```
+
+---
+
+#### `gitea_get_pull_request`
+
+Get detailed information about a specific pull request.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "owner": {
+      "type": "string",
+      "description": "Repository owner username"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "pullNumber": {
+      "type": "number",
+      "description": "Pull request number"
+    }
+  },
+  "required": ["owner", "repo", "pullNumber"]
+}
+```
+
+---
+
+#### `gitea_create_pull_request`
+
+Create a new pull request in a Gitea repository.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "owner": {
+      "type": "string",
+      "description": "Repository owner username"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "title": {
+      "type": "string",
+      "description": "Pull request title"
+    },
+    "head": {
+      "type": "string",
+      "description": "Source branch name"
+    },
+    "base": {
+      "type": "string",
+      "description": "Target branch name (e.g., main)"
+    },
+    "body": {
+      "type": "string",
+      "description": "Pull request description (optional)"
+    }
+  },
+  "required": ["owner", "repo", "title", "head", "base"]
+}
+```
+
+**Example:**
+```json
+{
+  "owner": "localadmin",
+  "repo": "my-project",
+  "title": "Add user authentication",
+  "head": "feature/auth",
+  "base": "main",
+  "body": "This PR implements user login and registration."
+}
+```
+
+---
+
+#### `gitea_merge_pull_request`
+
+Merge an open pull request using the specified merge strategy.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "owner": {
+      "type": "string",
+      "description": "Repository owner username"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "pullNumber": {
+      "type": "number",
+      "description": "Pull request number to merge"
+    },
+    "mergeStyle": {
+      "type": "string",
+      "description": "Merge strategy: merge, rebase, or squash (default: merge)",
+      "enum": ["merge", "rebase", "squash"]
+    }
+  },
+  "required": ["owner", "repo", "pullNumber"]
+}
+```
+
+**Response:**
+```json
+{
+  "merged": true
+}
+```
+
+---
+
+#### `gitea_create_issue`
+
+Create a new issue in a Gitea repository.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "owner": {
+      "type": "string",
+      "description": "Repository owner username"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "title": {
+      "type": "string",
+      "description": "Issue title"
+    },
+    "body": {
+      "type": "string",
+      "description": "Issue description (optional)"
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Labels to apply (optional)"
+    }
+  },
+  "required": ["owner", "repo", "title"]
+}
+```
+
+**Example:**
+```json
+{
+  "owner": "localadmin",
+  "repo": "my-project",
+  "title": "Bug: Login fails on mobile",
+  "body": "Steps to reproduce:\n1. Open app on mobile\n2. Try to login\n3. Error appears",
+  "labels": ["bug", "mobile"]
+}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "number": 15,
+  "title": "Bug: Login fails on mobile",
+  "body": "Steps to reproduce...",
+  "state": "open",
+  "html_url": "http://localhost:3000/owner/repo/issues/15",
+  "created_at": "2024-12-20T10:00:00Z",
+  "user": { "login": "localadmin" }
+}
+```
+
+---
+
+#### `gitea_list_issues`
+
+List issues in a Gitea repository with optional state filtering.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "owner": {
+      "type": "string",
+      "description": "Repository owner username"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "state": {
+      "type": "string",
+      "description": "Filter by state: open, closed, or all (default: open)",
+      "enum": ["open", "closed", "all"]
+    }
+  },
+  "required": ["owner", "repo"]
 }
 ```
 
@@ -986,20 +1337,32 @@ import {
   sonarGetIssues,
   sonarGetSecurityHotspots,
   sonarGetMetrics,
+  sonarGetQualityGateStatus,
 
   // Dependency-Track
   dtrackGetProjects,
   dtrackGetVulnerabilities,
   dtrackGetFindings,
   dtrackGetComponents,
+  dtrackUploadSbom,
 
-  // Gitea
+  // Gitea - Repositories
   giteaGetRepos,
   giteaGetRepo,
   giteaGetBranches,
   giteaGetCommits,
   giteaCreateRepo,
   giteaMigrateRepo,
+
+  // Gitea - Pull Requests
+  giteaListPullRequests,
+  giteaGetPullRequest,
+  giteaCreatePullRequest,
+  giteaMergePullRequest,
+
+  // Gitea - Issues
+  giteaCreateIssue,
+  giteaListIssues,
 
   // Drone CI
   droneGetRepos,
