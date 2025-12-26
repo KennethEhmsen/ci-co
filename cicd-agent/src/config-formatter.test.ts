@@ -106,20 +106,34 @@ defaults:
         quiet: true,
       };
 
-      const merged = mergeConfig(fileConfig);
+      const merged = mergeConfig(fileConfig, {});
       expect(merged.format).toBe("json");
       expect(merged.quiet).toBe(true);
     });
 
     it("should use defaults when file config is empty", () => {
-      const merged = mergeConfig({});
+      const merged = mergeConfig({}, {});
       expect(merged.format).toBe("text");
       expect(merged.quiet).toBe(false);
     });
 
     it("should handle null config", () => {
-      const merged = mergeConfig(null);
+      const merged = mergeConfig(null, {});
       expect(merged.format).toBe("text");
+      expect(merged.quiet).toBe(false);
+    });
+
+    it("should let CLI options override file config", () => {
+      const fileConfig: AgentConfig = {
+        format: "json",
+        quiet: false,
+      };
+      const cliOptions: Partial<AgentConfig> = {
+        format: "table",
+      };
+
+      const merged = mergeConfig(fileConfig, cliOptions);
+      expect(merged.format).toBe("table");
       expect(merged.quiet).toBe(false);
     });
   });
