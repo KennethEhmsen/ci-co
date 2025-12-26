@@ -136,7 +136,7 @@ function parseValue(value: string): string | boolean | number {
 
   // Number
   const num = Number(value);
-  if (!isNaN(num) && value !== "") return num;
+  if (!Number.isNaN(num) && value !== "") return num;
 
   return value;
 }

@@ -120,8 +120,8 @@ function formatArrayAsTable(data: Record<string, unknown>[], lines: string[]): v
 
   // Header
   const header = keys.map((k) => k.padEnd(columnWidths[k])).join(" | ");
-  lines.push(header);
-  lines.push(keys.map((k) => "-".repeat(columnWidths[k])).join("-+-"));
+  const separator = keys.map((k) => "-".repeat(columnWidths[k])).join("-+-");
+  lines.push(header, separator);
 
   // Rows
   for (const row of data) {
@@ -148,7 +148,7 @@ function formatObjectAsTable(obj: Record<string, unknown>, lines: string[]): voi
   const maxKeyLen = Math.max(...keys.map((k) => k.length));
 
   for (const [key, value] of Object.entries(obj)) {
-    const valStr = typeof value === "object" ? JSON.stringify(value) : String(value);
+    const valStr = stringifyValue(value);
     lines.push(`${key.padEnd(maxKeyLen)} : ${valStr}`);
   }
 }
@@ -160,8 +160,7 @@ function formatTable(data: unknown, title?: string): string {
   const lines: string[] = [];
 
   if (title) {
-    lines.push(`\n${title}`);
-    lines.push("=".repeat(title.length));
+    lines.push(`\n${title}`, "=".repeat(title.length));
   }
 
   if (Array.isArray(data)) {
@@ -194,8 +193,9 @@ function formatMarkdown(data: unknown, title?: string): string {
     const keys = Object.keys(data[0] as Record<string, unknown>);
 
     // Header
-    lines.push("| " + keys.join(" | ") + " |");
-    lines.push("| " + keys.map(() => "---").join(" | ") + " |");
+    const mdHeader = "| " + keys.join(" | ") + " |";
+    const mdSeparator = "| " + keys.map(() => "---").join(" | ") + " |";
+    lines.push(mdHeader, mdSeparator);
 
     // Rows
     for (const row of data) {
@@ -205,7 +205,7 @@ function formatMarkdown(data: unknown, title?: string): string {
           if (typeof val === "object") {
             return "`" + JSON.stringify(val).slice(0, 30) + "`";
           }
-          return String(val ?? "").replace(/\|/g, "\\|");
+          return String(val ?? "").replaceAll("|", "\\|");
         })
         .join(" | ");
       lines.push("| " + rowStr + " |");

@@ -257,8 +257,8 @@ export function evaluatePolicy(policy: Policy, results: ScanResults): PolicyEval
   // Determine overall pass/fail based on mode
   const passed =
     policy.mode === "all"
-      ? rulesPassed.every((p) => p) // All rules must pass
-      : rulesPassed.some((p) => p); // At least one rule must pass
+      ? rulesPassed.every(Boolean) // All rules must pass
+      : rulesPassed.some(Boolean); // At least one rule must pass
 
   return {
     passed,
