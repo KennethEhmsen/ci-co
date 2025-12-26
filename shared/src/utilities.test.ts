@@ -2408,3 +2408,168 @@ describe("Policy Loader", () => {
     });
   });
 });
+
+// Parallel scanner tests
+import { parseTargets, parseImages, parsePaths } from "./parallel-scanner.js";
+import type { ScanTarget, ScanProgress, TargetScanResult } from "./types.js";
+
+describe("Parallel Scanner", () => {
+  describe("parseTargets", () => {
+    it("should parse comma-separated targets", () => {
+      const targets = parseTargets("node:20,python:3.12,nginx:latest");
+
+      expect(targets).toHaveLength(3);
+      expect(targets[0].target).toBe("node:20");
+      expect(targets[1].target).toBe("python:3.12");
+      expect(targets[2].target).toBe("nginx:latest");
+    });
+
+    it("should handle single target", () => {
+      const targets = parseTargets("alpine:latest");
+
+      expect(targets).toHaveLength(1);
+      expect(targets[0].target).toBe("alpine:latest");
+      expect(targets[0].type).toBe("image");
+    });
+
+    it("should trim whitespace", () => {
+      const targets = parseTargets("  node:20 , python:3.12  ");
+
+      expect(targets).toHaveLength(2);
+      expect(targets[0].target).toBe("node:20");
+      expect(targets[1].target).toBe("python:3.12");
+    });
+
+    it("should filter empty entries", () => {
+      const targets = parseTargets("node:20,,python:3.12,");
+
+      expect(targets).toHaveLength(2);
+    });
+
+    it("should use specified type", () => {
+      const targets = parseTargets("/app,/lib", "path");
+
+      expect(targets[0].type).toBe("path");
+      expect(targets[1].type).toBe("path");
+    });
+
+    it("should set label to target value", () => {
+      const targets = parseTargets("node:20");
+
+      expect(targets[0].label).toBe("node:20");
+    });
+  });
+
+  describe("parseImages", () => {
+    it("should parse string input", () => {
+      const targets = parseImages("node:20,python:3.12");
+
+      expect(targets).toHaveLength(2);
+      expect(targets.every((t) => t.type === "image")).toBe(true);
+    });
+
+    it("should parse array input", () => {
+      const targets = parseImages(["node:20", "python:3.12"]);
+
+      expect(targets).toHaveLength(2);
+      expect(targets[0].target).toBe("node:20");
+      expect(targets[1].target).toBe("python:3.12");
+    });
+  });
+
+  describe("parsePaths", () => {
+    it("should parse string input", () => {
+      const targets = parsePaths("/app,/lib");
+
+      expect(targets).toHaveLength(2);
+      expect(targets.every((t) => t.type === "path")).toBe(true);
+    });
+
+    it("should parse array input", () => {
+      const targets = parsePaths(["/app", "/lib"]);
+
+      expect(targets).toHaveLength(2);
+      expect(targets[0].target).toBe("/app");
+      expect(targets[1].target).toBe("/lib");
+    });
+  });
+
+  describe("ScanProgress type", () => {
+    it("should have correct structure", () => {
+      const progress: ScanProgress = {
+        total: 5,
+        completed: 2,
+        failed: 0,
+        running: 2,
+        currentTargets: ["node:20", "python:3.12"],
+        percentage: 40,
+      };
+
+      expect(progress.total).toBe(5);
+      expect(progress.percentage).toBe(40);
+      expect(progress.currentTargets).toHaveLength(2);
+    });
+  });
+
+  describe("TargetScanResult type", () => {
+    it("should represent successful scan", () => {
+      const result: TargetScanResult = {
+        target: { target: "node:20", type: "image" },
+        success: true,
+        result: { Results: [] },
+        durationMs: 5000,
+        startedAt: "2024-01-01T00:00:00Z",
+        completedAt: "2024-01-01T00:00:05Z",
+      };
+
+      expect(result.success).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+
+    it("should represent failed scan", () => {
+      const result: TargetScanResult = {
+        target: { target: "invalid:image", type: "image" },
+        success: false,
+        error: "Image not found",
+        durationMs: 1000,
+        startedAt: "2024-01-01T00:00:00Z",
+        completedAt: "2024-01-01T00:00:01Z",
+      };
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Image not found");
+      expect(result.result).toBeUndefined();
+    });
+  });
+
+  describe("ScanTarget type", () => {
+    it("should support image type", () => {
+      const target: ScanTarget = {
+        target: "node:20",
+        type: "image",
+        label: "Node.js 20",
+      };
+
+      expect(target.type).toBe("image");
+    });
+
+    it("should support path type", () => {
+      const target: ScanTarget = {
+        target: "/app/backend",
+        type: "path",
+        label: "Backend",
+      };
+
+      expect(target.type).toBe("path");
+    });
+
+    it("should make label optional", () => {
+      const target: ScanTarget = {
+        target: "alpine:latest",
+        type: "image",
+      };
+
+      expect(target.label).toBeUndefined();
+    });
+  });
+});

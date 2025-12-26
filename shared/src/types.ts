@@ -1084,3 +1084,123 @@ export interface PolicyValidationResult {
   /** Validation warnings */
   warnings: PolicyValidationError[];
 }
+
+// =============================================================================
+// Parallel Scanning Types
+// =============================================================================
+
+/**
+ * Type of scan target
+ */
+export type ScanTargetType = "image" | "path";
+
+/**
+ * A single scan target
+ */
+export interface ScanTarget {
+  /** Target identifier (image name or path) */
+  target: string;
+  /** Type of target */
+  type: ScanTargetType;
+  /** Optional label for display */
+  label?: string;
+}
+
+/**
+ * Options for parallel scanning
+ */
+export interface ParallelScanOptions {
+  /** Array of targets to scan */
+  targets: ScanTarget[];
+  /** Maximum concurrent scans (default: 3) */
+  concurrency?: number;
+  /** Stop on first failure (default: false) */
+  failFast?: boolean;
+  /** Severity filter for vulnerability scans */
+  severity?: string;
+  /** Progress callback */
+  onProgress?: (progress: ScanProgress) => void;
+  /** Per-target completion callback */
+  onTargetComplete?: (result: TargetScanResult) => void;
+}
+
+/**
+ * Progress information for parallel scanning
+ */
+export interface ScanProgress {
+  /** Total number of targets */
+  total: number;
+  /** Number of completed scans */
+  completed: number;
+  /** Number of failed scans */
+  failed: number;
+  /** Number of currently running scans */
+  running: number;
+  /** Currently scanning targets */
+  currentTargets: string[];
+  /** Percentage complete (0-100) */
+  percentage: number;
+}
+
+/**
+ * Result of scanning a single target
+ */
+export interface TargetScanResult {
+  /** The target that was scanned */
+  target: ScanTarget;
+  /** Whether the scan succeeded */
+  success: boolean;
+  /** Scan result data (if successful) */
+  result?: TrivyScanResult;
+  /** Error message (if failed) */
+  error?: string;
+  /** Scan duration in milliseconds */
+  durationMs: number;
+  /** Timestamp when scan started */
+  startedAt: string;
+  /** Timestamp when scan completed */
+  completedAt: string;
+}
+
+/**
+ * Vulnerability counts by severity
+ */
+export interface VulnerabilityCounts {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  unknown: number;
+  total: number;
+}
+
+/**
+ * Aggregated result from parallel scanning
+ */
+export interface ParallelScanResult {
+  /** Timestamp when scanning started */
+  startedAt: string;
+  /** Timestamp when scanning completed */
+  completedAt: string;
+  /** Total duration in milliseconds */
+  durationMs: number;
+  /** Summary of all results */
+  summary: {
+    /** Total targets scanned */
+    totalTargets: number;
+    /** Number of successful scans */
+    successfulScans: number;
+    /** Number of failed scans */
+    failedScans: number;
+    /** Whether scanning was aborted (fail-fast) */
+    aborted: boolean;
+    /** Aggregated vulnerability counts */
+    vulnerabilities: VulnerabilityCounts;
+  };
+  /** Individual results per target */
+  results: TargetScanResult[];
+  /** List of targets that failed */
+  failedTargets: string[];
+  /** Whether all policy checks passed */
+  policyPassed?: boolean;
+}

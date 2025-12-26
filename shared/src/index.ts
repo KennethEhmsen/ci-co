@@ -161,6 +161,14 @@ export type {
   PolicySettings,
   PolicyValidationError,
   PolicyValidationResult,
+  // Parallel Scanning Types
+  ScanTargetType,
+  ScanTarget,
+  ParallelScanOptions,
+  ScanProgress,
+  TargetScanResult,
+  VulnerabilityCounts,
+  ParallelScanResult,
 } from "./types.js";
 export {
   // Trivy
@@ -257,3 +265,14 @@ export {
   resolvePolicy,
   loadPolicy,
 } from "./policy-loader.js";
+
+// Parallel scanner exports
+export {
+  parseTargets,
+  parseImages,
+  parsePaths,
+  scanParallel,
+  scanImagesParallel,
+  scanPathsParallel,
+  scanMixedParallel,
+} from "./parallel-scanner.js";
