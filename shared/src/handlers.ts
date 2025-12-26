@@ -1481,11 +1481,14 @@ export async function getSecurityDashboard(
   const allFindings: SecurityDashboardFinding[] = [];
 
   // Determine Trivy scan type
-  const trivyScanPromise = image
-    ? trivyScanImage(image, severity)
-    : path
-      ? trivyScanPath(path, severity)
-      : Promise.resolve(null);
+  let trivyScanPromise: Promise<TrivyScanResult | ErrorResponse | null>;
+  if (image) {
+    trivyScanPromise = trivyScanImage(image, severity);
+  } else if (path) {
+    trivyScanPromise = trivyScanPath(path, severity);
+  } else {
+    trivyScanPromise = Promise.resolve(null);
+  }
 
   // Run all scans in parallel
   const [trivyResult, sonarIssuesResult, sonarHotspotsResult, sonarQgResult, dtrackResult] =
