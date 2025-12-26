@@ -1522,18 +1522,18 @@ export async function getSecurityDashboard(
   // Process SonarQube hotspots
   if (sonarHotspotsResult.status === "fulfilled" && sonarHotspotsResult.value) {
     const hotspotsData = sonarHotspotsResult.value;
-    if ("hotspots" in hotspotsData || "paging" in hotspotsData) {
-      const data = hotspotsData as SonarHotspotsResponse;
-      sonarMetrics.hotspots = data.paging?.total || data.hotspots?.length || 0;
+    if ("paging" in hotspotsData && hotspotsData.paging) {
+      sonarMetrics.hotspots = hotspotsData.paging.total || 0;
+    } else if ("hotspots" in hotspotsData && hotspotsData.hotspots) {
+      sonarMetrics.hotspots = hotspotsData.hotspots.length;
     }
   }
 
   // Process SonarQube quality gate
   if (sonarQgResult.status === "fulfilled" && sonarQgResult.value) {
     const qgData = sonarQgResult.value;
-    if ("projectStatus" in qgData) {
-      const data = qgData as QualityGateStatus;
-      sonarMetrics.qualityGateStatus = data.projectStatus?.status || "NONE";
+    if ("projectStatus" in qgData && qgData.projectStatus) {
+      sonarMetrics.qualityGateStatus = qgData.projectStatus.status || "NONE";
     }
   }
 

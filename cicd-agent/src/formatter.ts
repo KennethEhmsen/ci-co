@@ -205,7 +205,7 @@ function formatMarkdown(data: unknown, title?: string): string {
           if (typeof val === "object") {
             return "`" + JSON.stringify(val).slice(0, 30) + "`";
           }
-          return String(val ?? "").replaceAll("|", "\\|");
+          return stringifyValue(val).replaceAll("|", String.raw`\|`);
         })
         .join(" | ");
       lines.push("| " + rowStr + " |");
@@ -217,7 +217,7 @@ function formatMarkdown(data: unknown, title?: string): string {
       const valStr =
         typeof value === "object"
           ? "\n```json\n" + JSON.stringify(value, null, 2) + "\n```"
-          : String(value);
+          : stringifyValue(value);
       lines.push(`- **${key}**: ${valStr}`);
     }
   } else {
