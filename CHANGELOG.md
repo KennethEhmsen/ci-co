@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2025-12-26
+
+### Added
+- **Security Dashboard** (`get_security_dashboard`)
+  - Unified security posture view aggregating Trivy, SonarQube, and Dependency-Track results
+  - Parallel execution with `Promise.allSettled()` for performance
+  - Severity normalization across different security tools
+  - Top 10 findings sorted by severity (CRITICAL first)
+  - Partial failure resilience - each source can fail independently
+  - Aggregated summary counts by severity level (critical, high, medium, low)
+  - Scan targets tracking (image, path, sonarProject, dtrackProject)
+
+### Changed
+- Tool count increased to 34 (1 new tool)
+- Test count: 546 tests across all packages
+
 ## [1.16.1] - 2025-12-26
 
 ### Changed
@@ -370,7 +386,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Usage examples for multiple languages
 - Security scanning guide
 
-[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.1...HEAD
+[Unreleased]: https://github.com/KennethEhmsen/ci-co/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.1...v1.17.0
 [1.16.1]: https://github.com/KennethEhmsen/ci-co/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/KennethEhmsen/ci-co/compare/v1.14.0...v1.15.0
