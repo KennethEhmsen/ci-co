@@ -47,6 +47,8 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 
 ### Trivy Tools
 
+> **Note:** Image-based scans (`trivy_scan_image`, `trivy_generate_sbom_image`, `trivy_scan_secrets_image`, `trivy_scan_licenses_image`) use the Trivy server API for faster scanning and centralized vulnerability database management. Path-based scans use local Docker execution.
+
 #### `trivy_scan_path`
 
 Scan a local file path for vulnerabilities using Trivy.
@@ -83,7 +85,7 @@ Scan a local file path for vulnerabilities using Trivy.
 
 #### `trivy_scan_image`
 
-Scan a Docker image for vulnerabilities using Trivy.
+Scan a Docker image for vulnerabilities using Trivy server API.
 
 **Input Schema:**
 ```json
@@ -140,7 +142,7 @@ Generate a Software Bill of Materials (SBOM) for a local path using Trivy.
 
 #### `trivy_generate_sbom_image`
 
-Generate a Software Bill of Materials (SBOM) for a Docker image.
+Generate a Software Bill of Materials (SBOM) for a Docker image using Trivy server API.
 
 **Input Schema:**
 ```json
@@ -213,7 +215,7 @@ Scan a local path for hardcoded secrets (API keys, passwords, tokens, private ke
 
 #### `trivy_scan_secrets_image`
 
-Scan a Docker image for hardcoded secrets.
+Scan a Docker image for hardcoded secrets using Trivy server API.
 
 **Input Schema:**
 ```json
@@ -261,7 +263,7 @@ Scan a local path for license information. Detects licenses in dependencies and 
 
 #### `trivy_scan_licenses_image`
 
-Scan a Docker image for license information.
+Scan a Docker image for license information using Trivy server API.
 
 **Input Schema:**
 ```json
