@@ -65,6 +65,30 @@ function formatText(data: unknown): string {
 }
 
 /**
+ * Safely stringify a value, handling objects properly
+ */
+function stringifyValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  // At this point value is a primitive (string, number, boolean, symbol, bigint)
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return value.toString();
+  }
+  // Symbol - use description or empty string
+  if (typeof value === "symbol") {
+    return value.description ?? "";
+  }
+  return "";
+}
+
+/**
  * Calculate column widths for array table
  */
 function calculateColumnWidths(
@@ -75,7 +99,7 @@ function calculateColumnWidths(
   for (const key of keys) {
     columnWidths[key] = key.length;
     for (const row of data) {
-      const val = String(row[key] ?? "");
+      const val = stringifyValue(row[key]);
       columnWidths[key] = Math.max(columnWidths[key], Math.min(val.length, 40));
     }
   }
@@ -103,7 +127,7 @@ function formatArrayAsTable(data: Record<string, unknown>[], lines: string[]): v
   for (const row of data) {
     const rowStr = keys
       .map((k) => {
-        const val = String(row[k] ?? "");
+        const val = stringifyValue(row[k]);
         return val.slice(0, 40).padEnd(columnWidths[k]);
       })
       .join(" | ");
