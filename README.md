@@ -40,6 +40,23 @@ The GitHub Actions CI workflow includes comprehensive security checks:
 
 Results are automatically uploaded to the [GitHub Security tab](https://github.com/KennethEhmsen/ci-co/security).
 
+### What's New in v1.16.0
+
+| Feature | Description |
+|---------|-------------|
+| **PR Management** | Create, list, merge pull requests via Gitea API |
+| **Issue Tracking** | Create and list issues with labels |
+| **Quality Gates** | Check SonarQube quality gate pass/fail status |
+| **SBOM Upload** | Upload SBOMs to Dependency-Track for analysis |
+| **Caching** | Scan result caching with TTL for faster repeated scans |
+| **Circuit Breaker** | Automatic failure handling for external services |
+| **Rate Limiting** | Token bucket rate limiting to prevent API overload |
+| **Audit Logging** | Structured logging for all security operations |
+| **Config Files** | Load settings from `.cicd-agent.yaml` or `.cicd-agent.json` |
+| **Output Formats** | JSON, table, markdown, and text output options |
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
 ---
 
 ## Quick Start (One Click!)
@@ -253,7 +270,7 @@ The installer will:
 
 ### Available Tools in Claude Code
 
-After installation, restart Claude Code and these tools become available (33 total):
+After installation, restart Claude Code and these tools become available (41 total):
 
 #### Trivy Security Scanning (11 tools)
 
@@ -271,7 +288,7 @@ After installation, restart Claude Code and these tools become available (33 tot
 | `trivy_scan_image_full` | **Combined scan**: vuln + secret + license + SBOM |
 | `trivy_scan_path_full` | **Combined scan**: vuln + secret + license + IaC + SBOM |
 
-#### SonarQube (4 tools)
+#### SonarQube (5 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -279,8 +296,9 @@ After installation, restart Claude Code and these tools become available (33 tot
 | `sonar_get_issues` | Get code quality issues (bugs, vulnerabilities, smells) |
 | `sonar_get_security_hotspots` | Get security hotspots requiring review |
 | `sonar_get_metrics` | Get project metrics (coverage, duplication, etc.) |
+| `sonar_get_quality_gate_status` | Check if project passes quality gate |
 
-#### Dependency-Track (4 tools)
+#### Dependency-Track (5 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -288,8 +306,9 @@ After installation, restart Claude Code and these tools become available (33 tot
 | `dtrack_get_vulnerabilities` | Get vulnerabilities for a project |
 | `dtrack_get_findings` | Get detailed findings with analysis |
 | `dtrack_get_components` | Get component inventory (SBOM) |
+| `dtrack_upload_sbom` | Upload SBOM for vulnerability analysis |
 
-#### Gitea (6 tools)
+#### Gitea (12 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -299,6 +318,12 @@ After installation, restart Claude Code and these tools become available (33 tot
 | `gitea_get_commits` | Get recent commits |
 | `gitea_create_repo` | Create a new repository |
 | `gitea_migrate_repo` | Migrate/mirror external repository |
+| `gitea_list_pull_requests` | List PRs with state filtering |
+| `gitea_get_pull_request` | Get pull request details |
+| `gitea_create_pull_request` | Create a new pull request |
+| `gitea_merge_pull_request` | Merge a pull request |
+| `gitea_create_issue` | Create an issue with labels |
+| `gitea_list_issues` | List issues with state filtering |
 
 #### Drone CI (5 tools)
 
@@ -330,6 +355,10 @@ Once installed, you can ask Claude Code things like:
 - "Check the CI/CD platform status"
 - "Show me the latest build results"
 - "List security issues in SonarQube"
+- "Create a pull request from feature branch to main"
+- "Check if the project passes the quality gate"
+- "Upload the SBOM to Dependency-Track"
+- "List all open issues in this repository"
 
 ### Uninstall from Claude Code
 
@@ -469,7 +498,7 @@ If your commit is rejected, check the error message and fix the format.
 
 | Document | Description |
 |----------|-------------|
-| [docs/API.md](docs/API.md) | Complete API reference (33 tools) |
+| [docs/API.md](docs/API.md) | Complete API reference (41 tools) |
 | [docs/CLI.md](docs/CLI.md) | CI/CD Agent CLI reference |
 | [docs/DEVELOPER.md](docs/DEVELOPER.md) | Developer guide & extension |
 | [docs/ADMIN.md](docs/ADMIN.md) | Administrator operations guide |
