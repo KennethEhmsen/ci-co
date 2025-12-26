@@ -40,6 +40,12 @@ The GitHub Actions CI workflow includes comprehensive security checks:
 
 Results are automatically uploaded to the [GitHub Security tab](https://github.com/KennethEhmsen/ci-co/security).
 
+### What's New in v1.16.1
+
+| Feature | Description |
+|---------|-------------|
+| **Trivy Server API** | Image scans now use the Trivy server for faster scanning and centralized vulnerability database management |
+
 ### What's New in v1.16.0
 
 | Feature | Description |
@@ -274,17 +280,19 @@ After installation, restart Claude Code and these tools become available (41 tot
 
 #### Trivy Security Scanning (11 tools)
 
+> **Note:** Image-based scans use the Trivy server API for faster scanning and centralized vulnerability database management. Path-based scans use local Docker execution.
+
 | Tool | Description |
 |------|-------------|
 | `trivy_scan_path` | Scan local paths for vulnerabilities |
-| `trivy_scan_image` | Scan Docker images for vulnerabilities |
+| `trivy_scan_image` | Scan Docker images for vulnerabilities (server API) |
 | `trivy_generate_sbom` | Generate SBOM (CycloneDX/SPDX) for local paths |
-| `trivy_generate_sbom_image` | Generate SBOM for Docker images |
+| `trivy_generate_sbom_image` | Generate SBOM for Docker images (server API) |
 | `trivy_scan_iac` | Scan IaC files (Terraform, K8s, Docker, etc.) |
 | `trivy_scan_secrets` | Scan local paths for hardcoded secrets |
-| `trivy_scan_secrets_image` | Scan Docker images for secrets |
+| `trivy_scan_secrets_image` | Scan Docker images for secrets (server API) |
 | `trivy_scan_licenses` | Scan local paths for license compliance |
-| `trivy_scan_licenses_image` | Scan Docker images for licenses |
+| `trivy_scan_licenses_image` | Scan Docker images for licenses (server API) |
 | `trivy_scan_image_full` | **Combined scan**: vuln + secret + license + SBOM |
 | `trivy_scan_path_full` | **Combined scan**: vuln + secret + license + IaC + SBOM |
 
