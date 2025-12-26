@@ -1140,3 +1140,397 @@ describe("ConfigValidation", () => {
     });
   });
 });
+
+// SARIF tests
+import {
+  createSarifLog,
+  createSarifRun,
+  trivyToSarif,
+  sonarToSarif,
+  dtrackToSarif,
+  dashboardToSarif,
+  mergeSarifLogs,
+  sarifToJson,
+  getSarifSummary,
+  uploadSarifToGitHub,
+  writeSarifFile,
+} from "./sarif.js";
+
+describe("SARIF", () => {
+  describe("createSarifLog", () => {
+    it("should create a valid SARIF log structure", () => {
+      const log = createSarifLog();
+      expect(log.$schema).toBe("https://json.schemastore.org/sarif-2.1.0.json");
+      expect(log.version).toBe("2.1.0");
+      expect(log.runs).toEqual([]);
+    });
+  });
+
+  describe("createSarifRun", () => {
+    it("should create a run with tool information", () => {
+      const run = createSarifRun("TestTool", "1.0.0", "https://example.com");
+      expect(run.tool.driver.name).toBe("TestTool");
+      expect(run.tool.driver.version).toBe("1.0.0");
+      expect(run.tool.driver.informationUri).toBe("https://example.com");
+      expect(run.results).toEqual([]);
+    });
+
+    it("should include invocation with timestamp", () => {
+      const run = createSarifRun("TestTool");
+      expect(run.invocations).toHaveLength(1);
+      expect(run.invocations![0].executionSuccessful).toBe(true);
+      expect(run.invocations![0].endTimeUtc).toBeDefined();
+    });
+  });
+
+  describe("trivyToSarif", () => {
+    it("should convert Trivy vulnerabilities to SARIF", () => {
+      const trivyResult = {
+        Results: [
+          {
+            Target: "package.json",
+            Class: "lang-pkgs",
+            Type: "npm",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2023-12345",
+                PkgName: "lodash",
+                InstalledVersion: "4.17.20",
+                FixedVersion: "4.17.21",
+                Severity: "HIGH" as const,
+                Title: "Prototype Pollution",
+                Description: "A vulnerability in lodash",
+                PrimaryURL: "https://nvd.nist.gov/vuln/detail/CVE-2023-12345",
+              },
+            ],
+          },
+        ],
+      };
+
+      const sarif = trivyToSarif(trivyResult);
+      expect(sarif.version).toBe("2.1.0");
+      expect(sarif.runs).toHaveLength(1);
+      expect(sarif.runs[0].tool.driver.name).toBe("Trivy");
+      expect(sarif.runs[0].results).toHaveLength(1);
+      expect(sarif.runs[0].results[0].ruleId).toBe("CVE-2023-12345");
+      expect(sarif.runs[0].results[0].level).toBe("error");
+    });
+
+    it("should convert Trivy secrets to SARIF", () => {
+      const trivyResult = {
+        Results: [
+          {
+            Target: "config.js",
+            Class: "secret",
+            Type: "secret",
+            Secrets: [
+              {
+                RuleID: "aws-access-key",
+                Category: "AWS",
+                Severity: "CRITICAL",
+                Title: "AWS Access Key",
+                StartLine: 10,
+                EndLine: 10,
+                Match: "AKIA***",
+              },
+            ],
+          },
+        ],
+      };
+
+      const sarif = trivyToSarif(trivyResult);
+      expect(sarif.runs[0].results).toHaveLength(1);
+      expect(sarif.runs[0].results[0].ruleId).toBe("secret/aws-access-key");
+      expect(sarif.runs[0].results[0].locations![0].physicalLocation?.region?.startLine).toBe(10);
+    });
+
+    it("should handle empty results", () => {
+      const trivyResult = { Results: [] };
+      const sarif = trivyToSarif(trivyResult);
+      expect(sarif.runs[0].results).toHaveLength(0);
+    });
+  });
+
+  describe("sonarToSarif", () => {
+    it("should convert SonarQube issues to SARIF", () => {
+      const issues = [
+        {
+          key: "issue-1",
+          rule: "typescript:S1234",
+          severity: "CRITICAL" as const,
+          component: "src/index.ts",
+          project: "my-project",
+          line: 42,
+          message: "Remove this unused variable",
+          type: "CODE_SMELL" as const,
+          status: "OPEN",
+        },
+      ];
+
+      const sarif = sonarToSarif(issues);
+      expect(sarif.runs[0].tool.driver.name).toBe("SonarQube");
+      expect(sarif.runs[0].results).toHaveLength(1);
+      expect(sarif.runs[0].results[0].ruleId).toBe("typescript:S1234");
+      expect(sarif.runs[0].results[0].level).toBe("error");
+      expect(sarif.runs[0].results[0].locations![0].physicalLocation?.region?.startLine).toBe(42);
+    });
+
+    it("should handle issues without line numbers", () => {
+      const issues = [
+        {
+          key: "issue-2",
+          rule: "typescript:S5678",
+          severity: "MINOR" as const,
+          component: "src/utils.ts",
+          project: "my-project",
+          message: "Add documentation",
+          type: "CODE_SMELL" as const,
+          status: "OPEN",
+        },
+      ];
+
+      const sarif = sonarToSarif(issues);
+      expect(sarif.runs[0].results[0].locations![0].physicalLocation?.region).toBeUndefined();
+    });
+  });
+
+  describe("dtrackToSarif", () => {
+    it("should convert Dependency-Track findings to SARIF", () => {
+      const findings = [
+        {
+          component: {
+            uuid: "comp-uuid-1",
+            name: "express",
+            version: "4.17.0",
+          },
+          vulnerability: {
+            uuid: "vuln-uuid-1",
+            vulnId: "CVE-2024-99999",
+            source: "NVD",
+            severity: "HIGH" as const,
+            title: "Remote Code Execution",
+            description: "A critical vulnerability",
+            cvssV3BaseScore: 8.5,
+          },
+        },
+      ];
+
+      const sarif = dtrackToSarif(findings);
+      expect(sarif.runs[0].tool.driver.name).toBe("Dependency-Track");
+      expect(sarif.runs[0].results).toHaveLength(1);
+      expect(sarif.runs[0].results[0].ruleId).toBe("CVE-2024-99999");
+      expect(sarif.runs[0].results[0].level).toBe("error");
+    });
+  });
+
+  describe("dashboardToSarif", () => {
+    it("should convert security dashboard to SARIF", () => {
+      const dashboard = {
+        timestamp: new Date().toISOString(),
+        summary: { critical: 1, high: 2, medium: 3, low: 4, total: 10 },
+        bySource: {
+          trivy: { critical: 1, high: 1, medium: 1, low: 1, total: 4 },
+          sonarqube: {
+            bugs: 0,
+            vulnerabilities: 1,
+            codeSmells: 5,
+            hotspots: 0,
+            qualityGateStatus: "OK",
+          },
+          dependencyTrack: { critical: 0, high: 1, medium: 2, low: 3, total: 6 },
+        },
+        topFindings: [
+          {
+            id: "CVE-2023-11111",
+            severity: "CRITICAL" as const,
+            source: "trivy" as const,
+            package: "lodash@4.17.20",
+            message: "Prototype Pollution vulnerability",
+          },
+        ],
+        scanTargets: {
+          image: "node:20",
+          sonarProject: "my-project",
+        },
+      };
+
+      const sarif = dashboardToSarif(dashboard);
+      expect(sarif.runs[0].tool.driver.name).toBe("CI/CD Security Scanner");
+      expect(sarif.runs[0].results).toHaveLength(1);
+      expect(sarif.runs[0].properties?.summary).toEqual(dashboard.summary);
+    });
+  });
+
+  describe("mergeSarifLogs", () => {
+    it("should merge multiple SARIF logs", () => {
+      const log1 = createSarifLog();
+      log1.runs.push(createSarifRun("Tool1"));
+
+      const log2 = createSarifLog();
+      log2.runs.push(createSarifRun("Tool2"));
+
+      const merged = mergeSarifLogs(log1, log2);
+      expect(merged.runs).toHaveLength(2);
+      expect(merged.runs[0].tool.driver.name).toBe("Tool1");
+      expect(merged.runs[1].tool.driver.name).toBe("Tool2");
+    });
+  });
+
+  describe("sarifToJson", () => {
+    it("should convert SARIF log to JSON string", () => {
+      const log = createSarifLog();
+      const json = sarifToJson(log);
+      expect(typeof json).toBe("string");
+      const parsed = JSON.parse(json);
+      expect(parsed.version).toBe("2.1.0");
+    });
+
+    it("should support compact output", () => {
+      const log = createSarifLog();
+      const prettyJson = sarifToJson(log, true);
+      const compactJson = sarifToJson(log, false);
+      expect(compactJson.length).toBeLessThan(prettyJson.length);
+    });
+  });
+
+  describe("getSarifSummary", () => {
+    it("should return summary statistics", () => {
+      const log = createSarifLog();
+      const run = createSarifRun("TestTool");
+      run.results.push({
+        ruleId: "rule1",
+        level: "error",
+        message: { text: "Error 1" },
+      });
+      run.results.push({
+        ruleId: "rule2",
+        level: "warning",
+        message: { text: "Warning 1" },
+      });
+      log.runs.push(run);
+
+      const summary = getSarifSummary(log);
+      expect(summary.totalResults).toBe(2);
+      expect(summary.byLevel.error).toBe(1);
+      expect(summary.byLevel.warning).toBe(1);
+      expect(summary.byTool.TestTool).toBe(2);
+    });
+  });
+
+  describe("uploadSarifToGitHub", () => {
+    it("should upload SARIF to GitHub with correct payload", async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({ id: "upload-123", url: "https://api.github.com/..." }),
+      };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as typeof fetch;
+
+      try {
+        const log = createSarifLog();
+        log.runs.push(createSarifRun("TestTool"));
+
+        const result = await uploadSarifToGitHub(log, {
+          owner: "testowner",
+          repo: "testrepo",
+          commitSha: "abc123",
+          ref: "refs/heads/main",
+          token: "ghp_test_token",
+        });
+
+        expect(result.id).toBe("upload-123");
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          "https://api.github.com/repos/testowner/testrepo/code-scanning/sarifs",
+          expect.objectContaining({
+            method: "POST",
+            headers: expect.objectContaining({
+              Authorization: "Bearer ghp_test_token",
+              "Content-Type": "application/json",
+            }),
+          })
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should throw error on failed upload", async () => {
+      const mockResponse = {
+        ok: false,
+        status: 401,
+        text: async () => "Unauthorized",
+      };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as typeof fetch;
+
+      try {
+        const log = createSarifLog();
+        await expect(
+          uploadSarifToGitHub(log, {
+            owner: "testowner",
+            repo: "testrepo",
+            commitSha: "abc123",
+            ref: "refs/heads/main",
+            token: "invalid_token",
+          })
+        ).rejects.toThrow("GitHub SARIF upload failed (401)");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should use custom API URL", async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({ id: "upload-456", url: "https://github.example.com/..." }),
+      };
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse) as typeof fetch;
+
+      try {
+        const log = createSarifLog();
+        log.runs.push(createSarifRun("TestTool"));
+
+        await uploadSarifToGitHub(log, {
+          owner: "testowner",
+          repo: "testrepo",
+          commitSha: "abc123",
+          ref: "refs/heads/main",
+          token: "ghp_token",
+          apiUrl: "https://github.example.com/api/v3",
+        });
+
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          "https://github.example.com/api/v3/repos/testowner/testrepo/code-scanning/sarifs",
+          expect.anything()
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe("writeSarifFile", () => {
+    it("should write SARIF to file", async () => {
+      // Use a test file in the temp directory
+      const testPath = "/tmp/sarif-test-output.sarif";
+
+      const log = createSarifLog();
+      log.runs.push(createSarifRun("TestTool"));
+
+      await writeSarifFile(log, testPath);
+
+      // Read the file back and verify contents
+      const fs = await import("node:fs/promises");
+      const content = await fs.readFile(testPath, "utf-8");
+      const parsed = JSON.parse(content);
+
+      expect(parsed.version).toBe("2.1.0");
+      expect(parsed.runs).toHaveLength(1);
+      expect(parsed.runs[0].tool.driver.name).toBe("TestTool");
+
+      // Clean up
+      await fs.unlink(testPath);
+    });
+  });
+});

@@ -1,8 +1,20 @@
 /**
- * Output Formatter - Formats tool output in different formats (json, table, markdown)
+ * Output Formatter - Formats tool output in different formats (json, table, markdown, sarif)
  */
 
-export type OutputFormat = "json" | "table" | "markdown" | "text";
+import {
+  trivyToSarif,
+  sonarToSarif,
+  dtrackToSarif,
+  dashboardToSarif,
+  sarifToJson,
+  type TrivyScanResult,
+  type SonarIssue,
+  type DTrackFinding,
+  type SecurityDashboardResult,
+} from "@cicd/shared";
+
+export type OutputFormat = "json" | "table" | "markdown" | "text" | "sarif";
 
 export interface FormatterOptions {
   format: OutputFormat;
@@ -297,4 +309,43 @@ export function formatBuildStatus(
   }));
 
   return formatOutput(formatted, "Recent Builds");
+}
+
+/**
+ * Format Trivy scan results as SARIF
+ */
+export function formatTrivySarif(scanResult: TrivyScanResult): string {
+  const sarif = trivyToSarif(scanResult);
+  return sarifToJson(sarif);
+}
+
+/**
+ * Format SonarQube issues as SARIF
+ */
+export function formatSonarSarif(issues: SonarIssue[]): string {
+  const sarif = sonarToSarif(issues);
+  return sarifToJson(sarif);
+}
+
+/**
+ * Format Dependency-Track findings as SARIF
+ */
+export function formatDtrackSarif(findings: DTrackFinding[]): string {
+  const sarif = dtrackToSarif(findings);
+  return sarifToJson(sarif);
+}
+
+/**
+ * Format Security Dashboard as SARIF
+ */
+export function formatDashboardSarif(dashboard: SecurityDashboardResult): string {
+  const sarif = dashboardToSarif(dashboard);
+  return sarifToJson(sarif);
+}
+
+/**
+ * Check if current format is SARIF
+ */
+export function isSarifFormat(): boolean {
+  return globalFormat === "sarif";
 }

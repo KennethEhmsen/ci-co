@@ -693,3 +693,106 @@ export interface McpConfigResource {
     url: string;
   };
 }
+
+// =============================================================================
+// SARIF (Static Analysis Results Interchange Format) Types
+// =============================================================================
+
+/**
+ * SARIF 2.1.0 compliant types for GitHub/GitLab integration
+ * @see https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
+ */
+
+export interface SarifMessage {
+  text: string;
+  markdown?: string;
+}
+
+export interface SarifArtifactLocation {
+  uri: string;
+  uriBaseId?: string;
+}
+
+export interface SarifRegion {
+  startLine?: number;
+  startColumn?: number;
+  endLine?: number;
+  endColumn?: number;
+}
+
+export interface SarifPhysicalLocation {
+  artifactLocation: SarifArtifactLocation;
+  region?: SarifRegion;
+}
+
+export interface SarifLocation {
+  physicalLocation?: SarifPhysicalLocation;
+  message?: SarifMessage;
+}
+
+export interface SarifReportingDescriptor {
+  id: string;
+  name?: string;
+  shortDescription?: SarifMessage;
+  fullDescription?: SarifMessage;
+  helpUri?: string;
+  help?: SarifMessage;
+  defaultConfiguration?: {
+    level?: "none" | "note" | "warning" | "error";
+  };
+  properties?: Record<string, unknown>;
+}
+
+export interface SarifToolDriver {
+  name: string;
+  version?: string;
+  informationUri?: string;
+  rules?: SarifReportingDescriptor[];
+}
+
+export interface SarifTool {
+  driver: SarifToolDriver;
+}
+
+export interface SarifResult {
+  ruleId: string;
+  ruleIndex?: number;
+  level?: "none" | "note" | "warning" | "error";
+  message: SarifMessage;
+  locations?: SarifLocation[];
+  partialFingerprints?: {
+    primaryLocationLineHash?: string;
+    [key: string]: string | undefined;
+  };
+  properties?: Record<string, unknown>;
+}
+
+export interface SarifRun {
+  tool: SarifTool;
+  results: SarifResult[];
+  invocations?: Array<{
+    executionSuccessful: boolean;
+    endTimeUtc?: string;
+  }>;
+  properties?: Record<string, unknown>;
+}
+
+export interface SarifLog {
+  $schema: string;
+  version: "2.1.0";
+  runs: SarifRun[];
+}
+
+/**
+ * Options for converting scan results to SARIF format
+ */
+export interface SarifConversionOptions {
+  /** Tool name to use in SARIF output */
+  toolName?: string;
+  /** Tool version */
+  toolVersion?: string;
+  /** Base path to strip from file paths */
+  basePath?: string;
+  /** Include only findings at or above this level */
+  minLevel?: "none" | "note" | "warning" | "error";
+}

@@ -129,6 +129,19 @@ export type {
   SecurityDashboardFinding,
   SecurityDashboardResult,
   SecurityDashboardOptions,
+  // SARIF Types
+  SarifLog,
+  SarifRun,
+  SarifResult,
+  SarifReportingDescriptor,
+  SarifTool,
+  SarifToolDriver,
+  SarifLocation,
+  SarifPhysicalLocation,
+  SarifArtifactLocation,
+  SarifRegion,
+  SarifMessage,
+  SarifConversionOptions,
 } from "./types.js";
 export {
   // Trivy
@@ -183,3 +196,20 @@ export {
   // Security Dashboard
   getSecurityDashboard,
 } from "./handlers.js";
+
+// SARIF exports
+export {
+  createSarifLog,
+  createSarifRun,
+  trivyToSarif,
+  sonarToSarif,
+  dtrackToSarif,
+  dashboardToSarif,
+  mergeSarifLogs,
+  sarifToJson,
+  getSarifSummary,
+  uploadSarifToGitHub,
+  writeSarifFile,
+  type GitHubUploadOptions,
+  type GitHubUploadResult,
+} from "./sarif.js";
