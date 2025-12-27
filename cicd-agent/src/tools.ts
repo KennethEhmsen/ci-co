@@ -61,8 +61,25 @@ import {
   evaluateOpaPolicy,
   trivyResultToOpaInput,
   createOpaInput,
+  // Scheduler
+  validateCronExpression,
+  describeCronExpression,
+  getNextRunTimes,
+  createSchedule,
+  getSchedule,
+  listSchedules,
+  updateSchedule,
+  deleteSchedule,
+  triggerSchedule,
+  getScheduleHistory,
+  startScheduler,
+  stopScheduler,
+  clearAllSchedules,
   // Types
   type ComplianceFramework,
+  type CreateScheduleInput,
+  type UpdateScheduleInput,
+  type ListSchedulesOptions,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -367,6 +384,122 @@ const toolHandlers: Record<string, ToolHandler> = {
 
     // Evaluate the policy
     return evaluateOpaPolicy(opaInput, { policy });
+  },
+  // Scheduler
+  schedule_create: async (input) => {
+    // Convert single target to targets array for API compatibility
+    const target = input.target as { type: string; value: string; severity?: string } | undefined;
+    const targets = input.targets as CreateScheduleInput["targets"] | undefined;
+
+    const scheduleInput: CreateScheduleInput = {
+      name: input.name as string,
+      cron: input.cron as string,
+      targets:
+        targets ||
+        (target
+          ? [{ type: target.type as "image" | "path" | "registry", target: target.value }]
+          : []),
+      enabled: input.enabled as boolean | undefined,
+      timezone: input.timezone as string | undefined,
+      options: target?.severity
+        ? { severity: target.severity }
+        : (input.options as CreateScheduleInput["options"]),
+      notifications: input.notifications as CreateScheduleInput["notifications"],
+    };
+    return createSchedule(scheduleInput);
+  },
+  schedule_list: async (input) => {
+    const options: ListSchedulesOptions = {
+      enabled: input.enabled as boolean | undefined,
+      targetType: input.targetType as "image" | "path" | "registry" | undefined,
+    };
+    return listSchedules(options);
+  },
+  schedule_get: async (input) => {
+    const id = input.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    return getSchedule(id);
+  },
+  schedule_update: async (input) => {
+    const id = input.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    // Convert single target to targets array for API compatibility
+    const target = input.target as { type: string; value: string; severity?: string } | undefined;
+    const targets = input.targets as UpdateScheduleInput["targets"] | undefined;
+
+    const updates: UpdateScheduleInput = {
+      name: input.name as string | undefined,
+      cron: input.cron as string | undefined,
+      targets:
+        targets ||
+        (target
+          ? [{ type: target.type as "image" | "path" | "registry", target: target.value }]
+          : undefined),
+      enabled: input.enabled as boolean | undefined,
+      timezone: input.timezone as string | undefined,
+      options: target?.severity
+        ? { severity: target.severity }
+        : (input.options as UpdateScheduleInput["options"]),
+      notifications: input.notifications as UpdateScheduleInput["notifications"],
+    };
+    return updateSchedule(id, updates);
+  },
+  schedule_delete: async (input) => {
+    const id = input.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    return deleteSchedule(id);
+  },
+  schedule_trigger: async (input) => {
+    const id = input.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    return triggerSchedule(id);
+  },
+  schedule_history: async (input) => {
+    const id = input.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    const limit = (input.limit as number) || 10;
+    return getScheduleHistory(id, limit);
+  },
+  cron_validate: async (input) => {
+    const expression = input.expression as string;
+    if (!expression) {
+      return { error: "expression is required" };
+    }
+    const result = validateCronExpression(expression);
+    if (!result.valid || !result.parsed) {
+      return result;
+    }
+    // Add additional info using the parsed expression
+    const description = describeCronExpression(result.parsed);
+    const nextRuns = getNextRunTimes(expression, 5);
+    return {
+      valid: true,
+      description,
+      nextRuns: nextRuns.map((d) => d.toISOString()),
+    };
+  },
+  scheduler_control: async (input) => {
+    const action = input.action as string;
+    if (action === "start") {
+      return startScheduler();
+    }
+    if (action === "stop") {
+      return stopScheduler();
+    }
+    if (action === "clear") {
+      return clearAllSchedules();
+    }
+    return { error: "Invalid action. Use 'start', 'stop', or 'clear'" };
   },
 };
 
@@ -1344,6 +1477,224 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["policy"],
+    },
+  },
+
+  // Scheduler Tools
+  {
+    name: "schedule_create",
+    description:
+      "Create a new scheduled security scan. Supports cron expressions with aliases (@daily, @weekly, @hourly, @monthly).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: {
+          type: "string",
+          description: "Name for the schedule",
+        },
+        cron: {
+          type: "string",
+          description:
+            "Cron expression (e.g., '0 2 * * *' for 2AM daily) or alias (@daily, @weekly, @hourly, @monthly)",
+        },
+        target: {
+          type: "object",
+          description: "Scan target configuration",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["image", "path", "registry"],
+              description: "Type of target to scan",
+            },
+            value: {
+              type: "string",
+              description: "Target value (image name, file path, or registry URL)",
+            },
+            severity: {
+              type: "string",
+              description: "Severity filter (default: HIGH,CRITICAL)",
+            },
+          },
+          required: ["type", "value"],
+        },
+        enabled: {
+          type: "boolean",
+          description: "Whether schedule is enabled (default: true)",
+        },
+        description: {
+          type: "string",
+          description: "Optional description of the schedule",
+        },
+        webhooks: {
+          type: "array",
+          description: "Webhook notifications to send on completion",
+          items: {
+            type: "object",
+            properties: {
+              url: { type: "string" },
+              type: { type: "string", enum: ["slack", "teams", "generic"] },
+              onSuccess: { type: "boolean" },
+              onFailure: { type: "boolean" },
+              minSeverity: { type: "string" },
+            },
+          },
+        },
+      },
+      required: ["name", "cron", "target"],
+    },
+  },
+  {
+    name: "schedule_list",
+    description: "List all scheduled scans with optional filtering by status or target type.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        enabled: {
+          type: "boolean",
+          description: "Filter by enabled status",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "path", "registry"],
+          description: "Filter by target type",
+        },
+      },
+    },
+  },
+  {
+    name: "schedule_get",
+    description: "Get details of a specific scheduled scan by ID.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_update",
+    description: "Update an existing scheduled scan. Only specified fields will be updated.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID to update",
+        },
+        name: {
+          type: "string",
+          description: "New name for the schedule",
+        },
+        cron: {
+          type: "string",
+          description: "New cron expression",
+        },
+        target: {
+          type: "object",
+          description: "New scan target configuration",
+          properties: {
+            type: { type: "string", enum: ["image", "path", "registry"] },
+            value: { type: "string" },
+            severity: { type: "string" },
+          },
+        },
+        enabled: {
+          type: "boolean",
+          description: "Enable or disable the schedule",
+        },
+        description: {
+          type: "string",
+          description: "New description",
+        },
+        webhooks: {
+          type: "array",
+          description: "Updated webhook configurations",
+          items: { type: "object" },
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_delete",
+    description: "Delete a scheduled scan by ID.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID to delete",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_trigger",
+    description: "Manually trigger a scheduled scan immediately, regardless of its cron schedule.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID to trigger",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_history",
+    description: "Get execution history for a scheduled scan, showing past runs and their results.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of history entries to return (default: 10)",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "cron_validate",
+    description:
+      "Validate a cron expression and show when it will next run. Returns human-readable description and next 5 run times.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        expression: {
+          type: "string",
+          description:
+            "Cron expression to validate (e.g., '0 2 * * *') or alias (@daily, @weekly, @hourly, @monthly)",
+        },
+      },
+      required: ["expression"],
+    },
+  },
+  {
+    name: "scheduler_control",
+    description: "Control the scheduler: start, stop, or clear all schedules.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        action: {
+          type: "string",
+          enum: ["start", "stop", "clear"],
+          description:
+            "Action to perform: start (begin scheduling), stop (pause scheduling), clear (remove all schedules)",
+        },
+      },
+      required: ["action"],
     },
   },
 ];
