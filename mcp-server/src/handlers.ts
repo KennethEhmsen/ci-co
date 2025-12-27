@@ -57,6 +57,17 @@ export {
   // Registry Scanner
   listRegistryImages,
   scanRegistry,
+  // Multi-Registry
+  detectRegistryType,
+  configureRegistry,
+  getRegistryConfig,
+  listRegistryConfigs,
+  removeRegistryConfig,
+  getDefaultRegistry,
+  clearRegistryConfigs,
+  getRegistryAuth,
+  scanMultipleRegistries,
+  testRegistryConnection,
   // SARIF
   trivyToSarif,
   sonarToSarif,

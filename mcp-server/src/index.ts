@@ -8,6 +8,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import type { CloudRegistryType, RegistryAuth } from "@cicd/shared";
 import {
   config,
   trivyScanPath,
@@ -47,6 +48,14 @@ import {
   checkPlatformStatus,
   getSecurityDashboard,
   scanRegistry,
+  // Multi-Registry
+  detectRegistryType,
+  configureRegistry,
+  getRegistryConfig,
+  listRegistryConfigs,
+  removeRegistryConfig,
+  scanMultipleRegistries,
+  testRegistryConnection,
   // SARIF
   trivyToSarif,
   sonarToSarif,
@@ -750,6 +759,191 @@ export const toolDefinitions = [
     },
   },
 
+  // Multi-Registry Tools
+  {
+    name: "registry_detect_type",
+    description:
+      "Auto-detect the type of container registry from its URL. " +
+      "Identifies ECR, ACR, GCR, GHCR, Harbor, GitLab, and standard Docker registries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description:
+            "Registry URL or hostname (e.g., 123456789.dkr.ecr.us-east-1.amazonaws.com, ghcr.io)",
+        },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "registry_configure",
+    description:
+      "Configure a container registry for scanning. Supports multiple registry types with their specific authentication methods.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Unique identifier for this registry configuration",
+        },
+        name: {
+          type: "string",
+          description: "Display name for the registry",
+        },
+        url: {
+          type: "string",
+          description:
+            "Registry URL (e.g., registry.example.com, 123456789.dkr.ecr.us-east-1.amazonaws.com)",
+        },
+        type: {
+          type: "string",
+          enum: ["docker-registry", "harbor", "gitlab", "ecr", "acr", "gcr", "gar", "ghcr"],
+          description: "Registry type (auto-detected if not provided)",
+        },
+        auth: {
+          type: "object",
+          description: "Authentication configuration",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["basic", "ecr", "acr", "gcr", "ghcr", "anonymous"],
+              description: "Authentication type",
+            },
+            username: { type: "string", description: "Username for basic auth" },
+            password: { type: "string", description: "Password for basic auth" },
+            region: { type: "string", description: "AWS region for ECR" },
+            accessKeyId: { type: "string", description: "AWS access key ID" },
+            secretAccessKey: { type: "string", description: "AWS secret access key" },
+            tenantId: { type: "string", description: "Azure tenant ID" },
+            clientId: { type: "string", description: "Azure client ID" },
+            clientSecret: { type: "string", description: "Azure client secret" },
+            serviceAccountKey: {
+              type: "string",
+              description: "GCP service account key (JSON or base64)",
+            },
+            token: { type: "string", description: "GitHub token for GHCR" },
+          },
+        },
+        isDefault: {
+          type: "boolean",
+          description: "Set as the default registry",
+        },
+        description: {
+          type: "string",
+          description: "Optional description",
+        },
+      },
+      required: ["id", "name", "url"],
+    },
+  },
+  {
+    name: "registry_list_configs",
+    description: "List all configured container registries",
+    inputSchema: {
+      type: "object",
+      properties: {
+        enabled: {
+          type: "boolean",
+          description: "Filter by enabled status",
+        },
+        type: {
+          type: "string",
+          enum: ["docker-registry", "harbor", "gitlab", "ecr", "acr", "gcr", "gar", "ghcr"],
+          description: "Filter by registry type",
+        },
+      },
+    },
+  },
+  {
+    name: "registry_get_config",
+    description: "Get a specific registry configuration by ID",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Registry configuration ID",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "registry_remove_config",
+    description: "Remove a registry configuration",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Registry configuration ID to remove",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "registry_test_connection",
+    description: "Test connectivity to a configured registry",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Registry configuration ID to test",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "registry_scan_multiple",
+    description:
+      "Scan images across multiple configured registries. Aggregates results from all registries into a unified report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        registries: {
+          type: "array",
+          items: { type: "string" },
+          description: "Registry IDs or URLs to scan",
+        },
+        repositories: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter repositories by glob patterns",
+        },
+        tagFilter: {
+          type: "string",
+          description: "Regex pattern to filter tags",
+        },
+        concurrency: {
+          type: "number",
+          description: "Number of parallel scans per registry (default: 3)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+        },
+        limitPerRegistry: {
+          type: "number",
+          description: "Maximum images to scan per registry",
+        },
+        latestOnly: {
+          type: "boolean",
+          description: "Only scan 'latest' tags",
+        },
+        continueOnError: {
+          type: "boolean",
+          description: "Continue scanning other registries on error (default: true)",
+        },
+      },
+      required: ["registries"],
+    },
+  },
+
   // Combined Tools
   {
     name: "security_scan_all",
@@ -1321,6 +1515,109 @@ const otherHandlers: Record<string, ToolHandler> = {
     }),
 };
 
+// Multi-registry handlers
+const multiRegistryHandlers: Record<string, ToolHandler> = {
+  registry_detect_type: async (args) => {
+    const url = args?.url as string;
+    if (!url) {
+      return { error: "url is required" };
+    }
+    return detectRegistryType(url);
+  },
+
+  registry_configure: async (args) => {
+    const id = args?.id as string;
+    const name = args?.name as string;
+    const url = args?.url as string;
+
+    if (!id || !name || !url) {
+      return { error: "id, name, and url are required" };
+    }
+
+    const auth = args?.auth as Record<string, unknown> | undefined;
+    const detected = detectRegistryType(url);
+
+    configureRegistry({
+      id,
+      name,
+      url,
+      type: (args?.type as CloudRegistryType) || detected.type,
+      auth: auth as RegistryAuth | undefined,
+      isDefault: args?.isDefault as boolean | undefined,
+      description: args?.description as string | undefined,
+      enabled: true,
+    });
+
+    return {
+      success: true,
+      message: `Registry '${name}' configured successfully`,
+      detectedType: detected.type,
+      confidence: detected.confidence,
+    };
+  },
+
+  registry_list_configs: async (args) => {
+    const configs = listRegistryConfigs({
+      enabled: args?.enabled as boolean | undefined,
+      type: args?.type as CloudRegistryType | undefined,
+    });
+    return { registries: configs, count: configs.length };
+  },
+
+  registry_get_config: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    const registryConf = getRegistryConfig(id);
+    if (!registryConf) {
+      return { error: `Registry '${id}' not found` };
+    }
+    return registryConf;
+  },
+
+  registry_remove_config: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    const removed = removeRegistryConfig(id);
+    return {
+      success: removed,
+      message: removed ? `Registry '${id}' removed` : `Registry '${id}' not found`,
+    };
+  },
+
+  registry_test_connection: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+    const registryConf = getRegistryConfig(id);
+    if (!registryConf) {
+      return { error: `Registry '${id}' not found` };
+    }
+    return testRegistryConnection(registryConf);
+  },
+
+  registry_scan_multiple: async (args) => {
+    const registries = args?.registries as string[];
+    if (!registries || registries.length === 0) {
+      return { error: "registries array is required" };
+    }
+    return scanMultipleRegistries({
+      registries,
+      repositories: args?.repositories as string[] | undefined,
+      tagFilter: args?.tagFilter as string | undefined,
+      concurrency: args?.concurrency as number | undefined,
+      severity: args?.severity as string | undefined,
+      limitPerRegistry: args?.limitPerRegistry as number | undefined,
+      latestOnly: args?.latestOnly as boolean | undefined,
+      continueOnError: args?.continueOnError as boolean | undefined,
+    });
+  },
+};
+
 // Helper to check if result is an error response
 function isErrorResponse(result: unknown): result is { error: string } {
   return typeof result === "object" && result !== null && "error" in result;
@@ -1638,6 +1935,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...giteaHandlers,
   ...droneHandlers,
   ...otherHandlers,
+  ...multiRegistryHandlers,
   ...sarifHandlers,
   ...schedulerHandlers,
 };

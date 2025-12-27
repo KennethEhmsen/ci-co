@@ -213,6 +213,20 @@ export type {
   RegistryScanOptions,
   RegistryScanProgress,
   RegistryScanResult,
+  // Multi-Registry Types
+  CloudRegistryType,
+  BasicRegistryAuth,
+  EcrAuth,
+  AcrAuth,
+  GcrAuth,
+  GhcrAuth,
+  AnonymousAuth,
+  RegistryAuth,
+  RegistryConfig,
+  RegistryDetectionResult,
+  RegistryAuthResult,
+  MultiRegistryScanOptions,
+  MultiRegistryScanResult,
   // Scheduler Types
   CronField,
   ParsedCronExpression,
@@ -419,6 +433,21 @@ export {
   scanRegistry,
   getRegistryScanSummary,
 } from "./registry-scanner.js";
+
+// Multi-registry config exports
+export {
+  detectRegistryType,
+  isHarborRegistry,
+  configureRegistry,
+  getRegistryConfig,
+  listRegistryConfigs,
+  removeRegistryConfig,
+  getDefaultRegistry,
+  clearRegistryConfigs,
+  getRegistryAuth,
+  scanMultipleRegistries,
+  testRegistryConnection,
+} from "./registry-config.js";
 
 // Scheduler exports
 export {

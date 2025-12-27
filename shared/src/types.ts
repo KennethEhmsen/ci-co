@@ -2026,3 +2026,225 @@ export interface CronValidationResult {
   /** Next N run times */
   nextRuns?: string[];
 }
+
+// =============================================================================
+// Multi-Registry Configuration Types
+// =============================================================================
+
+/**
+ * Extended registry type with cloud providers
+ */
+export type CloudRegistryType =
+  | "docker-registry"
+  | "harbor"
+  | "gitlab"
+  | "ecr"
+  | "acr"
+  | "gcr"
+  | "gar"
+  | "ghcr";
+
+/**
+ * Docker/Harbor basic authentication
+ */
+export interface BasicRegistryAuth {
+  type: "basic";
+  username: string;
+  password: string;
+}
+
+/**
+ * AWS ECR authentication
+ */
+export interface EcrAuth {
+  type: "ecr";
+  /** AWS region (e.g., us-east-1) */
+  region: string;
+  /** AWS access key ID (optional, uses default credentials if not provided) */
+  accessKeyId?: string;
+  /** AWS secret access key */
+  secretAccessKey?: string;
+  /** AWS session token for temporary credentials */
+  sessionToken?: string;
+  /** Use IAM role authentication */
+  useIamRole?: boolean;
+}
+
+/**
+ * Azure ACR authentication
+ */
+export interface AcrAuth {
+  type: "acr";
+  /** Azure tenant ID */
+  tenantId?: string;
+  /** Azure client/application ID */
+  clientId?: string;
+  /** Azure client secret */
+  clientSecret?: string;
+  /** Use managed identity */
+  useManagedIdentity?: boolean;
+  /** ACR admin username (alternative auth) */
+  username?: string;
+  /** ACR admin password (alternative auth) */
+  password?: string;
+}
+
+/**
+ * Google GCR/Artifact Registry authentication
+ */
+export interface GcrAuth {
+  type: "gcr";
+  /** Service account JSON key (base64 or object) */
+  serviceAccountKey?: string | object;
+  /** Use default credentials (ADC) */
+  useDefaultCredentials?: boolean;
+  /** GCP project ID */
+  projectId?: string;
+}
+
+/**
+ * GitHub Container Registry authentication
+ */
+export interface GhcrAuth {
+  type: "ghcr";
+  /** GitHub personal access token or GITHUB_TOKEN */
+  token: string;
+  /** GitHub username (optional, derived from token if not provided) */
+  username?: string;
+}
+
+/**
+ * Anonymous authentication (for public registries)
+ */
+export interface AnonymousAuth {
+  type: "anonymous";
+}
+
+/**
+ * Union type for all registry authentication methods
+ */
+export type RegistryAuth =
+  | BasicRegistryAuth
+  | EcrAuth
+  | AcrAuth
+  | GcrAuth
+  | GhcrAuth
+  | AnonymousAuth;
+
+/**
+ * Registry configuration
+ */
+export interface RegistryConfig {
+  /** Unique identifier for this registry config */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Registry type */
+  type: CloudRegistryType;
+  /** Registry URL (e.g., registry.example.com, 123456789.dkr.ecr.us-east-1.amazonaws.com) */
+  url: string;
+  /** Authentication configuration */
+  auth?: RegistryAuth;
+  /** Whether this is the default registry */
+  isDefault?: boolean;
+  /** Whether the registry is enabled */
+  enabled?: boolean;
+  /** Description */
+  description?: string;
+  /** Additional registry-specific settings */
+  settings?: Record<string, unknown>;
+}
+
+/**
+ * Result of registry auto-detection
+ */
+export interface RegistryDetectionResult {
+  /** Detected registry type */
+  type: CloudRegistryType;
+  /** Confidence level (0-1) */
+  confidence: number;
+  /** Extracted details */
+  details?: {
+    /** AWS region for ECR */
+    region?: string;
+    /** GCP project for GCR/GAR */
+    project?: string;
+    /** Azure registry name */
+    registry?: string;
+    /** GitHub organization for GHCR */
+    org?: string;
+  };
+  /** Suggestions for authentication */
+  authSuggestions?: string[];
+}
+
+/**
+ * Registry authentication result
+ */
+export interface RegistryAuthResult {
+  /** Whether authentication succeeded */
+  success: boolean;
+  /** Auth token (if applicable) */
+  token?: string;
+  /** Token expiration time */
+  expiresAt?: string;
+  /** Error message if failed */
+  error?: string;
+  /** Username for Docker login */
+  username?: string;
+  /** Password for Docker login */
+  password?: string;
+}
+
+/**
+ * Multi-registry scan options
+ */
+export interface MultiRegistryScanOptions {
+  /** Registry IDs or URLs to scan */
+  registries: string[];
+  /** Filter repositories by pattern */
+  repositories?: string[];
+  /** Filter tags by regex */
+  tagFilter?: string;
+  /** Maximum concurrent scans per registry */
+  concurrency?: number;
+  /** Severity filter */
+  severity?: string;
+  /** Maximum images per registry */
+  limitPerRegistry?: number;
+  /** Only scan latest tags */
+  latestOnly?: boolean;
+  /** Continue on registry errors */
+  continueOnError?: boolean;
+}
+
+/**
+ * Result of multi-registry scan
+ */
+export interface MultiRegistryScanResult {
+  /** When the scan started */
+  startedAt: string;
+  /** When the scan completed */
+  completedAt: string;
+  /** Total duration in milliseconds */
+  durationMs: number;
+  /** Results per registry */
+  registries: Array<{
+    /** Registry ID or URL */
+    registry: string;
+    /** Registry type */
+    type: CloudRegistryType;
+    /** Whether scan succeeded */
+    success: boolean;
+    /** Error if failed */
+    error?: string;
+    /** Scan result if succeeded */
+    result?: RegistryScanResult;
+  }>;
+  /** Aggregated vulnerability counts */
+  totalVulnerabilities: VulnerabilityCounts;
+  /** Total images scanned across all registries */
+  totalImagesScanned: number;
+  /** Total failed scans across all registries */
+  totalFailedScans: number;
+}
