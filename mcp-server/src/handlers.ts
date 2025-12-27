@@ -57,4 +57,14 @@ export {
   // Registry Scanner
   listRegistryImages,
   scanRegistry,
+  // SARIF
+  trivyToSarif,
+  sonarToSarif,
+  dtrackToSarif,
+  dashboardToSarif,
+  mergeSarifLogs,
+  sarifToJson,
+  getSarifSummary,
+  uploadSarifToGitHub,
+  writeSarifFile,
 } from "@cicd/shared";

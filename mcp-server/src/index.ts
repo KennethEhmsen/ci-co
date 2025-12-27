@@ -47,6 +47,14 @@ import {
   checkPlatformStatus,
   getSecurityDashboard,
   scanRegistry,
+  // SARIF
+  trivyToSarif,
+  sonarToSarif,
+  dtrackToSarif,
+  mergeSarifLogs,
+  getSarifSummary,
+  uploadSarifToGitHub,
+  writeSarifFile,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -784,6 +792,110 @@ export const toolDefinitions = [
       },
     },
   },
+
+  // SARIF Tools
+  {
+    name: "sarif_generate",
+    description:
+      "Generate a SARIF (Static Analysis Results Interchange Format) report from scan results. " +
+      "SARIF is the standard format for GitHub Code Scanning, GitLab SAST, and other security tools. " +
+      "Can scan an image or path and convert results to SARIF format.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key to include issues from",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID to include findings from",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
+        },
+        outputFile: {
+          type: "string",
+          description: "Path to write SARIF file (optional, returns JSON if not specified)",
+        },
+        toolName: {
+          type: "string",
+          description: "Tool name for SARIF metadata (default: CI/CD Security Scanner)",
+        },
+        toolVersion: {
+          type: "string",
+          description: "Tool version for SARIF metadata",
+        },
+      },
+    },
+  },
+  {
+    name: "sarif_upload_github",
+    description:
+      "Upload a SARIF report to GitHub Code Scanning API. Requires GitHub token with security_events scope. " +
+      "After upload, vulnerabilities appear in GitHub's Security tab.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key to include issues from",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID to include findings from",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter (default: HIGH,CRITICAL)",
+          default: "HIGH,CRITICAL",
+        },
+        owner: {
+          type: "string",
+          description: "GitHub repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "GitHub repository name",
+        },
+        commitSha: {
+          type: "string",
+          description: "Git commit SHA to associate with the scan",
+        },
+        ref: {
+          type: "string",
+          description: "Git ref (e.g., refs/heads/main)",
+        },
+        token: {
+          type: "string",
+          description: "GitHub token with security_events scope",
+        },
+        apiUrl: {
+          type: "string",
+          description: "GitHub API URL (default: https://api.github.com)",
+        },
+      },
+      required: ["owner", "repo", "commitSha", "ref", "token"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -931,6 +1043,134 @@ const otherHandlers: Record<string, ToolHandler> = {
     }),
 };
 
+// Helper to check if result is an error response
+function isErrorResponse(result: unknown): result is { error: string } {
+  return typeof result === "object" && result !== null && "error" in result;
+}
+
+// SARIF handlers
+const sarifHandlers: Record<string, ToolHandler> = {
+  sarif_generate: async (args) => {
+    const severity = (args?.severity as string) || "HIGH,CRITICAL";
+    const options = {
+      toolName: args?.toolName as string | undefined,
+      toolVersion: args?.toolVersion as string | undefined,
+    };
+
+    // Collect scan results from specified sources
+    const logs = [];
+
+    // Trivy scan
+    if (args?.image) {
+      const trivyResult = await trivyScanImage(args.image as string, severity);
+      if (!isErrorResponse(trivyResult)) {
+        logs.push(trivyToSarif(trivyResult, options));
+      }
+    } else if (args?.path) {
+      const trivyResult = await trivyScanPath(args.path as string, severity);
+      if (!isErrorResponse(trivyResult)) {
+        logs.push(trivyToSarif(trivyResult, options));
+      }
+    }
+
+    // SonarQube issues
+    if (args?.sonarProject) {
+      const issues = await sonarGetIssues(args.sonarProject as string);
+      logs.push(sonarToSarif(issues.issues, options));
+    }
+
+    // Dependency-Track findings
+    if (args?.dtrackProjectUuid) {
+      const findings = await dtrackGetFindings(args.dtrackProjectUuid as string);
+      logs.push(dtrackToSarif(findings, options));
+    }
+
+    // Merge all logs
+    const mergedLog =
+      logs.length > 0
+        ? mergeSarifLogs(...logs)
+        : { $schema: "", version: "2.1.0" as const, runs: [] };
+
+    // Write to file if specified
+    if (args?.outputFile) {
+      await writeSarifFile(mergedLog, args.outputFile as string);
+      return {
+        success: true,
+        outputFile: args.outputFile,
+        summary: getSarifSummary(mergedLog),
+      };
+    }
+
+    // Return SARIF as JSON
+    return {
+      sarif: mergedLog,
+      summary: getSarifSummary(mergedLog),
+    };
+  },
+
+  sarif_upload_github: async (args) => {
+    const severity = (args?.severity as string) || "HIGH,CRITICAL";
+    const options = {
+      toolName: "CI/CD Security Scanner",
+      toolVersion: "1.0.0",
+    };
+
+    // Collect scan results from specified sources
+    const logs = [];
+
+    // Trivy scan
+    if (args?.image) {
+      const trivyResult = await trivyScanImage(args.image as string, severity);
+      if (!isErrorResponse(trivyResult)) {
+        logs.push(trivyToSarif(trivyResult, options));
+      }
+    } else if (args?.path) {
+      const trivyResult = await trivyScanPath(args.path as string, severity);
+      if (!isErrorResponse(trivyResult)) {
+        logs.push(trivyToSarif(trivyResult, options));
+      }
+    }
+
+    // SonarQube issues
+    if (args?.sonarProject) {
+      const issues = await sonarGetIssues(args.sonarProject as string);
+      logs.push(sonarToSarif(issues.issues, options));
+    }
+
+    // Dependency-Track findings
+    if (args?.dtrackProjectUuid) {
+      const findings = await dtrackGetFindings(args.dtrackProjectUuid as string);
+      logs.push(dtrackToSarif(findings, options));
+    }
+
+    if (logs.length === 0) {
+      throw new Error(
+        "No scan sources specified. Provide image, path, sonarProject, or dtrackProjectUuid."
+      );
+    }
+
+    // Merge all logs
+    const mergedLog = mergeSarifLogs(...logs);
+
+    // Upload to GitHub
+    const result = await uploadSarifToGitHub(mergedLog, {
+      owner: args?.owner as string,
+      repo: args?.repo as string,
+      commitSha: args?.commitSha as string,
+      ref: args?.ref as string,
+      token: args?.token as string,
+      apiUrl: args?.apiUrl as string | undefined,
+    });
+
+    return {
+      success: true,
+      uploadId: result.id,
+      url: result.url,
+      summary: getSarifSummary(mergedLog),
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -939,6 +1179,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...giteaHandlers,
   ...droneHandlers,
   ...otherHandlers,
+  ...sarifHandlers,
 };
 
 export async function handleCallTool(
