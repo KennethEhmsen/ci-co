@@ -1,6 +1,6 @@
 {
   "name": "cicd-security-agent",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "Claude Code Agent for CI/CD Security - integrates Trivy, SonarQube, Dependency-Track, Gitea, and Drone CI",
   "main": "dist/index.js",
   "type": "module",
