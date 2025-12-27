@@ -54,4 +54,7 @@ export {
   checkPlatformStatus,
   // Security Dashboard
   getSecurityDashboard,
+  // Registry Scanner
+  listRegistryImages,
+  scanRegistry,
 } from "@cicd/shared";

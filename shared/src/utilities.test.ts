@@ -4002,3 +4002,195 @@ describe("SBOM Upload Module - DTrackProjectCreateResult interface", () => {
     expect(result.active).toBe(true);
   });
 });
+
+// =============================================================================
+// Registry Scanner Tests
+// =============================================================================
+
+import {
+  parseDuration,
+  isWithinMaxAge,
+  matchesRepositoryPattern,
+  matchesTagFilter,
+} from "./registry-scanner.js";
+
+describe("Registry Scanner - Duration Parsing", () => {
+  describe("parseDuration", () => {
+    it("should parse days", () => {
+      expect(parseDuration("7d")).toBe(7 * 24 * 60 * 60 * 1000);
+      expect(parseDuration("1d")).toBe(24 * 60 * 60 * 1000);
+      expect(parseDuration("30d")).toBe(30 * 24 * 60 * 60 * 1000);
+    });
+
+    it("should parse hours", () => {
+      expect(parseDuration("24h")).toBe(24 * 60 * 60 * 1000);
+      expect(parseDuration("1h")).toBe(60 * 60 * 1000);
+      expect(parseDuration("48h")).toBe(48 * 60 * 60 * 1000);
+    });
+
+    it("should parse minutes", () => {
+      expect(parseDuration("30m")).toBe(30 * 60 * 1000);
+      expect(parseDuration("60m")).toBe(60 * 60 * 1000);
+    });
+
+    it("should parse seconds", () => {
+      expect(parseDuration("60s")).toBe(60 * 1000);
+      expect(parseDuration("3600s")).toBe(3600 * 1000);
+    });
+
+    it("should be case insensitive", () => {
+      expect(parseDuration("7D")).toBe(7 * 24 * 60 * 60 * 1000);
+      expect(parseDuration("24H")).toBe(24 * 60 * 60 * 1000);
+    });
+
+    it("should throw for invalid format", () => {
+      expect(() => parseDuration("invalid")).toThrow();
+      expect(() => parseDuration("7")).toThrow();
+      expect(() => parseDuration("d7")).toThrow();
+      expect(() => parseDuration("7x")).toThrow();
+    });
+  });
+
+  describe("isWithinMaxAge", () => {
+    it("should return true for recent dates", () => {
+      const now = new Date();
+      expect(isWithinMaxAge(now, "7d")).toBe(true);
+      expect(isWithinMaxAge(now.toISOString(), "24h")).toBe(true);
+    });
+
+    it("should return false for old dates", () => {
+      const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000); // 10 days ago
+      expect(isWithinMaxAge(oldDate, "7d")).toBe(false);
+      expect(isWithinMaxAge(oldDate, "1d")).toBe(false);
+    });
+
+    it("should handle edge cases", () => {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 1000);
+      expect(isWithinMaxAge(sevenDaysAgo, "7d")).toBe(true);
+    });
+  });
+});
+
+describe("Registry Scanner - Filtering", () => {
+  describe("matchesRepositoryPattern", () => {
+    it("should match all when no patterns provided", () => {
+      expect(matchesRepositoryPattern("myapp/backend", [])).toBe(true);
+      expect(matchesRepositoryPattern("anything", [])).toBe(true);
+    });
+
+    it("should match exact names", () => {
+      expect(matchesRepositoryPattern("myapp", ["myapp"])).toBe(true);
+      expect(matchesRepositoryPattern("myapp", ["other"])).toBe(false);
+    });
+
+    it("should match glob patterns", () => {
+      expect(matchesRepositoryPattern("myapp/backend", ["myapp/*"])).toBe(true);
+      expect(matchesRepositoryPattern("myapp/frontend", ["myapp/*"])).toBe(true);
+      expect(matchesRepositoryPattern("other/backend", ["myapp/*"])).toBe(false);
+    });
+
+    it("should match globstar patterns", () => {
+      expect(matchesRepositoryPattern("library/nginx", ["library/**"])).toBe(true);
+      expect(matchesRepositoryPattern("library/official/node", ["library/**"])).toBe(true);
+    });
+
+    it("should match regex patterns", () => {
+      expect(matchesRepositoryPattern("myapp-v1", ["/myapp-v\\d+/"])).toBe(true);
+      expect(matchesRepositoryPattern("myapp-v2", ["/myapp-v\\d+/"])).toBe(true);
+      expect(matchesRepositoryPattern("myapp-beta", ["/myapp-v\\d+/"])).toBe(false);
+    });
+
+    it("should match any pattern in array", () => {
+      expect(matchesRepositoryPattern("frontend", ["backend", "frontend"])).toBe(true);
+      expect(matchesRepositoryPattern("backend", ["backend", "frontend"])).toBe(true);
+      expect(matchesRepositoryPattern("database", ["backend", "frontend"])).toBe(false);
+    });
+  });
+
+  describe("matchesTagFilter", () => {
+    it("should match all when no filter provided", () => {
+      expect(matchesTagFilter("latest")).toBe(true);
+      expect(matchesTagFilter("v1.0.0")).toBe(true);
+    });
+
+    it("should match regex patterns", () => {
+      expect(matchesTagFilter("v1.0.0", "^v\\d+")).toBe(true);
+      expect(matchesTagFilter("v2.5.3", "^v\\d+")).toBe(true);
+      expect(matchesTagFilter("latest", "^v\\d+")).toBe(false);
+    });
+
+    it("should match version patterns", () => {
+      expect(matchesTagFilter("1.0.0", "^\\d+\\.\\d+\\.\\d+$")).toBe(true);
+      expect(matchesTagFilter("10.20.30", "^\\d+\\.\\d+\\.\\d+$")).toBe(true);
+      expect(matchesTagFilter("latest", "^\\d+\\.\\d+\\.\\d+$")).toBe(false);
+    });
+
+    it("should handle simple string matching for invalid regex", () => {
+      expect(matchesTagFilter("latest-build", "latest")).toBe(true);
+      expect(matchesTagFilter("production", "latest")).toBe(false);
+    });
+  });
+});
+
+describe("Registry Scanner - Types", () => {
+  it("should accept RegistryScanOptions", () => {
+    const options: import("./types.js").RegistryScanOptions = {
+      registry: "registry.example.com",
+      repositories: ["myapp/*"],
+      tagFilter: "^v\\d+",
+      concurrency: 5,
+      severity: "CRITICAL",
+      limit: 10,
+      allTags: false,
+    };
+
+    expect(options.registry).toBe("registry.example.com");
+    expect(options.repositories).toEqual(["myapp/*"]);
+    expect(options.concurrency).toBe(5);
+  });
+
+  it("should accept RegistryScanResult", () => {
+    const result: import("./types.js").RegistryScanResult = {
+      registry: "localhost:5000",
+      startedAt: "2024-01-15T10:00:00Z",
+      completedAt: "2024-01-15T10:05:00Z",
+      durationMs: 300000,
+      discovery: {
+        repositoriesFound: 10,
+        imagesFound: 50,
+        imagesMatched: 25,
+        imagesScanned: 25,
+      },
+      vulnerabilities: {
+        critical: 5,
+        high: 10,
+        medium: 15,
+        low: 20,
+        unknown: 0,
+        total: 50,
+      },
+      results: [],
+      failedImages: ["image1:tag1"],
+      skippedImages: ["image2:old"],
+    };
+
+    expect(result.registry).toBe("localhost:5000");
+    expect(result.discovery.imagesScanned).toBe(25);
+    expect(result.vulnerabilities.critical).toBe(5);
+  });
+
+  it("should accept RegistryImage", () => {
+    const image: import("./types.js").RegistryImage = {
+      fullName: "registry.example.com/myapp:v1.0.0",
+      repository: "myapp",
+      tag: "v1.0.0",
+      digest: "sha256:abc123",
+      createdAt: "2024-01-15T10:00:00Z",
+      size: 50000000,
+    };
+
+    expect(image.fullName).toBe("registry.example.com/myapp:v1.0.0");
+    expect(image.repository).toBe("myapp");
+    expect(image.tag).toBe("v1.0.0");
+  });
+});

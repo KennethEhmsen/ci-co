@@ -1690,3 +1690,109 @@ export interface DTrackProjectCreateResult {
   version: string;
   created: boolean;
 }
+
+// =============================================================================
+// Registry Scanner Types
+// =============================================================================
+
+/**
+ * Supported registry types
+ */
+export type RegistryType = "docker-registry" | "harbor" | "gitlab" | "ecr" | "acr" | "gcr" | "ghcr";
+
+/**
+ * Image discovered in registry
+ */
+export interface RegistryImage {
+  /** Full image reference (registry/repo:tag) */
+  fullName: string;
+  /** Repository name */
+  repository: string;
+  /** Tag */
+  tag: string;
+  /** Image digest (if available) */
+  digest?: string;
+  /** Created/pushed date (if available) */
+  createdAt?: string;
+  /** Image size in bytes (if available) */
+  size?: number;
+}
+
+/**
+ * Options for scanning a container registry
+ */
+export interface RegistryScanOptions {
+  /** Registry URL (e.g., registry.example.com, localhost:5000) */
+  registry?: string;
+  /** Filter repositories by pattern (glob or regex) */
+  repositories?: string[];
+  /** Filter tags by regex pattern */
+  tagFilter?: string;
+  /** Only scan images newer than this duration (e.g., "7d", "24h", "30d") */
+  maxAge?: string;
+  /** Maximum concurrent scans */
+  concurrency?: number;
+  /** Severity levels to report */
+  severity?: string;
+  /** Maximum number of images to scan (default: unlimited) */
+  limit?: number;
+  /** Skip scanning, just list images */
+  listOnly?: boolean;
+  /** Include all tags or just latest */
+  allTags?: boolean;
+  /** Fail fast on first scan error */
+  failFast?: boolean;
+  /** Progress callback */
+  onProgress?: (progress: RegistryScanProgress) => void;
+}
+
+/**
+ * Progress information for registry scan
+ */
+export interface RegistryScanProgress {
+  /** Phase of scanning */
+  phase: "discovering" | "scanning" | "complete";
+  /** Total images discovered */
+  imagesDiscovered: number;
+  /** Images scanned so far */
+  imagesScanned: number;
+  /** Failed scans */
+  failedScans: number;
+  /** Currently scanning images */
+  currentImages: string[];
+  /** Percentage complete (scanning phase) */
+  percentage: number;
+}
+
+/**
+ * Result of registry batch scan
+ */
+export interface RegistryScanResult {
+  /** Registry URL that was scanned */
+  registry: string;
+  /** When scan started */
+  startedAt: string;
+  /** When scan completed */
+  completedAt: string;
+  /** Total duration in milliseconds */
+  durationMs: number;
+  /** Summary of discovered images */
+  discovery: {
+    /** Total repositories found */
+    repositoriesFound: number;
+    /** Total images (repo:tag combinations) found */
+    imagesFound: number;
+    /** Images matching filters */
+    imagesMatched: number;
+    /** Images actually scanned */
+    imagesScanned: number;
+  };
+  /** Aggregated vulnerability counts */
+  vulnerabilities: VulnerabilityCounts;
+  /** Per-image scan results */
+  results: TargetScanResult[];
+  /** Images that failed to scan */
+  failedImages: string[];
+  /** Images that were skipped (filtered out) */
+  skippedImages: string[];
+}

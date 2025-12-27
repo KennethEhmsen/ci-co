@@ -207,6 +207,12 @@ export type {
   SbomUploadResult,
   DTrackProjectCreateOptions,
   DTrackProjectCreateResult,
+  // Registry Scanner Types
+  RegistryType,
+  RegistryImage,
+  RegistryScanOptions,
+  RegistryScanProgress,
+  RegistryScanResult,
 } from "./types.js";
 export {
   // Trivy
@@ -388,3 +394,15 @@ export {
   uploadSbomToDtrack,
   uploadSbomsBatch,
 } from "./sbom-upload.js";
+
+// Registry scanner exports
+export {
+  parseDuration,
+  isWithinMaxAge,
+  matchesRepositoryPattern,
+  matchesTagFilter,
+  discoverImages,
+  listRegistryImages,
+  scanRegistry,
+  getRegistryScanSummary,
+} from "./registry-scanner.js";

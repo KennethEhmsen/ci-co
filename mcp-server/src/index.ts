@@ -46,6 +46,7 @@ import {
   securityScanAll,
   checkPlatformStatus,
   getSecurityDashboard,
+  scanRegistry,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -683,6 +684,50 @@ export const toolDefinitions = [
       required: ["image"],
     },
   },
+  {
+    name: "registry_scan",
+    description:
+      "Scan all images in the container registry for vulnerabilities. " +
+      "Supports filtering by repository pattern, tag pattern, and parallel scanning.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repositories: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter repositories by glob patterns (e.g., ['myapp/*', 'library/**'])",
+        },
+        tagFilter: {
+          type: "string",
+          description: "Regex pattern to filter tags (e.g., '^v\\d+' for version tags)",
+        },
+        allTags: {
+          type: "boolean",
+          description: "Include all tags or just 'latest' (default: true)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of images to scan",
+        },
+        concurrency: {
+          type: "number",
+          description: "Number of parallel scans (default: 3)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+        },
+        listOnly: {
+          type: "boolean",
+          description: "Only list images without scanning",
+        },
+        failFast: {
+          type: "boolean",
+          description: "Stop on first scan error",
+        },
+      },
+    },
+  },
 
   // Combined Tools
   {
@@ -859,6 +904,17 @@ const droneHandlers: Record<string, ToolHandler> = {
 const otherHandlers: Record<string, ToolHandler> = {
   registry_list_images: () => registryGetCatalog(),
   registry_get_tags: (args) => registryGetTags(args?.image as string),
+  registry_scan: (args) =>
+    scanRegistry({
+      repositories: args?.repositories as string[] | undefined,
+      tagFilter: args?.tagFilter as string | undefined,
+      allTags: args?.allTags as boolean | undefined,
+      limit: args?.limit as number | undefined,
+      concurrency: args?.concurrency as number | undefined,
+      severity: args?.severity as string | undefined,
+      listOnly: args?.listOnly as boolean | undefined,
+      failFast: args?.failFast as boolean | undefined,
+    }),
   security_scan_all: (args) =>
     securityScanAll(
       args?.path as string,
