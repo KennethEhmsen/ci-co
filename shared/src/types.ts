@@ -1478,7 +1478,7 @@ export interface ScanCompareOptions {
   /** Include unchanged vulnerabilities in result */
   includeUnchanged?: boolean;
   /** Filter by minimum severity */
-  minSeverity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  minSeverity?: SeverityLevel;
 }
 
 /**
