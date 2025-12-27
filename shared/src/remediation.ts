@@ -68,9 +68,9 @@ function parseVersion(version: string): { major: number; minor: number; patch: n
   }
 
   return {
-    major: parseInt(match[1], 10),
-    minor: parseInt(match[2] || "0", 10),
-    patch: parseInt(match[3] || "0", 10),
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2] || "0", 10),
+    patch: Number.parseInt(match[3] || "0", 10),
   };
 }
 

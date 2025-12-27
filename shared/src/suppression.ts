@@ -366,7 +366,7 @@ export function validateSuppression(suppression: Suppression): string[] {
 
   if (suppression.expires) {
     const date = new Date(suppression.expires);
-    if (isNaN(date.getTime())) {
+    if (Number.isNaN(date.getTime())) {
       errors.push(`Invalid expiration date: ${suppression.expires}`);
     }
   }

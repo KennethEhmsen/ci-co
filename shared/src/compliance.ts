@@ -390,10 +390,10 @@ function calculateDueDate(sla: string, detectedAt: Date = new Date()): string {
   if (sla === "immediate") {
     dueDate.setHours(dueDate.getHours() + 24);
   } else if (sla.endsWith("h")) {
-    const hours = parseInt(sla);
+    const hours = Number.parseInt(sla, 10);
     dueDate.setHours(dueDate.getHours() + hours);
   } else if (sla.endsWith("d")) {
-    const days = parseInt(sla);
+    const days = Number.parseInt(sla, 10);
     dueDate.setDate(dueDate.getDate() + days);
   }
 
@@ -740,14 +740,7 @@ export function generateComplianceHtml(
             const percentage = summary.compliancePercentage;
             const circumference = 2 * Math.PI * 54;
             const offset = circumference - (percentage / 100) * circumference;
-            const colorClass =
-              percentage >= 80
-                ? "progress-green"
-                : percentage >= 60
-                  ? "progress-yellow"
-                  : percentage >= 40
-                    ? "progress-orange"
-                    : "progress-red";
+            const colorClass = getProgressColorClass(percentage);
 
             return `
             <div class="gauge">
@@ -792,12 +785,7 @@ export function generateComplianceHtml(
         const summary = report.byFramework[framework];
         if (!summary) return "";
 
-        const badgeClass =
-          summary.compliancePercentage >= 80
-            ? "compliance-pass"
-            : summary.compliancePercentage >= 50
-              ? "compliance-warn"
-              : "compliance-fail";
+        const badgeClass = getComplianceBadgeClass(summary.compliancePercentage);
 
         return `
         <div class="card framework-section">
@@ -850,10 +838,7 @@ export function generateComplianceHtml(
       <h2>Recommendations</h2>
       ${report.recommendations
         .map((rec) => {
-          const isUrgent =
-            rec.toLowerCase().includes("urgent") || rec.toLowerCase().includes("critical");
-          const isHigh = rec.toLowerCase().includes("high priority");
-          const className = isUrgent ? "urgent" : isHigh ? "high" : "";
+          const className = getRecommendationClass(rec);
           return `<div class="recommendation ${className}">${escapeHtml(rec)}</div>`;
         })
         .join("")}
@@ -866,6 +851,39 @@ export function generateComplianceHtml(
   </div>
 </body>
 </html>`;
+}
+
+/**
+ * Get progress color class based on percentage.
+ */
+function getProgressColorClass(percentage: number): string {
+  if (percentage >= 80) return "progress-green";
+  if (percentage >= 60) return "progress-yellow";
+  if (percentage >= 40) return "progress-orange";
+  return "progress-red";
+}
+
+/**
+ * Get compliance badge class based on percentage.
+ */
+function getComplianceBadgeClass(percentage: number): string {
+  if (percentage >= 80) return "compliance-pass";
+  if (percentage >= 50) return "compliance-warn";
+  return "compliance-fail";
+}
+
+/**
+ * Get recommendation priority class.
+ */
+function getRecommendationClass(rec: string): string {
+  const lowerRec = rec.toLowerCase();
+  if (lowerRec.includes("urgent") || lowerRec.includes("critical")) {
+    return "urgent";
+  }
+  if (lowerRec.includes("high priority")) {
+    return "high";
+  }
+  return "";
 }
 
 /**

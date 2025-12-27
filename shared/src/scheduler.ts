@@ -103,8 +103,8 @@ function parseCronFieldValue(
   // Handle step values (e.g., */5, 1-10/2)
   if (value.includes("/")) {
     const [rangeStr, stepStr] = value.split("/");
-    const step = parseInt(stepStr, 10);
-    if (isNaN(step) || step <= 0) {
+    const step = Number.parseInt(stepStr, 10);
+    if (Number.isNaN(step) || step <= 0) {
       throw new Error("Invalid step value in " + fieldName + ": " + value);
     }
 
@@ -148,8 +148,8 @@ function parseCronFieldValue(
  */
 function parseFieldValue(value: string, fieldName: string): number {
   // Try as number first
-  const num = parseInt(value, 10);
-  if (!isNaN(num)) return num;
+  const num = Number.parseInt(value, 10);
+  if (!Number.isNaN(num)) return num;
 
   // Try as name
   const lower = value.toLowerCase();
