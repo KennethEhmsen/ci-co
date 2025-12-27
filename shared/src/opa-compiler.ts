@@ -39,7 +39,7 @@ export async function getOpaVersion(): Promise<string | null> {
   try {
     const { stdout } = await execAsync("opa version");
     // Parse version from output like "Version: 0.60.0\nBuild Commit: ..."
-    const match = stdout.match(/Version:\s*(\S+)/);
+    const match = /Version:\s*(\S+)/.exec(stdout);
     return match ? match[1] : null;
   } catch {
     return null;

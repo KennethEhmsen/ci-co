@@ -36,7 +36,7 @@ const DURATION_REGEX = /^(\d+)(d|h|m|s)$/i;
  * Supports: 7d (days), 24h (hours), 30m (minutes), 60s (seconds)
  */
 export function parseDuration(duration: string): number {
-  const match = duration.match(DURATION_REGEX);
+  const match = DURATION_REGEX.exec(duration);
   if (!match) {
     throw new Error(
       `Invalid duration format: ${duration}. Use format like "7d", "24h", "30m", "60s"`

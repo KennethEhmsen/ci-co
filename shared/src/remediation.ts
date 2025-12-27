@@ -61,7 +61,7 @@ const TYPE_TO_MANAGER: Record<string, PackageManager> = {
 function parseVersion(version: string): { major: number; minor: number; patch: number } | null {
   // Remove leading 'v' if present
   const cleaned = version.replace(/^v/, "");
-  const match = cleaned.match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+  const match = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(cleaned);
 
   if (!match) {
     return null;

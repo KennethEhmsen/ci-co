@@ -76,7 +76,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
   const hostname = url.replace(/^https?:\/\//, "").split("/")[0];
 
   // Check ECR
-  const ecrMatch = hostname.match(ECR_PATTERN);
+  const ecrMatch = ECR_PATTERN.exec(hostname);
   if (ecrMatch) {
     return {
       type: "ecr",
@@ -93,7 +93,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
   }
 
   // Check ACR
-  const acrMatch = hostname.match(ACR_PATTERN);
+  const acrMatch = ACR_PATTERN.exec(hostname);
   if (acrMatch) {
     return {
       type: "acr",
@@ -360,7 +360,7 @@ async function getEcrAuth(
   auth: { type: "ecr"; region: string; accessKeyId?: string; secretAccessKey?: string }
 ): Promise<RegistryAuthResult> {
   // Extract account ID from URL
-  const match = registryUrl.match(/^(\d{12})\.dkr\.ecr\./);
+  const match = /^(\d{12})\.dkr\.ecr\./.exec(registryUrl);
   if (!match) {
     return { success: false, error: "Invalid ECR URL format" };
   }

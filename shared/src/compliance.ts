@@ -335,7 +335,7 @@ function determineVulnerabilityType(
   const message = finding.message?.toLowerCase() || "";
 
   // CVE pattern
-  if (id.startsWith("cve-") || id.match(/^cve-\d{4}-\d+$/i)) {
+  if (id.startsWith("cve-") || /^cve-\d{4}-\d+$/i.exec(id)) {
     return "cve";
   }
 

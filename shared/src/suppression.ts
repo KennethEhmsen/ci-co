@@ -232,12 +232,12 @@ export function matchesVersion(version: string, constraint: string): boolean {
   }
 
   // Exact match
-  if (!constraint.match(/^[<>=]/)) {
+  if (!/^[<>=]/.exec(constraint)) {
     return version === constraint;
   }
 
   // Parse constraint - use \S+ instead of .+ to avoid backtracking on whitespace
-  const match = constraint.match(/^([<>=]+)(\S+)$/);
+  const match = /^([<>=]+)(\S+)$/.exec(constraint);
   if (!match) {
     return version === constraint;
   }
@@ -373,7 +373,7 @@ export function validateSuppression(suppression: Suppression): string[] {
 
   // Type-specific validation
   if (suppression.type === "cve" && suppression.pattern) {
-    if (!suppression.pattern.match(/^CVE-\d{4}-\d+\*?$/i) && !suppression.pattern.includes("*")) {
+    if (!/^CVE-\d{4}-\d+\*?$/i.exec(suppression.pattern) && !suppression.pattern.includes("*")) {
       errors.push(`Invalid CVE pattern: ${suppression.pattern}`);
     }
   }
