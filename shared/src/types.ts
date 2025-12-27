@@ -3,6 +3,22 @@
  */
 
 // =============================================================================
+// Common Type Aliases
+// =============================================================================
+
+/** Severity levels for Trivy vulnerabilities (includes UNKNOWN) */
+export type TrivySeverity = "UNKNOWN" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+/** Standard severity levels without UNKNOWN */
+export type SeverityLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+/** Security data sources */
+export type SecuritySource = "trivy" | "sonarqube" | "dtrack";
+
+/** SARIF result levels */
+export type SarifLevel = "none" | "note" | "warning" | "error";
+
+// =============================================================================
 // Trivy Types
 // =============================================================================
 
@@ -11,7 +27,7 @@ export interface TrivyVulnerability {
   PkgName: string;
   InstalledVersion: string;
   FixedVersion?: string;
-  Severity: "UNKNOWN" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  Severity: TrivySeverity;
   Title?: string;
   Description?: string;
   PrimaryURL?: string;
@@ -101,7 +117,7 @@ export interface IacMisconfiguration {
   Namespace?: string;
   Query?: string;
   Resolution: string;
-  Severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  Severity: SeverityLevel;
   PrimaryURL?: string;
   References?: string[];
   Status: "FAIL" | "PASS" | "EXCEPTION";
@@ -553,7 +569,7 @@ export interface SonarDashboardMetrics {
 export interface SecurityDashboardFinding {
   id: string;
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  source: "trivy" | "sonarqube" | "dtrack";
+  source: SecuritySource;
   package?: string;
   message?: string;
 }
@@ -738,7 +754,7 @@ export interface SarifReportingDescriptor {
   helpUri?: string;
   help?: SarifMessage;
   defaultConfiguration?: {
-    level?: "none" | "note" | "warning" | "error";
+    level?: SarifLevel;
   };
   properties?: Record<string, unknown>;
 }
@@ -757,7 +773,7 @@ export interface SarifTool {
 export interface SarifResult {
   ruleId: string;
   ruleIndex?: number;
-  level?: "none" | "note" | "warning" | "error";
+  level?: SarifLevel;
   message: SarifMessage;
   locations?: SarifLocation[];
   partialFingerprints?: {
@@ -1350,7 +1366,7 @@ export interface VulnerabilityFingerprint {
   /** Target file or layer */
   target: string;
   /** Source of the finding */
-  source: "trivy" | "sonarqube" | "dtrack";
+  source: SecuritySource;
 }
 
 /**
@@ -1365,7 +1381,7 @@ export interface FingerprintedVulnerability {
   title?: string;
   fixedVersion?: string;
   target: string;
-  source: "trivy" | "sonarqube" | "dtrack";
+  source: SecuritySource;
 }
 
 /**

@@ -8,7 +8,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { CloudRegistryType, RegistryAuth } from "@cicd/shared";
+import type { CloudRegistryType, ComplianceFramework, RegistryAuth } from "@cicd/shared";
 import {
   config,
   trivyScanPath,
@@ -2627,7 +2627,7 @@ const complianceHandlers: Record<string, ToolHandler> = {
     if (!framework) {
       return { error: "framework is required" };
     }
-    const controls = getComplianceControls(framework as "SOC2" | "HIPAA" | "PCI-DSS" | "CIS");
+    const controls = getComplianceControls(framework as ComplianceFramework);
     return { framework, controls, count: controls.length };
   },
 
