@@ -43,6 +43,18 @@ import {
   registryGetTags,
   checkPlatformStatus,
   getSecurityDashboard,
+  // Compliance
+  getComplianceFrameworks,
+  getComplianceControls,
+  getComplianceControl,
+  generateComplianceReport,
+  generateComplianceHtml,
+  recordComplianceTrend,
+  getComplianceTrend,
+  getComplianceTrendTargets,
+  checkComplianceStatus,
+  // Types
+  type ComplianceFramework,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -183,6 +195,68 @@ const toolHandlers: Record<string, ToolHandler> = {
       dtrackProjectUuid: input.dtrackProjectUuid as string | undefined,
       severity: input.severity as string | undefined,
     }),
+  // Compliance
+  compliance_get_frameworks: async () => getComplianceFrameworks(),
+  compliance_get_controls: async (input) => {
+    const framework = input.framework as ComplianceFramework;
+    const controlId = input.controlId as string | undefined;
+    if (controlId) {
+      return getComplianceControl(framework, controlId);
+    }
+    return getComplianceControls(framework);
+  },
+  compliance_check_status: async (input) => {
+    const dashboardResult = await getSecurityDashboard({
+      image: input.image as string | undefined,
+      path: input.path as string | undefined,
+      sonarProject: input.sonarProject as string | undefined,
+      dtrackProjectUuid: input.dtrackProjectUuid as string | undefined,
+      severity: input.severity as string | undefined,
+    });
+    return checkComplianceStatus(dashboardResult, {
+      frameworks: input.frameworks as ComplianceFramework[] | undefined,
+      severity: input.severity as string | undefined,
+    });
+  },
+  compliance_generate_report: async (input) => {
+    const dashboardResult = await getSecurityDashboard({
+      image: input.image as string | undefined,
+      path: input.path as string | undefined,
+      sonarProject: input.sonarProject as string | undefined,
+      dtrackProjectUuid: input.dtrackProjectUuid as string | undefined,
+      severity: input.severity as string | undefined,
+    });
+    const options = {
+      frameworks: input.frameworks as ComplianceFramework[] | undefined,
+      title: input.title as string | undefined,
+      organization: input.organization as string | undefined,
+    };
+    const report = generateComplianceReport(dashboardResult, options);
+    if (input.format === "html") {
+      return { html: generateComplianceHtml(report, options) };
+    }
+    return report;
+  },
+  compliance_trend_record: async (input) => {
+    const target = input.target as string;
+    const dashboardResult = await getSecurityDashboard({
+      image: input.image as string | undefined,
+      path: input.path as string | undefined,
+      sonarProject: input.sonarProject as string | undefined,
+      dtrackProjectUuid: input.dtrackProjectUuid as string | undefined,
+      severity: input.severity as string | undefined,
+    });
+    const report = generateComplianceReport(dashboardResult, {
+      frameworks: input.frameworks as ComplianceFramework[] | undefined,
+    });
+    return recordComplianceTrend(target, report);
+  },
+  compliance_trend_get: async (input) => {
+    const target = input.target as string;
+    const days = (input.days as number) || 30;
+    return getComplianceTrend(target, days);
+  },
+  compliance_trend_list_targets: async () => getComplianceTrendTargets(),
 };
 
 // =============================================================================
@@ -886,6 +960,187 @@ export const tools: Anthropic.Tool[] = [
           description: "Severity filter for Trivy (default: HIGH,CRITICAL)",
         },
       },
+    },
+  },
+
+  // Compliance Tools
+  {
+    name: "compliance_get_frameworks",
+    description:
+      "Get list of all available compliance frameworks with their descriptions. Returns SOC2, HIPAA, PCI-DSS, and CIS framework information.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "compliance_get_controls",
+    description:
+      "Get compliance controls for a specific framework. Optionally get a single control by ID. Controls define security requirements and remediation SLAs.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        framework: {
+          type: "string",
+          description: "Compliance framework: SOC2, HIPAA, PCI-DSS, or CIS",
+          enum: ["SOC2", "HIPAA", "PCI-DSS", "CIS"],
+        },
+        controlId: {
+          type: "string",
+          description: "Optional: specific control ID to retrieve (e.g., CC7.1, 164.308(a)(1))",
+        },
+      },
+      required: ["framework"],
+    },
+  },
+  {
+    name: "compliance_check_status",
+    description:
+      "Check compliance status for scan results. Returns pass/fail status, compliance percentage, and violations by framework.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter (default: HIGH,CRITICAL)",
+        },
+        frameworks: {
+          type: "array",
+          items: { type: "string", enum: ["SOC2", "HIPAA", "PCI-DSS", "CIS"] },
+          description: "Frameworks to check (default: all)",
+        },
+      },
+    },
+  },
+  {
+    name: "compliance_generate_report",
+    description:
+      "Generate a compliance report for scan results. Can output JSON or styled HTML for audit documentation.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter (default: HIGH,CRITICAL)",
+        },
+        frameworks: {
+          type: "array",
+          items: { type: "string", enum: ["SOC2", "HIPAA", "PCI-DSS", "CIS"] },
+          description: "Frameworks to include (default: all)",
+        },
+        format: {
+          type: "string",
+          enum: ["json", "html"],
+          description: "Output format (default: json)",
+        },
+        title: {
+          type: "string",
+          description: "Report title",
+        },
+        organization: {
+          type: "string",
+          description: "Organization name for report header",
+        },
+      },
+    },
+  },
+  {
+    name: "compliance_trend_record",
+    description:
+      "Record a compliance snapshot for trend tracking. Call periodically to build compliance trend history.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier (e.g., image name, project key)",
+        },
+        image: {
+          type: "string",
+          description: "Docker image to scan with Trivy",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan with Trivy",
+        },
+        sonarProject: {
+          type: "string",
+          description: "SonarQube project key",
+        },
+        dtrackProjectUuid: {
+          type: "string",
+          description: "Dependency-Track project UUID",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter (default: HIGH,CRITICAL)",
+        },
+        frameworks: {
+          type: "array",
+          items: { type: "string", enum: ["SOC2", "HIPAA", "PCI-DSS", "CIS"] },
+          description: "Frameworks to track (default: all)",
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
+    name: "compliance_trend_get",
+    description:
+      "Get compliance trend data for a target over time. Shows improvement, decline, or stability.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier to get trends for",
+        },
+        days: {
+          type: "number",
+          description: "Number of days to include (default: 30)",
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
+    name: "compliance_trend_list_targets",
+    description: "List all targets that have compliance trend data recorded.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
     },
   },
 ];

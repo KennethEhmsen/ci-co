@@ -251,6 +251,19 @@ export type {
   ScheduleHistoryEntry,
   ListSchedulesOptions,
   CronValidationResult,
+  // Compliance Types
+  ComplianceFramework,
+  ComplianceVulnerabilityType,
+  ComplianceSeverity,
+  ComplianceControl,
+  ComplianceViolation,
+  ComplianceFrameworkSummary,
+  ComplianceReport,
+  ComplianceReportOptions,
+  ComplianceTrendEntry,
+  ComplianceTrendResult,
+  ComplianceCheckOptions,
+  ComplianceCheckResult,
 } from "./types.js";
 export {
   // Trivy
@@ -492,3 +505,19 @@ export {
   getHighPriorityRemediations,
   getSafeRemediations,
 } from "./remediation.js";
+
+// Compliance exports
+export {
+  COMPLIANCE_CONTROLS,
+  getComplianceFrameworks,
+  getComplianceControls,
+  getComplianceControl,
+  mapFindingToControls,
+  generateComplianceReport,
+  generateComplianceHtml,
+  recordComplianceTrend,
+  getComplianceTrend,
+  clearComplianceTrends,
+  getComplianceTrendTargets,
+  checkComplianceStatus,
+} from "./compliance.js";

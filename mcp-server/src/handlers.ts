@@ -102,4 +102,17 @@ export {
   formatRemediationAsMarkdown,
   getHighPriorityRemediations,
   getSafeRemediations,
+  // Compliance
+  COMPLIANCE_CONTROLS,
+  getComplianceFrameworks,
+  getComplianceControls,
+  getComplianceControl,
+  mapFindingToControls,
+  generateComplianceReport,
+  generateComplianceHtml,
+  recordComplianceTrend,
+  getComplianceTrend,
+  clearComplianceTrends,
+  getComplianceTrendTargets,
+  checkComplianceStatus,
 } from "@cicd/shared";

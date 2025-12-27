@@ -2436,3 +2436,236 @@ export interface RemediationPRResult {
   /** Error message if failed */
   error?: string;
 }
+
+// =============================================================================
+// Compliance Framework Types
+// =============================================================================
+
+/**
+ * Supported compliance frameworks
+ */
+export type ComplianceFramework = "SOC2" | "HIPAA" | "PCI-DSS" | "CIS";
+
+/**
+ * Vulnerability types for compliance mapping
+ */
+export type ComplianceVulnerabilityType = "cve" | "secret" | "misconfig" | "license";
+
+/**
+ * Severity levels for compliance SLA mapping
+ */
+export type ComplianceSeverity = "critical" | "high" | "medium" | "low";
+
+/**
+ * A compliance control definition from a framework
+ */
+export interface ComplianceControl {
+  /** Control identifier (e.g., "CC7.1", "164.308(a)(1)", "11.3.1.2") */
+  id: string;
+  /** Framework this control belongs to */
+  framework: ComplianceFramework;
+  /** Short name of the control */
+  name: string;
+  /** Full description of what the control requires */
+  description: string;
+  /** Category within the framework */
+  category: string;
+  /** Which severity levels this control applies to */
+  severityMapping: {
+    critical: boolean;
+    high: boolean;
+    medium: boolean;
+    low: boolean;
+  };
+  /** Which vulnerability types trigger this control */
+  vulnerabilityTypes: ComplianceVulnerabilityType[];
+  /** Remediation SLA by severity level */
+  remediationSLA: {
+    critical: string;
+    high: string;
+    medium: string;
+    low: string;
+  };
+}
+
+/**
+ * A compliance violation - a vulnerability mapped to a control
+ */
+export interface ComplianceViolation {
+  /** The control that was violated */
+  control: ComplianceControl;
+  /** The vulnerability that caused the violation */
+  vulnerability: {
+    /** Vulnerability ID (e.g., CVE-2024-1234) */
+    id: string;
+    /** Severity level */
+    severity: string;
+    /** Type of vulnerability */
+    type: ComplianceVulnerabilityType;
+    /** Affected package name */
+    package?: string;
+    /** Description of the vulnerability */
+    description?: string;
+    /** Source of the finding */
+    source?: "trivy" | "sonarqube" | "dtrack";
+  };
+  /** Current status of the violation */
+  status: "open" | "remediated" | "accepted" | "in_progress";
+  /** Due date for remediation based on SLA */
+  dueDate: string;
+  /** When the violation was first detected */
+  detectedAt: string;
+}
+
+/**
+ * Framework-specific compliance summary
+ */
+export interface ComplianceFrameworkSummary {
+  /** Framework name */
+  framework: ComplianceFramework;
+  /** Total controls in scope */
+  totalControls: number;
+  /** Controls with no violations */
+  passingControls: number;
+  /** Controls with violations */
+  failingControls: number;
+  /** Compliance percentage */
+  compliancePercentage: number;
+  /** All violations for this framework */
+  violations: ComplianceViolation[];
+}
+
+/**
+ * Compliance report aggregating results from all frameworks
+ */
+export interface ComplianceReport {
+  /** When the report was generated */
+  generatedAt: string;
+  /** Target that was scanned (image, path, project) */
+  scanTarget: string;
+  /** Frameworks included in the report */
+  frameworks: ComplianceFramework[];
+  /** Overall summary across all frameworks */
+  summary: {
+    totalControls: number;
+    passingControls: number;
+    failingControls: number;
+    compliancePercentage: number;
+  };
+  /** Per-framework breakdown */
+  byFramework: Partial<Record<ComplianceFramework, ComplianceFrameworkSummary>>;
+  /** Violation counts by severity */
+  bySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  /** Top violations sorted by severity */
+  topViolations: ComplianceViolation[];
+  /** Remediation recommendations */
+  recommendations: string[];
+}
+
+/**
+ * Options for generating a compliance report
+ */
+export interface ComplianceReportOptions {
+  /** Frameworks to include (default: all) */
+  frameworks?: ComplianceFramework[];
+  /** Include remediated violations (default: false) */
+  includeRemediated?: boolean;
+  /** Output format */
+  format?: "json" | "html";
+  /** Report title */
+  title?: string;
+  /** Organization name for the report */
+  organization?: string;
+  /** Severity filter */
+  severity?: string;
+}
+
+/**
+ * A snapshot of compliance status for trend tracking
+ */
+export interface ComplianceTrendEntry {
+  /** When this snapshot was taken */
+  timestamp: string;
+  /** Target that was scanned */
+  target: string;
+  /** Frameworks included */
+  frameworks: ComplianceFramework[];
+  /** Summary at this point in time */
+  summary: {
+    totalViolations: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    compliancePercentage: number;
+  };
+}
+
+/**
+ * Result of compliance trend analysis
+ */
+export interface ComplianceTrendResult {
+  /** Target that was analyzed */
+  target: string;
+  /** Time period analyzed */
+  period: {
+    start: string;
+    end: string;
+  };
+  /** All trend entries in the period */
+  entries: ComplianceTrendEntry[];
+  /** Overall trend direction */
+  trend: "improving" | "declining" | "stable";
+  /** Percentage change from first to last entry */
+  changeFromFirst: number;
+}
+
+/**
+ * Options for checking compliance status
+ */
+export interface ComplianceCheckOptions {
+  /** Docker image to scan */
+  image?: string;
+  /** Local path to scan */
+  path?: string;
+  /** SonarQube project key */
+  sonarProject?: string;
+  /** Dependency-Track project UUID */
+  dtrackProjectUuid?: string;
+  /** Frameworks to check */
+  frameworks?: ComplianceFramework[];
+  /** Severity filter */
+  severity?: string;
+}
+
+/**
+ * Result of a compliance status check
+ */
+export interface ComplianceCheckResult {
+  /** Overall pass/fail status */
+  passed: boolean;
+  /** Compliance percentage */
+  compliancePercentage: number;
+  /** Number of violations by severity */
+  violations: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    total: number;
+  };
+  /** Failing controls by framework */
+  failingControls: Array<{
+    framework: ComplianceFramework;
+    controlId: string;
+    controlName: string;
+    violationCount: number;
+  }>;
+  /** Full report for details */
+  report: ComplianceReport;
+}
