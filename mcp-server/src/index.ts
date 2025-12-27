@@ -2641,7 +2641,7 @@ const complianceHandlers: Record<string, ToolHandler> = {
     });
 
     return checkComplianceStatus(dashboardResult, {
-      frameworks: args?.frameworks as ("SOC2" | "HIPAA" | "PCI-DSS" | "CIS")[] | undefined,
+      frameworks: args?.frameworks as ComplianceFramework[] | undefined,
     });
   },
 

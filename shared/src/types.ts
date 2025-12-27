@@ -184,7 +184,7 @@ export interface TrivySecretScanResult {
 
 // License Scanning Types
 export interface LicenseFinding {
-  Severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "UNKNOWN";
+  Severity: TrivySeverity;
   Category:
     | "forbidden"
     | "restricted"
@@ -568,7 +568,7 @@ export interface SonarDashboardMetrics {
  */
 export interface SecurityDashboardFinding {
   id: string;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  severity: SeverityLevel;
   source: SecuritySource;
   package?: string;
   message?: string;
