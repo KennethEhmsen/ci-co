@@ -2248,3 +2248,191 @@ export interface MultiRegistryScanResult {
   /** Total failed scans across all registries */
   totalFailedScans: number;
 }
+
+// =============================================================================
+// Vulnerability Remediation Types
+// =============================================================================
+
+/**
+ * Package manager types supported for remediation
+ */
+export type PackageManager =
+  | "npm"
+  | "yarn"
+  | "pnpm"
+  | "pip"
+  | "poetry"
+  | "pipenv"
+  | "go"
+  | "maven"
+  | "gradle"
+  | "gem"
+  | "cargo";
+
+/**
+ * Confidence level for remediation suggestions
+ */
+export type RemediationConfidence = "high" | "medium" | "low";
+
+/**
+ * Information about a vulnerability for remediation context
+ */
+export interface VulnerabilityInfo {
+  /** CVE or vulnerability ID */
+  id: string;
+  /** Severity level */
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  /** Brief title */
+  title?: string;
+  /** URL for more information */
+  url?: string;
+}
+
+/**
+ * A single remediation suggestion
+ */
+export interface RemediationSuggestion {
+  /** The vulnerability being fixed */
+  vulnerability: VulnerabilityInfo;
+  /** Affected package name */
+  package: string;
+  /** Current installed version */
+  currentVersion: string;
+  /** Version that fixes the vulnerability */
+  fixedVersion: string;
+  /** Command to apply the fix */
+  command: string;
+  /** Package manager type */
+  packageManager: PackageManager;
+  /** Whether this is a breaking change (major version bump) */
+  breaking: boolean;
+  /** All CVEs fixed by this update */
+  cvesFixed: string[];
+  /** Confidence level of the suggestion */
+  confidence: RemediationConfidence;
+  /** Additional notes or warnings */
+  notes?: string;
+}
+
+/**
+ * A complete remediation plan
+ */
+export interface RemediationPlan {
+  /** Timestamp when plan was generated */
+  generatedAt: string;
+  /** Source of the scan (image name, path, etc.) */
+  scanTarget: string;
+  /** All remediation suggestions */
+  suggestions: RemediationSuggestion[];
+  /** Total unique CVEs that would be fixed */
+  totalCvesFixed: number;
+  /** Number of suggestions with breaking changes */
+  breakingChanges: number;
+  /** Ordered list of all commands to run */
+  commands: string[];
+  /** Summary by package manager */
+  byPackageManager: Record<
+    PackageManager,
+    {
+      count: number;
+      commands: string[];
+    }
+  >;
+  /** Summary by severity */
+  bySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+}
+
+/**
+ * Options for generating remediation suggestions
+ */
+export interface RemediationOptions {
+  /** Only include suggestions above this severity */
+  minSeverity?: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  /** Include breaking changes */
+  includeBreaking?: boolean;
+  /** Maximum number of suggestions to return */
+  limit?: number;
+  /** Package managers to include (default: all) */
+  packageManagers?: PackageManager[];
+  /** Sort order for suggestions */
+  sortBy?: "severity" | "cvesFixed" | "package";
+}
+
+/**
+ * Options for applying remediation
+ */
+export interface ApplyRemediationOptions {
+  /** Working directory */
+  workDir?: string;
+  /** Dry run - just show commands without executing */
+  dryRun?: boolean;
+  /** Skip breaking changes */
+  skipBreaking?: boolean;
+  /** Commit changes after applying */
+  commit?: boolean;
+  /** Commit message template */
+  commitMessage?: string;
+}
+
+/**
+ * Result of applying remediation
+ */
+export interface ApplyRemediationResult {
+  /** Whether all remediations were applied successfully */
+  success: boolean;
+  /** Number of packages updated */
+  packagesUpdated: number;
+  /** Commands that were executed */
+  commandsExecuted: string[];
+  /** Commands that failed */
+  commandsFailed: string[];
+  /** Error messages for failed commands */
+  errors: string[];
+  /** Commit SHA if commit was created */
+  commitSha?: string;
+}
+
+/**
+ * Options for generating a PR with remediations
+ */
+export interface RemediationPROptions {
+  /** Repository owner */
+  owner: string;
+  /** Repository name */
+  repo: string;
+  /** Base branch to create PR against */
+  baseBranch?: string;
+  /** New branch name for the PR */
+  branchName?: string;
+  /** PR title */
+  title?: string;
+  /** Additional PR body content */
+  bodyExtra?: string;
+  /** Labels to add to the PR */
+  labels?: string[];
+  /** Assignees for the PR */
+  assignees?: string[];
+  /** Whether to set auto-merge */
+  autoMerge?: boolean;
+}
+
+/**
+ * Result of creating a remediation PR
+ */
+export interface RemediationPRResult {
+  /** Whether PR was created successfully */
+  success: boolean;
+  /** PR number */
+  prNumber?: number;
+  /** PR URL */
+  prUrl?: string;
+  /** Branch that was created */
+  branchName?: string;
+  /** Error message if failed */
+  error?: string;
+}

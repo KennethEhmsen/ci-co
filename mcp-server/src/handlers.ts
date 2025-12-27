@@ -96,4 +96,10 @@ export {
   saveSchedulesToFile,
   loadSchedulesFromFile,
   clearAllSchedules,
+  // Remediation
+  generateRemediations,
+  getRemediationSummary,
+  formatRemediationAsMarkdown,
+  getHighPriorityRemediations,
+  getSafeRemediations,
 } from "@cicd/shared";

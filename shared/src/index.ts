@@ -227,6 +227,17 @@ export type {
   RegistryAuthResult,
   MultiRegistryScanOptions,
   MultiRegistryScanResult,
+  // Remediation Types
+  PackageManager,
+  RemediationConfidence,
+  VulnerabilityInfo,
+  RemediationSuggestion,
+  RemediationPlan,
+  RemediationOptions,
+  ApplyRemediationOptions,
+  ApplyRemediationResult,
+  RemediationPROptions,
+  RemediationPRResult,
   // Scheduler Types
   CronField,
   ParsedCronExpression,
@@ -469,3 +480,15 @@ export {
   loadSchedulesFromFile,
   clearAllSchedules,
 } from "./scheduler.js";
+
+// Remediation exports
+export {
+  isBreakingChange,
+  generateFixCommand,
+  detectPackageManager,
+  generateRemediations,
+  getRemediationSummary,
+  formatRemediationAsMarkdown,
+  getHighPriorityRemediations,
+  getSafeRemediations,
+} from "./remediation.js";

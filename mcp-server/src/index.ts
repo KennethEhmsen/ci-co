@@ -77,6 +77,12 @@ import {
   getScheduleHistory,
   startScheduler,
   stopScheduler,
+  // Remediation
+  generateRemediations,
+  getRemediationSummary,
+  formatRemediationAsMarkdown,
+  getHighPriorityRemediations,
+  getSafeRemediations,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -1368,6 +1374,136 @@ export const toolDefinitions = [
       required: ["action"],
     },
   },
+
+  // Remediation Tools
+  {
+    name: "generate_remediations",
+    description:
+      "Generate remediation suggestions for vulnerabilities found in a Trivy scan. " +
+      "Returns actionable fix commands for npm, pip, go, and other package managers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan and generate remediations for",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan and generate remediations for",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter for scan (default: HIGH,CRITICAL)",
+        },
+        minSeverity: {
+          type: "string",
+          enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+          description: "Minimum severity for remediation suggestions",
+        },
+        includeBreaking: {
+          type: "boolean",
+          description:
+            "Include breaking changes (major version bumps) in suggestions (default: true)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of suggestions to return",
+        },
+        sortBy: {
+          type: "string",
+          enum: ["severity", "cvesFixed", "package"],
+          description: "Sort order for suggestions (default: severity)",
+        },
+      },
+    },
+  },
+  {
+    name: "get_remediation_summary",
+    description: "Get a text summary of remediation suggestions for a scanned image or path",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter for scan",
+        },
+      },
+    },
+  },
+  {
+    name: "get_remediation_markdown",
+    description:
+      "Get remediation suggestions formatted as Markdown, suitable for PRs or documentation",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter for scan",
+        },
+      },
+    },
+  },
+  {
+    name: "get_high_priority_fixes",
+    description: "Get high-priority remediation suggestions (CRITICAL and HIGH severity only)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of suggestions (default: 10)",
+        },
+      },
+    },
+  },
+  {
+    name: "get_safe_fixes",
+    description:
+      "Get safe remediation suggestions (non-breaking changes only, sorted by CVEs fixed)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of suggestions (default: 20)",
+        },
+      },
+    },
+  },
 ];
 
 // =============================================================================
@@ -1927,6 +2063,115 @@ const schedulerHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Remediation handlers
+const remediationHandlers: Record<string, ToolHandler> = {
+  generate_remediations: async (args) => {
+    const severity = (args?.severity as string) || "HIGH,CRITICAL";
+
+    // Scan first
+    let scanResult;
+    if (args?.image) {
+      scanResult = await trivyScanImage(args.image as string, severity);
+    } else if (args?.path) {
+      scanResult = await trivyScanPath(args.path as string, severity);
+    } else {
+      return { error: "Either image or path is required" };
+    }
+
+    if ("error" in scanResult) {
+      return scanResult;
+    }
+
+    // Generate remediations
+    const plan = generateRemediations(scanResult, {
+      minSeverity: args?.minSeverity as "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | undefined,
+      includeBreaking: args?.includeBreaking as boolean | undefined,
+      limit: args?.limit as number | undefined,
+      sortBy: args?.sortBy as "severity" | "cvesFixed" | "package" | undefined,
+    });
+
+    return plan;
+  },
+
+  get_remediation_summary: async (args) => {
+    const severity = (args?.severity as string) || "HIGH,CRITICAL";
+
+    let scanResult;
+    if (args?.image) {
+      scanResult = await trivyScanImage(args.image as string, severity);
+    } else if (args?.path) {
+      scanResult = await trivyScanPath(args.path as string, severity);
+    } else {
+      return { error: "Either image or path is required" };
+    }
+
+    if ("error" in scanResult) {
+      return scanResult;
+    }
+
+    const plan = generateRemediations(scanResult);
+    return { summary: getRemediationSummary(plan) };
+  },
+
+  get_remediation_markdown: async (args) => {
+    const severity = (args?.severity as string) || "HIGH,CRITICAL";
+
+    let scanResult;
+    if (args?.image) {
+      scanResult = await trivyScanImage(args.image as string, severity);
+    } else if (args?.path) {
+      scanResult = await trivyScanPath(args.path as string, severity);
+    } else {
+      return { error: "Either image or path is required" };
+    }
+
+    if ("error" in scanResult) {
+      return scanResult;
+    }
+
+    const plan = generateRemediations(scanResult);
+    return { markdown: formatRemediationAsMarkdown(plan) };
+  },
+
+  get_high_priority_fixes: async (args) => {
+    const limit = (args?.limit as number) || 10;
+
+    let scanResult;
+    if (args?.image) {
+      scanResult = await trivyScanImage(args.image as string, "HIGH,CRITICAL");
+    } else if (args?.path) {
+      scanResult = await trivyScanPath(args.path as string, "HIGH,CRITICAL");
+    } else {
+      return { error: "Either image or path is required" };
+    }
+
+    if ("error" in scanResult) {
+      return scanResult;
+    }
+
+    return getHighPriorityRemediations(scanResult, limit);
+  },
+
+  get_safe_fixes: async (args) => {
+    const limit = (args?.limit as number) || 20;
+
+    let scanResult;
+    if (args?.image) {
+      scanResult = await trivyScanImage(args.image as string, "HIGH,CRITICAL,MEDIUM,LOW");
+    } else if (args?.path) {
+      scanResult = await trivyScanPath(args.path as string, "HIGH,CRITICAL,MEDIUM,LOW");
+    } else {
+      return { error: "Either image or path is required" };
+    }
+
+    if ("error" in scanResult) {
+      return scanResult;
+    }
+
+    return getSafeRemediations(scanResult, limit);
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -1938,6 +2183,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...multiRegistryHandlers,
   ...sarifHandlers,
   ...schedulerHandlers,
+  ...remediationHandlers,
 };
 
 export async function handleCallTool(
