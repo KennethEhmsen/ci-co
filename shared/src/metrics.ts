@@ -403,11 +403,11 @@ function formatMetric(metric: CollectedMetric): string {
   const lines: string[] = [];
   const { definition, values } = metric;
 
-  // HELP line
-  lines.push(`# HELP ${definition.name} ${definition.help}`);
-
-  // TYPE line
-  lines.push(`# TYPE ${definition.name} ${definition.type}`);
+  // HELP and TYPE lines
+  lines.push(
+    `# HELP ${definition.name} ${definition.help}`,
+    `# TYPE ${definition.name} ${definition.type}`
+  );
 
   // Value lines
   for (const value of values) {

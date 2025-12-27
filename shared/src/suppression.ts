@@ -661,10 +661,13 @@ export function generateSuppressionReport(suppressions: Suppression[]): string {
     for (const s of items) {
       const expiredTag = isExpired(s) ? " [EXPIRED]" : "";
       const expiresTag = s.expires ? ` (expires: ${s.expires})` : "";
-      const itemLines = [`- **${s.pattern}**${expiredTag}${expiresTag}`, `  - Reason: ${s.reason}`];
-      if (s.createdBy) itemLines.push(`  - Created by: ${s.createdBy}`);
-      if (s.notes) itemLines.push(`  - Notes: ${s.notes}`);
-      itemLines.push("");
+      const itemLines = [
+        `- **${s.pattern}**${expiredTag}${expiresTag}`,
+        `  - Reason: ${s.reason}`,
+        ...(s.createdBy ? [`  - Created by: ${s.createdBy}`] : []),
+        ...(s.notes ? [`  - Notes: ${s.notes}`] : []),
+        "",
+      ];
       lines.push(...itemLines);
     }
   }
