@@ -25,6 +25,7 @@ steps:
     commands:
       - cd shared
       - npm install
+      - npm rebuild better-sqlite3
       - npm run build
     depends_on:
       - install-root
@@ -35,6 +36,7 @@ steps:
       - cd shared
       - rm -rf node_modules package-lock.json
       - npm install
+      - npm rebuild better-sqlite3
       - npm run test:coverage
     depends_on:
       - install-shared
@@ -61,6 +63,7 @@ steps:
       - cd mcp-server
       - rm -rf node_modules package-lock.json
       - npm install
+      - cd ../shared && npm rebuild better-sqlite3 && cd ../mcp-server
       - npm run test:coverage
     depends_on:
       - install-mcp-server
@@ -71,6 +74,7 @@ steps:
       - cd cicd-agent
       - rm -rf node_modules package-lock.json
       - npm install
+      - cd ../shared && npm rebuild better-sqlite3 && cd ../cicd-agent
       - npm run test:coverage
     depends_on:
       - install-cicd-agent
