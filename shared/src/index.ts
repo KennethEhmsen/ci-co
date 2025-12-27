@@ -213,6 +213,19 @@ export type {
   RegistryScanOptions,
   RegistryScanProgress,
   RegistryScanResult,
+  // Scheduler Types
+  CronField,
+  ParsedCronExpression,
+  ScheduledScanTarget,
+  ScheduledScanOptions,
+  ScheduleWebhookConfig,
+  ScanSchedule,
+  CreateScheduleInput,
+  UpdateScheduleInput,
+  ScheduleExecutionResult,
+  ScheduleHistoryEntry,
+  ListSchedulesOptions,
+  CronValidationResult,
 } from "./types.js";
 export {
   // Trivy
@@ -406,3 +419,24 @@ export {
   scanRegistry,
   getRegistryScanSummary,
 } from "./registry-scanner.js";
+
+// Scheduler exports
+export {
+  parseCronExpression,
+  validateCronExpression,
+  describeCronExpression,
+  getNextRunTime,
+  getNextRunTimes,
+  createSchedule,
+  getSchedule,
+  listSchedules,
+  updateSchedule,
+  deleteSchedule,
+  triggerSchedule,
+  getScheduleHistory,
+  startScheduler,
+  stopScheduler,
+  saveSchedulesToFile,
+  loadSchedulesFromFile,
+  clearAllSchedules,
+} from "./scheduler.js";

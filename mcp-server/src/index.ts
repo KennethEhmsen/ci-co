@@ -55,6 +55,19 @@ import {
   getSarifSummary,
   uploadSarifToGitHub,
   writeSarifFile,
+  // Scheduler
+  validateCronExpression,
+  describeCronExpression,
+  getNextRunTimes,
+  createSchedule,
+  getSchedule,
+  listSchedules,
+  updateSchedule,
+  deleteSchedule,
+  triggerSchedule,
+  getScheduleHistory,
+  startScheduler,
+  stopScheduler,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -896,6 +909,271 @@ export const toolDefinitions = [
       required: ["owner", "repo", "commitSha", "ref", "token"],
     },
   },
+
+  // Scheduler Tools
+  {
+    name: "schedule_create",
+    description:
+      "Create a new scheduled security scan. Supports cron expressions for flexible scheduling. " +
+      "Scans can target Docker images, local paths, SonarQube projects, or Dependency-Track projects.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Human-readable name for the schedule",
+        },
+        cron: {
+          type: "string",
+          description:
+            "Cron expression (e.g., '0 2 * * *' for daily at 2 AM, '0 */6 * * *' for every 6 hours)",
+        },
+        timezone: {
+          type: "string",
+          description: "Timezone for schedule (default: UTC)",
+          default: "UTC",
+        },
+        targets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: ["image", "path", "registry"],
+                description:
+                  "Target type: 'image' for Docker images, 'path' for local directories, 'registry' for all images in registry",
+              },
+              value: {
+                type: "string",
+                description: "Target value (image name, local path, or registry URL)",
+              },
+            },
+            required: ["type", "value"],
+          },
+          description: "Scan targets",
+        },
+        options: {
+          type: "object",
+          properties: {
+            severity: {
+              type: "string",
+              description: "Severity filter (default: HIGH,CRITICAL)",
+            },
+            generateSarif: {
+              type: "boolean",
+              description: "Generate SARIF report",
+            },
+            uploadSbom: {
+              type: "boolean",
+              description: "Upload SBOM to Dependency-Track",
+            },
+          },
+          description: "Scan options",
+        },
+        notifications: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              url: {
+                type: "string",
+                description: "Webhook URL",
+              },
+              onSuccess: {
+                type: "boolean",
+                description: "Notify on success",
+              },
+              onFailure: {
+                type: "boolean",
+                description: "Notify on failure",
+              },
+              onVulnerabilities: {
+                type: "boolean",
+                description: "Notify when vulnerabilities found",
+              },
+            },
+            required: ["url"],
+          },
+          description: "Webhook notifications",
+        },
+        enabled: {
+          type: "boolean",
+          description: "Whether schedule is enabled (default: true)",
+          default: true,
+        },
+      },
+      required: ["name", "cron", "targets"],
+    },
+  },
+  {
+    name: "schedule_list",
+    description: "List all scheduled security scans with their status and next run times",
+    inputSchema: {
+      type: "object",
+      properties: {
+        enabled: {
+          type: "boolean",
+          description: "Filter by enabled status",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "path", "registry"],
+          description: "Filter by target type",
+        },
+      },
+    },
+  },
+  {
+    name: "schedule_get",
+    description: "Get details of a specific scheduled scan",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_update",
+    description: "Update an existing scheduled scan",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+        name: {
+          type: "string",
+          description: "New name for the schedule",
+        },
+        cron: {
+          type: "string",
+          description: "New cron expression",
+        },
+        timezone: {
+          type: "string",
+          description: "New timezone",
+        },
+        targets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: ["image", "path", "registry"],
+              },
+              value: { type: "string" },
+            },
+            required: ["type", "value"],
+          },
+          description: "New scan targets",
+        },
+        options: {
+          type: "object",
+          description: "New scan options",
+        },
+        enabled: {
+          type: "boolean",
+          description: "Enable or disable the schedule",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_delete",
+    description: "Delete a scheduled scan",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_trigger",
+    description: "Manually trigger a scheduled scan immediately",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "schedule_history",
+    description: "Get execution history for a scheduled scan",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Schedule ID",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of history entries to return (default: 10)",
+          default: 10,
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "cron_validate",
+    description:
+      "Validate a cron expression and get human-readable description with next run times",
+    inputSchema: {
+      type: "object",
+      properties: {
+        expression: {
+          type: "string",
+          description: "Cron expression to validate",
+        },
+        timezone: {
+          type: "string",
+          description: "Timezone for calculating run times (default: UTC)",
+          default: "UTC",
+        },
+        count: {
+          type: "number",
+          description: "Number of upcoming run times to show (default: 5)",
+          default: 5,
+        },
+      },
+      required: ["expression"],
+    },
+  },
+  {
+    name: "scheduler_control",
+    description: "Start or stop the scheduler execution engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["start", "stop", "status"],
+          description: "Action to perform",
+        },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -1171,6 +1449,187 @@ const sarifHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Scheduler state tracking
+let schedulerRunning = false;
+
+// Scheduler handlers
+const schedulerHandlers: Record<string, ToolHandler> = {
+  schedule_create: async (args) => {
+    // Convert input targets to the expected format
+    const inputTargets = args?.targets as Array<{ type: string; value: string }> | undefined;
+    const targets = inputTargets?.map((t) => ({
+      target: t.value,
+      type: t.type as "image" | "path" | "registry",
+    }));
+
+    // Convert notifications to the expected format
+    const inputNotifications = args?.notifications as
+      | Array<{
+          url: string;
+          onSuccess?: boolean;
+          onFailure?: boolean;
+          onVulnerabilities?: boolean;
+        }>
+      | undefined;
+    const notifications = inputNotifications?.map((n) => ({
+      url: n.url,
+      format: "slack" as const,
+      notifyOn: [
+        ...(n.onSuccess ? ["success" as const] : []),
+        ...(n.onFailure ? ["failure" as const] : []),
+        ...(n.onVulnerabilities ? ["vulnerabilities" as const] : []),
+      ],
+    }));
+
+    const schedule = createSchedule({
+      name: args?.name as string,
+      cron: args?.cron as string,
+      timezone: args?.timezone as string | undefined,
+      targets: targets || [],
+      options: args?.options as { severity?: string; concurrency?: number } | undefined,
+      notifications,
+      enabled: args?.enabled !== false,
+    });
+    return {
+      success: true,
+      schedule,
+      message: "Schedule '" + schedule.name + "' created with ID " + schedule.id,
+    };
+  },
+
+  schedule_list: async (args) => {
+    const schedules = listSchedules({
+      enabled: args?.enabled as boolean | undefined,
+      targetType: args?.targetType as "image" | "path" | "registry" | undefined,
+    });
+    return {
+      count: schedules.length,
+      schedules,
+    };
+  },
+
+  schedule_get: async (args) => {
+    const schedule = getSchedule(args?.id as string);
+    if (!schedule) {
+      throw new Error("Schedule not found: " + args?.id);
+    }
+    return schedule;
+  },
+
+  schedule_update: async (args) => {
+    // Convert input targets to the expected format
+    const inputTargets = args?.targets as Array<{ type: string; value: string }> | undefined;
+    const targets = inputTargets?.map((t) => ({
+      target: t.value,
+      type: t.type as "image" | "path" | "registry",
+    }));
+
+    const schedule = updateSchedule(args?.id as string, {
+      name: args?.name as string | undefined,
+      cron: args?.cron as string | undefined,
+      timezone: args?.timezone as string | undefined,
+      targets,
+      options: args?.options as { severity?: string; concurrency?: number } | undefined,
+      enabled: args?.enabled as boolean | undefined,
+    });
+    return {
+      success: true,
+      schedule,
+      message: "Schedule '" + schedule.name + "' updated",
+    };
+  },
+
+  schedule_delete: async (args) => {
+    const schedule = getSchedule(args?.id as string);
+    if (!schedule) {
+      throw new Error("Schedule not found: " + args?.id);
+    }
+    const name = schedule.name;
+    deleteSchedule(args?.id as string);
+    return {
+      success: true,
+      message: "Schedule '" + name + "' deleted",
+    };
+  },
+
+  schedule_trigger: async (args) => {
+    const result = await triggerSchedule(args?.id as string);
+    return {
+      success: result.success,
+      scheduleId: result.scheduleId,
+      scheduleName: result.scheduleName,
+      targetsScanned: result.targetsScanned,
+      targetsFailed: result.targetsFailed,
+      vulnerabilities: result.vulnerabilities,
+      error: result.error,
+    };
+  },
+
+  schedule_history: async (args) => {
+    const history = getScheduleHistory(args?.id as string, args?.limit as number | undefined);
+    return {
+      scheduleId: args?.id,
+      count: history.length,
+      history,
+    };
+  },
+
+  cron_validate: async (args) => {
+    const result = validateCronExpression(args?.expression as string, {
+      allowSeconds: false,
+      allowHash: false,
+    });
+
+    if (!result.valid) {
+      return {
+        valid: false,
+        error: result.error,
+      };
+    }
+
+    const nextRuns = getNextRunTimes(
+      args?.expression as string,
+      (args?.count as number) || 5,
+      args?.timezone as string
+    );
+
+    return {
+      valid: true,
+      description: describeCronExpression(result.parsed!),
+      nextRuns: nextRuns.map((d) => d.toISOString()),
+    };
+  },
+
+  scheduler_control: async (args) => {
+    const action = args?.action as string;
+    switch (action) {
+      case "start":
+        if (!schedulerRunning) {
+          startScheduler();
+          schedulerRunning = true;
+        }
+        return { success: true, status: "running", message: "Scheduler started" };
+
+      case "stop":
+        if (schedulerRunning) {
+          stopScheduler();
+          schedulerRunning = false;
+        }
+        return { success: true, status: "stopped", message: "Scheduler stopped" };
+
+      case "status":
+        return {
+          success: true,
+          status: schedulerRunning ? "running" : "stopped",
+          schedules: listSchedules().length,
+        };
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -1180,6 +1639,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...droneHandlers,
   ...otherHandlers,
   ...sarifHandlers,
+  ...schedulerHandlers,
 };
 
 export async function handleCallTool(

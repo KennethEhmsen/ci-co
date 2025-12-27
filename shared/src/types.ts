@@ -1796,3 +1796,233 @@ export interface RegistryScanResult {
   /** Images that were skipped (filtered out) */
   skippedImages: string[];
 }
+
+// =============================================================================
+// Scan Scheduler Types
+// =============================================================================
+
+/**
+ * Cron expression field representing allowed values
+ */
+export interface CronField {
+  /** Raw expression string */
+  expression: string;
+  /** Computed values for this field */
+  values: number[];
+}
+
+/**
+ * Parsed cron expression
+ */
+export interface ParsedCronExpression {
+  /** Minutes (0-59) */
+  minute: CronField;
+  /** Hours (0-23) */
+  hour: CronField;
+  /** Day of month (1-31) */
+  dayOfMonth: CronField;
+  /** Month (1-12) */
+  month: CronField;
+  /** Day of week (0-6, Sunday = 0) */
+  dayOfWeek: CronField;
+  /** Original expression string */
+  original: string;
+}
+
+/**
+ * Target for scheduled scanning
+ */
+export interface ScheduledScanTarget {
+  /** Target identifier (image name, path, or registry URL) */
+  target: string;
+  /** Type of target */
+  type: "image" | "path" | "registry";
+  /** Optional label for display */
+  label?: string;
+}
+
+/**
+ * Options for scheduled scans
+ */
+export interface ScheduledScanOptions {
+  /** Severity levels to report */
+  severity?: string;
+  /** Maximum concurrent scans (for registry scans) */
+  concurrency?: number;
+  /** Whether to fail fast on first error */
+  failFast?: boolean;
+  /** Generate SARIF report */
+  generateSarif?: boolean;
+  /** Upload to Dependency-Track */
+  uploadToDtrack?: boolean;
+}
+
+/**
+ * Webhook configuration for schedule notifications
+ */
+export interface ScheduleWebhookConfig {
+  /** Webhook URL */
+  url: string;
+  /** Webhook format */
+  format: "slack" | "teams" | "generic";
+  /** Only notify on certain conditions */
+  notifyOn?: ("success" | "failure" | "vulnerabilities")[];
+  /** Minimum severity to trigger notification */
+  minSeverity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}
+
+/**
+ * Scan schedule definition
+ */
+export interface ScanSchedule {
+  /** Unique identifier */
+  id: string;
+  /** Human-readable name */
+  name: string;
+  /** Cron expression (e.g., "0 0 * * *" for daily at midnight) */
+  cron: string;
+  /** Timezone for schedule (e.g., "America/New_York") */
+  timezone?: string;
+  /** Targets to scan */
+  targets: ScheduledScanTarget[];
+  /** Scan options */
+  options?: ScheduledScanOptions;
+  /** Webhook notifications */
+  notifications?: ScheduleWebhookConfig[];
+  /** Whether schedule is enabled */
+  enabled: boolean;
+  /** Timestamp of last run */
+  lastRun?: string;
+  /** Timestamp of next scheduled run */
+  nextRun?: string;
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt: string;
+}
+
+/**
+ * Input for creating a new schedule
+ */
+export interface CreateScheduleInput {
+  /** Human-readable name */
+  name: string;
+  /** Cron expression */
+  cron: string;
+  /** Timezone (default: UTC) */
+  timezone?: string;
+  /** Targets to scan */
+  targets: ScheduledScanTarget[];
+  /** Scan options */
+  options?: ScheduledScanOptions;
+  /** Webhook notifications */
+  notifications?: ScheduleWebhookConfig[];
+  /** Whether schedule is enabled (default: true) */
+  enabled?: boolean;
+}
+
+/**
+ * Input for updating a schedule
+ */
+export interface UpdateScheduleInput {
+  /** Human-readable name */
+  name?: string;
+  /** Cron expression */
+  cron?: string;
+  /** Timezone */
+  timezone?: string;
+  /** Targets to scan */
+  targets?: ScheduledScanTarget[];
+  /** Scan options */
+  options?: ScheduledScanOptions;
+  /** Webhook notifications */
+  notifications?: ScheduleWebhookConfig[];
+  /** Whether schedule is enabled */
+  enabled?: boolean;
+}
+
+/**
+ * Result of a scheduled scan execution
+ */
+export interface ScheduleExecutionResult {
+  /** Schedule ID */
+  scheduleId: string;
+  /** Schedule name */
+  scheduleName: string;
+  /** Execution timestamp */
+  executedAt: string;
+  /** Duration in milliseconds */
+  durationMs: number;
+  /** Whether execution was successful */
+  success: boolean;
+  /** Targets scanned */
+  targetsScanned: number;
+  /** Targets that failed */
+  targetsFailed: number;
+  /** Aggregated vulnerability counts */
+  vulnerabilities?: VulnerabilityCounts;
+  /** Per-target results */
+  results: TargetScanResult[];
+  /** Error message if failed */
+  error?: string;
+  /** Webhook delivery results */
+  webhookResults?: Array<{
+    url: string;
+    success: boolean;
+    error?: string;
+  }>;
+}
+
+/**
+ * Schedule execution history entry
+ */
+export interface ScheduleHistoryEntry {
+  /** Unique execution ID */
+  executionId: string;
+  /** Schedule ID */
+  scheduleId: string;
+  /** Execution timestamp */
+  executedAt: string;
+  /** Duration in milliseconds */
+  durationMs: number;
+  /** Whether execution was successful */
+  success: boolean;
+  /** Summary of results */
+  summary: {
+    targetsScanned: number;
+    targetsFailed: number;
+    vulnerabilities: VulnerabilityCounts;
+  };
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Options for listing schedules
+ */
+export interface ListSchedulesOptions {
+  /** Filter by enabled status */
+  enabled?: boolean;
+  /** Filter by target type */
+  targetType?: "image" | "path" | "registry";
+  /** Include execution history */
+  includeHistory?: boolean;
+  /** Maximum history entries to include */
+  historyLimit?: number;
+}
+
+/**
+ * Cron validation result
+ */
+export interface CronValidationResult {
+  /** Whether the expression is valid */
+  valid: boolean;
+  /** Error message if invalid */
+  error?: string;
+  /** Parsed expression if valid */
+  parsed?: ParsedCronExpression;
+  /** Human-readable description of the schedule */
+  description?: string;
+  /** Next N run times */
+  nextRuns?: string[];
+}
