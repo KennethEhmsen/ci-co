@@ -2825,3 +2825,191 @@ export interface OpaValidationResult {
   /** Syntax errors if invalid */
   errors?: string[];
 }
+
+// =============================================================================
+// Vulnerability Database Types
+// =============================================================================
+
+/**
+ * A vulnerability record stored in the local database
+ */
+export interface VulnDbRecord {
+  /** Vulnerability ID (e.g., CVE-2024-1234) */
+  id: string;
+  /** Source of the vulnerability data */
+  source: "nvd" | "ghsa" | "osv" | "trivy";
+  /** Severity level */
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  /** CVSS v3 base score */
+  cvssScore?: number;
+  /** Brief title */
+  title: string;
+  /** Full description */
+  description: string;
+  /** Reference URLs */
+  references: string[];
+  /** When the vulnerability was published */
+  publishedAt?: string;
+  /** When the vulnerability was last modified */
+  modifiedAt?: string;
+}
+
+/**
+ * An affected package entry linked to a vulnerability
+ */
+export interface VulnDbAffectedPackage {
+  /** Vulnerability ID this package is affected by */
+  vulnId: string;
+  /** Package ecosystem (npm, pypi, go, etc.) */
+  ecosystem: string;
+  /** Package name */
+  packageName: string;
+  /** First affected version */
+  versionStart?: string;
+  /** Last affected version */
+  versionEnd?: string;
+  /** Version that fixes the vulnerability */
+  fixedVersion?: string;
+}
+
+/**
+ * Sync status for a vulnerability data source
+ */
+export interface VulnDbSyncStatus {
+  /** Source name */
+  source: string;
+  /** Last sync timestamp (ISO 8601) */
+  lastSync: string | null;
+  /** Number of records from this source */
+  recordCount: number;
+  /** Database version (if applicable) */
+  dbVersion: string | null;
+  /** Current sync status */
+  status: "synced" | "syncing" | "error" | "never";
+  /** Hours since last sync */
+  ageHours?: number;
+}
+
+/**
+ * Options for syncing vulnerability databases
+ */
+export interface VulnDbSyncOptions {
+  /** Sources to sync */
+  sources?: ("nvd" | "ghsa" | "osv" | "trivy")[];
+  /** Force sync even if recently synced */
+  force?: boolean;
+  /** Skip sync if synced within this many hours */
+  skipIfRecent?: number;
+}
+
+/**
+ * Query parameters for searching vulnerabilities
+ */
+export interface VulnDbSearchQuery {
+  /** Filter by package name (partial match) */
+  packageName?: string;
+  /** Filter by ecosystem */
+  ecosystem?: string;
+  /** Filter by severity levels */
+  severity?: string[];
+  /** Filter by CVE pattern (partial match) */
+  cvePattern?: string;
+  /** Maximum results to return */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * Statistics about the vulnerability database
+ */
+export interface VulnDbStats {
+  /** Total number of vulnerabilities */
+  totalVulnerabilities: number;
+  /** Count by severity level */
+  bySeverity: Record<string, number>;
+  /** Count by source */
+  bySource: Record<string, number>;
+  /** Last sync timestamp by source */
+  lastSync: Record<string, string>;
+  /** Database file size in bytes */
+  dbSizeBytes: number;
+}
+
+/**
+ * Options for offline scanning
+ */
+export interface OfflineScanOptions {
+  /** Skip database update (always true for offline) */
+  skipDbUpdate: true;
+  /** Enable offline scan mode (always true for offline) */
+  offlineScan: true;
+  /** Severity filter */
+  severity?: string;
+  /** Ignore unfixed vulnerabilities */
+  ignoreUnfixed?: boolean;
+}
+
+/**
+ * User annotation on a vulnerability
+ */
+export interface VulnAnnotation {
+  /** Vulnerability ID */
+  vulnId: string;
+  /** Status assigned by user */
+  status: "acknowledged" | "false_positive" | "mitigated" | "active";
+  /** User notes */
+  notes?: string;
+  /** When the annotation was last updated */
+  updatedAt: string;
+}
+
+/**
+ * Result of Trivy database sync
+ */
+export interface TrivyDbSyncResult {
+  /** Whether sync succeeded */
+  success: boolean;
+  /** Database version after sync */
+  dbVersion?: string;
+  /** Number of vulnerabilities imported */
+  vulnerabilitiesImported?: number;
+  /** Error message if failed */
+  error?: string;
+  /** Sync duration in milliseconds */
+  durationMs?: number;
+}
+
+/**
+ * Status of the Trivy vulnerability database
+ */
+export interface TrivyDbStatus {
+  /** Whether the database exists */
+  exists: boolean;
+  /** Database version */
+  version?: string;
+  /** Last update timestamp */
+  lastUpdate?: string;
+  /** Age in hours */
+  ageHours?: number;
+  /** Database file size in bytes */
+  sizeBytes?: number;
+  /** Whether the database is considered stale (>24h) */
+  isStale: boolean;
+}
+
+/**
+ * Configuration for the vulnerability database
+ */
+export interface VulnDbConfig {
+  /** Custom database file path */
+  dbPath?: string;
+  /** Auto-initialize database on first use */
+  autoInit?: boolean;
+  /** Maximum database age before warning (hours) */
+  maxAgeHours?: number;
+  /** Enable automatic background sync */
+  autoSync?: boolean;
+  /** Sync interval in hours */
+  syncIntervalHours?: number;
+}

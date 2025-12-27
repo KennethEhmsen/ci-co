@@ -75,6 +75,21 @@ import {
   startScheduler,
   stopScheduler,
   clearAllSchedules,
+  // Vulnerability Database
+  initVulnDatabase,
+  isVulnDbInitialized,
+  lookupVulnerability,
+  searchVulnerabilities,
+  getVulnDbStats,
+  annotateVulnerability,
+  // Database Sync
+  getTrivyDbStatus,
+  syncVulnDatabase,
+  isOfflineScanAvailable,
+  // Offline Scanner
+  offlineScanImage,
+  offlineScanPath,
+  getOfflineScanCapabilities,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
@@ -500,6 +515,124 @@ const toolHandlers: Record<string, ToolHandler> = {
       return clearAllSchedules();
     }
     return { error: "Invalid action. Use 'start', 'stop', or 'clear'" };
+  },
+
+  // Vulnerability Database
+  vuln_db_sync: async (input) => {
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const result = await syncVulnDatabase({
+      force: input?.force as boolean | undefined,
+      skipIfRecent: input?.skipIfRecent as number | undefined,
+    });
+    return result;
+  },
+
+  vuln_db_status: async () => {
+    const trivyStatus = await getTrivyDbStatus();
+    const offlineAvailable = await isOfflineScanAvailable();
+    const capabilities = await getOfflineScanCapabilities();
+
+    let dbStats = null;
+    if (isVulnDbInitialized()) {
+      dbStats = getVulnDbStats();
+    }
+
+    return {
+      trivyDatabase: trivyStatus,
+      offlineScanAvailable: offlineAvailable.available,
+      capabilities,
+      localCache: dbStats,
+    };
+  },
+
+  vuln_db_lookup: async (input) => {
+    const id = input?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const vuln = lookupVulnerability(id);
+    if (!vuln) {
+      return { error: `Vulnerability ${id} not found in local database` };
+    }
+
+    return vuln;
+  },
+
+  vuln_db_search: async (input) => {
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const result = searchVulnerabilities({
+      packageName: input?.packageName as string | undefined,
+      ecosystem: input?.ecosystem as string | undefined,
+      severity: input?.severity as string[] | undefined,
+      cvePattern: input?.cvePattern as string | undefined,
+      limit: input?.limit as number | undefined,
+      offset: input?.offset as number | undefined,
+    });
+
+    return result;
+  },
+
+  trivy_scan_offline: async (input) => {
+    const image = input?.image as string | undefined;
+    const path = input?.path as string | undefined;
+
+    if (!image && !path) {
+      return { error: "Either image or path is required" };
+    }
+
+    const options = {
+      severity: input?.severity as string | undefined,
+      ignoreUnfixed: input?.ignoreUnfixed as boolean | undefined,
+    };
+
+    if (image) {
+      return offlineScanImage(image, options as Parameters<typeof offlineScanImage>[1]);
+    } else {
+      return offlineScanPath(path!, options as Parameters<typeof offlineScanPath>[1]);
+    }
+  },
+
+  vuln_db_annotate: async (input) => {
+    const vulnId = input?.vulnId as string;
+    const status = input?.status as "acknowledged" | "false_positive" | "mitigated" | "active";
+    const notes = input?.notes as string | undefined;
+
+    if (!vulnId) {
+      return { error: "vulnId is required" };
+    }
+    if (!status) {
+      return { error: "status is required" };
+    }
+
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const result = annotateVulnerability(vulnId, status, notes);
+    return result;
   },
 };
 
@@ -1695,6 +1828,136 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["action"],
+    },
+  },
+  // Vulnerability Database Tools
+  {
+    name: "vuln_db_sync",
+    description:
+      "Download and sync vulnerability database for offline scanning. " +
+      "Downloads the Trivy vulnerability database to enable scanning without internet access.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        force: {
+          type: "boolean",
+          description: "Force sync even if recently synced (default: false)",
+        },
+        skipIfRecent: {
+          type: "number",
+          description: "Skip sync if synced within this many hours (default: 24)",
+        },
+      },
+    },
+  },
+  {
+    name: "vuln_db_status",
+    description:
+      "Get status of the local vulnerability database including last sync time, version, and statistics.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "vuln_db_lookup",
+    description: "Look up a specific vulnerability by CVE ID from the local database.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Vulnerability ID (e.g., CVE-2024-1234)",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "vuln_db_search",
+    description:
+      "Search vulnerabilities in the local database by package name, ecosystem, severity, or CVE pattern.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        packageName: {
+          type: "string",
+          description: "Filter by package name (partial match)",
+        },
+        ecosystem: {
+          type: "string",
+          description: "Filter by ecosystem (npm, pypi, go, etc.)",
+        },
+        severity: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by severity levels (CRITICAL, HIGH, MEDIUM, LOW)",
+        },
+        cvePattern: {
+          type: "string",
+          description: "Filter by CVE pattern (partial match)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum results to return (default: 100)",
+        },
+        offset: {
+          type: "number",
+          description: "Offset for pagination",
+        },
+      },
+    },
+  },
+  {
+    name: "trivy_scan_offline",
+    description:
+      "Scan a Docker image or path using the locally cached vulnerability database. " +
+      "Requires vuln_db_sync to be run first. Works without internet connectivity.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest)",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan (alternative to image)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+        },
+        ignoreUnfixed: {
+          type: "boolean",
+          description: "Ignore vulnerabilities without fixes (default: false)",
+        },
+      },
+    },
+  },
+  {
+    name: "vuln_db_annotate",
+    description:
+      "Annotate a vulnerability with a status and notes. " +
+      "Use to mark vulnerabilities as false positives, acknowledged, or mitigated.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        vulnId: {
+          type: "string",
+          description: "Vulnerability ID (e.g., CVE-2024-1234)",
+        },
+        status: {
+          type: "string",
+          enum: ["acknowledged", "false_positive", "mitigated", "active"],
+          description: "Status to assign to the vulnerability",
+        },
+        notes: {
+          type: "string",
+          description: "Optional notes about the annotation",
+        },
+      },
+      required: ["vulnId", "status"],
     },
   },
 ];

@@ -127,4 +127,23 @@ export {
   trivyResultToOpaInput,
   dashboardResultToOpaInput,
   createOpaInput,
+  // Vulnerability Database
+  initVulnDatabase,
+  closeVulnDatabase,
+  isVulnDbInitialized,
+  lookupVulnerability,
+  searchVulnerabilities,
+  getVulnDbStats,
+  annotateVulnerability,
+  getVulnAnnotation,
+  // Database Sync
+  getTrivyDbStatus,
+  downloadTrivyDb,
+  syncVulnDatabase,
+  getVulnDbSyncStatus,
+  isOfflineScanAvailable,
+  // Offline Scanner
+  offlineScanImage,
+  offlineScanPath,
+  getOfflineScanCapabilities,
 } from "@cicd/shared";

@@ -20,9 +20,11 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "better-sqlite3": "^11.7.0",
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^20.10.0",
     "@vitest/coverage-v8": "^4.0.16",
     "rimraf": "^6.0.1",

@@ -99,6 +99,21 @@ import {
   evaluateOpaPolicy,
   trivyResultToOpaInput,
   createOpaInput,
+  // Vulnerability Database
+  initVulnDatabase,
+  isVulnDbInitialized,
+  lookupVulnerability,
+  searchVulnerabilities,
+  getVulnDbStats,
+  annotateVulnerability,
+  // Database Sync
+  getTrivyDbStatus,
+  syncVulnDatabase,
+  isOfflineScanAvailable,
+  // Offline Scanner
+  offlineScanImage,
+  offlineScanPath,
+  getOfflineScanCapabilities,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -1797,6 +1812,136 @@ export const toolDefinitions = [
       required: ["policy"],
     },
   },
+  // Vulnerability Database Tools
+  {
+    name: "vuln_db_sync",
+    description:
+      "Download and sync vulnerability database for offline scanning. " +
+      "Downloads the Trivy vulnerability database to enable scanning without internet access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        force: {
+          type: "boolean",
+          description: "Force sync even if recently synced (default: false)",
+        },
+        skipIfRecent: {
+          type: "number",
+          description: "Skip sync if synced within this many hours (default: 24)",
+        },
+      },
+    },
+  },
+  {
+    name: "vuln_db_status",
+    description:
+      "Get status of the local vulnerability database including last sync time, version, and statistics.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "vuln_db_lookup",
+    description: "Look up a specific vulnerability by CVE ID from the local database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Vulnerability ID (e.g., CVE-2024-1234)",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "vuln_db_search",
+    description:
+      "Search vulnerabilities in the local database by package name, ecosystem, severity, or CVE pattern.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        packageName: {
+          type: "string",
+          description: "Filter by package name (partial match)",
+        },
+        ecosystem: {
+          type: "string",
+          description: "Filter by ecosystem (npm, pypi, go, etc.)",
+        },
+        severity: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by severity levels (CRITICAL, HIGH, MEDIUM, LOW)",
+        },
+        cvePattern: {
+          type: "string",
+          description: "Filter by CVE pattern (partial match)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum results to return (default: 100)",
+        },
+        offset: {
+          type: "number",
+          description: "Offset for pagination",
+        },
+      },
+    },
+  },
+  {
+    name: "trivy_scan_offline",
+    description:
+      "Scan a Docker image or path using the locally cached vulnerability database. " +
+      "Requires vuln_db_sync to be run first. Works without internet connectivity.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan (e.g., nginx:latest)",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan (alternative to image)",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (default: HIGH,CRITICAL)",
+        },
+        ignoreUnfixed: {
+          type: "boolean",
+          description: "Ignore vulnerabilities without fixes (default: false)",
+        },
+      },
+    },
+  },
+  {
+    name: "vuln_db_annotate",
+    description:
+      "Annotate a vulnerability with a status and notes. " +
+      "Use to mark vulnerabilities as false positives, acknowledged, or mitigated.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vulnId: {
+          type: "string",
+          description: "Vulnerability ID (e.g., CVE-2024-1234)",
+        },
+        status: {
+          type: "string",
+          enum: ["acknowledged", "false_positive", "mitigated", "active"],
+          description: "Status to assign to the vulnerability",
+        },
+        notes: {
+          type: "string",
+          description: "Optional notes about the annotation",
+        },
+      },
+      required: ["vulnId", "status"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -2685,6 +2830,127 @@ const opaHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Vulnerability Database handlers
+const vulnDbHandlers: Record<string, ToolHandler> = {
+  vuln_db_sync: async (args) => {
+    // Initialize database if not already done
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const result = await syncVulnDatabase({
+      force: args?.force as boolean | undefined,
+      skipIfRecent: args?.skipIfRecent as number | undefined,
+    });
+    return result;
+  },
+
+  vuln_db_status: async () => {
+    const trivyStatus = await getTrivyDbStatus();
+    const offlineAvailable = await isOfflineScanAvailable();
+    const capabilities = await getOfflineScanCapabilities();
+
+    let dbStats = null;
+    if (isVulnDbInitialized()) {
+      dbStats = getVulnDbStats();
+    }
+
+    return {
+      trivyDatabase: trivyStatus,
+      offlineScanAvailable: offlineAvailable.available,
+      capabilities,
+      localCache: dbStats,
+    };
+  },
+
+  vuln_db_lookup: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const vuln = lookupVulnerability(id);
+    if (!vuln) {
+      return { error: `Vulnerability ${id} not found in local database` };
+    }
+
+    return vuln;
+  },
+
+  vuln_db_search: async (args) => {
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const result = searchVulnerabilities({
+      packageName: args?.packageName as string | undefined,
+      ecosystem: args?.ecosystem as string | undefined,
+      severity: args?.severity as string[] | undefined,
+      cvePattern: args?.cvePattern as string | undefined,
+      limit: args?.limit as number | undefined,
+      offset: args?.offset as number | undefined,
+    });
+
+    return result;
+  },
+
+  trivy_scan_offline: async (args) => {
+    const image = args?.image as string | undefined;
+    const path = args?.path as string | undefined;
+
+    if (!image && !path) {
+      return { error: "Either image or path is required" };
+    }
+
+    const options = {
+      severity: args?.severity as string | undefined,
+      ignoreUnfixed: args?.ignoreUnfixed as boolean | undefined,
+    };
+
+    if (image) {
+      return offlineScanImage(image, options as Parameters<typeof offlineScanImage>[1]);
+    } else {
+      return offlineScanPath(path!, options as Parameters<typeof offlineScanPath>[1]);
+    }
+  },
+
+  vuln_db_annotate: async (args) => {
+    const vulnId = args?.vulnId as string;
+    const status = args?.status as "acknowledged" | "false_positive" | "mitigated" | "active";
+    const notes = args?.notes as string | undefined;
+
+    if (!vulnId) {
+      return { error: "vulnId is required" };
+    }
+    if (!status) {
+      return { error: "status is required" };
+    }
+
+    if (!isVulnDbInitialized()) {
+      const initResult = initVulnDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize database: ${initResult.error}` };
+      }
+    }
+
+    const result = annotateVulnerability(vulnId, status, notes);
+    return result;
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -2699,6 +2965,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...remediationHandlers,
   ...complianceHandlers,
   ...opaHandlers,
+  ...vulnDbHandlers,
 };
 
 export async function handleCallTool(

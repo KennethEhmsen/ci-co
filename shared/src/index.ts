@@ -274,6 +274,18 @@ export type {
   OpaCompileOptions,
   OpaCompileResult,
   OpaValidationResult,
+  // Vulnerability Database Types
+  VulnDbRecord,
+  VulnDbAffectedPackage,
+  VulnDbSyncStatus,
+  VulnDbSyncOptions,
+  VulnDbSearchQuery,
+  VulnDbStats,
+  OfflineScanOptions,
+  VulnAnnotation,
+  TrivyDbSyncResult,
+  TrivyDbStatus,
+  VulnDbConfig,
 } from "./types.js";
 export {
   // Trivy
@@ -559,3 +571,59 @@ export {
   checkRegoSyntax,
   formatRego,
 } from "./opa-compiler.js";
+
+// Vulnerability Database exports
+export {
+  getDefaultDbPath,
+  initVulnDatabase,
+  closeVulnDatabase,
+  getVulnDatabase,
+  isVulnDbInitialized,
+  insertVulnerability,
+  bulkInsertVulnerabilities,
+  lookupVulnerability,
+  deleteVulnerability,
+  addAffectedPackages,
+  getAffectedPackages,
+  clearAffectedPackages,
+  searchVulnerabilities,
+  findVulnerabilitiesByPackage,
+  updateSyncStatus,
+  getSyncStatus,
+  getAllSyncStatuses,
+  annotateVulnerability,
+  getVulnAnnotation,
+  getAnnotationsByStatus,
+  removeAnnotation,
+  getVulnDbStats,
+  vacuumDatabase,
+  clearAllVulnerabilities,
+  clearVulnerabilitiesBySource,
+  getVulnDbPath,
+} from "./vuln-database.js";
+
+// Database Sync exports
+export {
+  getTrivyCacheDir,
+  getTrivyDbPath,
+  getTrivyDbStatus,
+  downloadTrivyDb,
+  parseVulnFromTrivy,
+  importTrivyScanResult,
+  syncVulnDatabase,
+  getVulnDbSyncStatus,
+  isOfflineScanAvailable,
+  scheduleDatabaseSync,
+} from "./db-sync.js";
+
+// Offline Scanner exports
+export {
+  offlineScanImage,
+  offlineScanPath,
+  isOfflineScanError,
+  getOfflineDbAge,
+  isOfflineDbStale,
+  getOfflineScanCapabilities,
+  offlineScanImages,
+  offlineScanPaths,
+} from "./offline-scanner.js";
