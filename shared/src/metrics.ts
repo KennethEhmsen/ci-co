@@ -103,12 +103,12 @@ export const METRICS = {
  */
 class MetricsCollector {
   // Counters
-  private scanCounts: Map<string, number> = new Map();
-  private vulnerabilityCounts: Map<string, number> = new Map();
-  private errorCounts: Map<string, number> = new Map();
-  private cacheHitCounts: Map<string, number> = new Map();
-  private cacheMissCounts: Map<string, number> = new Map();
-  private circuitBreakerFailureCounts: Map<string, number> = new Map();
+  private readonly scanCounts: Map<string, number> = new Map();
+  private readonly vulnerabilityCounts: Map<string, number> = new Map();
+  private readonly errorCounts: Map<string, number> = new Map();
+  private readonly cacheHitCounts: Map<string, number> = new Map();
+  private readonly cacheMissCounts: Map<string, number> = new Map();
+  private readonly circuitBreakerFailureCounts: Map<string, number> = new Map();
 
   // Histograms (store individual observations)
   private durationObservations: Array<{
@@ -393,7 +393,7 @@ function formatLabels(labels?: MetricLabels): string {
  * Escape label value for Prometheus format
  */
 function escapeLabel(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n");
 }
 
 /**

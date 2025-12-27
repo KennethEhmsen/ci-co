@@ -407,13 +407,13 @@ function deriveProjectName(target: string, targetType: string): string {
     // e.g., "docker.io/library/nginx:latest" -> "nginx"
     // e.g., "nginx:1.25" -> "nginx"
     const parts = target.split("/");
-    const imageName = parts[parts.length - 1];
+    const imageName = parts.at(-1) ?? target;
     return imageName.split(":")[0];
   } else {
     // Extract directory name from path
     const normalized = target.replaceAll("\\", "/").replace(/\/+$/, "");
     const parts = normalized.split("/");
-    return parts[parts.length - 1] || "unknown";
+    return parts.at(-1) ?? "unknown";
   }
 }
 

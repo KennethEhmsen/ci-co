@@ -957,7 +957,7 @@ export function getComplianceTrend(target: string, days: number = 30): Complianc
 
   if (filteredEntries.length >= 2) {
     const first = filteredEntries[0];
-    const last = filteredEntries[filteredEntries.length - 1];
+    const last = filteredEntries.at(-1)!;
     changeFromFirst = last.summary.compliancePercentage - first.summary.compliancePercentage;
 
     if (changeFromFirst > 5) {

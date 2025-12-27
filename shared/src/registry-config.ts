@@ -80,7 +80,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
   if (ecrMatch) {
     return {
       type: "ecr",
-      confidence: 1.0,
+      confidence: 1,
       details: {
         region: ecrMatch[2],
       },
@@ -97,7 +97,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
   if (acrMatch) {
     return {
       type: "acr",
-      confidence: 1.0,
+      confidence: 1,
       details: {
         registry: acrMatch[1],
       },
@@ -115,7 +115,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
       const isArtifactRegistry = hostname.includes("-docker.pkg.dev");
       return {
         type: isArtifactRegistry ? "gar" : "gcr",
-        confidence: 1.0,
+        confidence: 1,
         authSuggestions: [
           "Use service account JSON key",
           "Use gcloud auth configure-docker",
@@ -129,7 +129,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
   if (GHCR_PATTERN.test(hostname)) {
     return {
       type: "ghcr",
-      confidence: 1.0,
+      confidence: 1,
       authSuggestions: ["Use GitHub personal access token", "Use GITHUB_TOKEN in GitHub Actions"],
     };
   }
@@ -138,7 +138,7 @@ export function detectRegistryType(url: string): RegistryDetectionResult {
   if (GITLAB_PATTERN.test(hostname)) {
     return {
       type: "gitlab",
-      confidence: 1.0,
+      confidence: 1,
       authSuggestions: ["Use GitLab personal access token", "Use CI job token", "Use deploy token"],
     };
   }

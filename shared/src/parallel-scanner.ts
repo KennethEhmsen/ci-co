@@ -76,9 +76,9 @@ export function parsePaths(paths: string | string[]): ScanTarget[] {
  * Simple async worker pool with concurrency limiting
  */
 class WorkerPool<T, R> {
-  private concurrency: number;
+  private readonly concurrency: number;
   private running: number = 0;
-  private queue: Array<{
+  private readonly queue: Array<{
     item: T;
     resolve: (result: R) => void;
     reject: (error: Error) => void;
@@ -86,7 +86,7 @@ class WorkerPool<T, R> {
   private aborted: boolean = false;
 
   constructor(
-    private worker: (item: T) => Promise<R>,
+    private readonly worker: (item: T) => Promise<R>,
     concurrency: number
   ) {
     this.concurrency = Math.max(1, concurrency);

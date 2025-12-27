@@ -3910,9 +3910,9 @@ describe("SBOM Upload Module - Project Name Derivation", () => {
   it("should derive project name from path", () => {
     // /home/user/projects/myproject -> myproject
     const path = "/home/user/projects/myproject";
-    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const normalized = path.replaceAll("\\", "/").replace(/\/+$/, "");
     const parts = normalized.split("/");
-    const name = parts[parts.length - 1];
+    const name = parts.at(-1);
 
     expect(name).toBe("myproject");
   });
@@ -3920,9 +3920,9 @@ describe("SBOM Upload Module - Project Name Derivation", () => {
   it("should derive project name from Windows path", () => {
     // C:\Users\dev\projects\myapp -> myapp
     const path = "C:\\Users\\dev\\projects\\myapp";
-    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const normalized = path.replaceAll("\\", "/").replace(/\/+$/, "");
     const parts = normalized.split("/");
-    const name = parts[parts.length - 1];
+    const name = parts.at(-1);
 
     expect(name).toBe("myapp");
   });
@@ -3930,9 +3930,9 @@ describe("SBOM Upload Module - Project Name Derivation", () => {
   it("should handle trailing slashes in path", () => {
     // /app/project/ -> project
     const path = "/app/project/";
-    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const normalized = path.replaceAll("\\", "/").replace(/\/+$/, "");
     const parts = normalized.split("/");
-    const name = parts[parts.length - 1];
+    const name = parts.at(-1);
 
     expect(name).toBe("project");
   });

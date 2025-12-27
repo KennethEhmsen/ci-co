@@ -9,8 +9,12 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { validateSeverity, sanitizePath, sanitizeImageName } from "./validation.js";
-import { getTrivyCacheDir, getTrivyDbStatus, isOfflineScanAvailable } from "./db-sync.js";
-import { importTrivyScanResult } from "./db-sync.js";
+import {
+  getTrivyCacheDir,
+  getTrivyDbStatus,
+  isOfflineScanAvailable,
+  importTrivyScanResult,
+} from "./db-sync.js";
 import { isVulnDbInitialized } from "./vuln-database.js";
 import type { TrivyScanResult, OfflineScanOptions, TrivyDbStatus } from "./types.js";
 

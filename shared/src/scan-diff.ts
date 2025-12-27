@@ -373,8 +373,8 @@ export function compareTrivyScans(
  * In-memory scan history store
  */
 class MemoryScanHistory {
-  private records: Map<string, StoredScanRecord[]> = new Map();
-  private maxRecords: number;
+  private readonly records: Map<string, StoredScanRecord[]> = new Map();
+  private readonly maxRecords: number;
 
   constructor(maxRecords: number = DEFAULT_MAX_RECORDS) {
     this.maxRecords = maxRecords;

@@ -385,7 +385,7 @@ function evaluateContainerSecurity(input: OpaEvaluationInput): OpaViolation[] {
     });
   }
 
-  if (input.image && input.image.includes(":latest")) {
+  if (input.image?.includes(":latest")) {
     violations.push({
       type: "container_config",
       severity: "medium",

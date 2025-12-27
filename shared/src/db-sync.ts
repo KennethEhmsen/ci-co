@@ -291,10 +291,10 @@ export async function syncVulnDatabase(
   // Check if we should skip based on recent sync
   if (!force) {
     const status = getSyncStatus("trivy");
-    if (status && status.ageHours !== undefined && status.ageHours < skipIfRecent) {
+    if (status?.ageHours !== undefined && status.ageHours < skipIfRecent) {
       return {
         success: true,
-        dbVersion: status.dbVersion || undefined,
+        dbVersion: status.dbVersion ?? undefined,
         vulnerabilitiesImported: 0,
         durationMs: 0,
       };
