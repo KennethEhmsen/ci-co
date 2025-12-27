@@ -393,6 +393,8 @@ function formatLabels(labels?: MetricLabels): string {
  * Escape label value for Prometheus format
  */
 function escapeLabel(value: string): string {
+  // Note: Escaped backslashes are intentional here for Prometheus format escaping
+  // String.raw cannot be used as it doesn't support ending with a single backslash
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n");
 }
 

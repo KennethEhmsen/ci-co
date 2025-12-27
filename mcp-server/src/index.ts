@@ -766,7 +766,7 @@ export const toolDefinitions = [
         },
         tagFilter: {
           type: "string",
-          description: "Regex pattern to filter tags (e.g., '^v\\d+' for version tags)",
+          description: String.raw`Regex pattern to filter tags (e.g., '^v\d+' for version tags)`,
         },
         allTags: {
           type: "boolean",
