@@ -696,41 +696,39 @@ async function executeSchedule(schedule: ScanSchedule): Promise<ScheduleExecutio
  * Count vulnerabilities from a Trivy scan result
  */
 function countVulnerabilities(result: TrivyScanResult): VulnerabilityCounts {
-  const counts: VulnerabilityCounts = {
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    unknown: 0,
-    total: 0,
-  };
+  let critical = 0;
+  let high = 0;
+  let medium = 0;
+  let low = 0;
+  let unknown = 0;
+  let total = 0;
 
-  if (!result.Results) return counts;
-
-  for (const r of result.Results) {
-    if (!r.Vulnerabilities) continue;
-    for (const v of r.Vulnerabilities) {
-      switch (v.Severity?.toUpperCase()) {
-        case "CRITICAL":
-          counts.critical++;
-          break;
-        case "HIGH":
-          counts.high++;
-          break;
-        case "MEDIUM":
-          counts.medium++;
-          break;
-        case "LOW":
-          counts.low++;
-          break;
-        default:
-          counts.unknown++;
+  if (result.Results) {
+    for (const r of result.Results) {
+      if (!r.Vulnerabilities) continue;
+      for (const v of r.Vulnerabilities) {
+        switch (v.Severity?.toUpperCase()) {
+          case "CRITICAL":
+            critical++;
+            break;
+          case "HIGH":
+            high++;
+            break;
+          case "MEDIUM":
+            medium++;
+            break;
+          case "LOW":
+            low++;
+            break;
+          default:
+            unknown++;
+        }
+        total++;
       }
-      counts.total++;
     }
   }
 
-  return counts;
+  return { critical, high, medium, low, unknown, total };
 }
 
 /**

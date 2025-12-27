@@ -177,38 +177,41 @@ function createEmptyCounts(): VulnerabilityCounts {
  * Extract vulnerability counts from a Trivy scan result
  */
 function extractVulnerabilityCounts(result: TrivyScanResult): VulnerabilityCounts {
-  const counts = createEmptyCounts();
+  let critical = 0;
+  let high = 0;
+  let medium = 0;
+  let low = 0;
+  let unknown = 0;
+  let total = 0;
 
-  if (!result.Results) {
-    return counts;
-  }
+  if (result.Results) {
+    for (const scanResult of result.Results) {
+      if (!scanResult.Vulnerabilities) continue;
 
-  for (const scanResult of result.Results) {
-    if (!scanResult.Vulnerabilities) continue;
-
-    for (const vuln of scanResult.Vulnerabilities) {
-      const severity = vuln.Severity?.toUpperCase() || "UNKNOWN";
-      switch (severity) {
-        case "CRITICAL":
-          counts.critical++;
-          break;
-        case "HIGH":
-          counts.high++;
-          break;
-        case "MEDIUM":
-          counts.medium++;
-          break;
-        case "LOW":
-          counts.low++;
-          break;
-        default:
-          counts.unknown++;
+      for (const vuln of scanResult.Vulnerabilities) {
+        const severity = vuln.Severity?.toUpperCase() || "UNKNOWN";
+        switch (severity) {
+          case "CRITICAL":
+            critical++;
+            break;
+          case "HIGH":
+            high++;
+            break;
+          case "MEDIUM":
+            medium++;
+            break;
+          case "LOW":
+            low++;
+            break;
+          default:
+            unknown++;
+        }
+        total++;
       }
-      counts.total++;
     }
   }
 
-  return counts;
+  return { critical, high, medium, low, unknown, total };
 }
 
 /**
