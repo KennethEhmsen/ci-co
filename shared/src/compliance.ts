@@ -149,6 +149,7 @@ export const COMPLIANCE_CONTROLS: Record<ComplianceFramework, ComplianceControl[
     },
   ],
 
+  // NOSONAR: IDs like "11.3.1.1" are PCI-DSS requirement identifiers, not IP addresses
   "PCI-DSS": [
     {
       id: "6.3.1",

@@ -236,8 +236,8 @@ export function matchesVersion(version: string, constraint: string): boolean {
     return version === constraint;
   }
 
-  // Parse constraint
-  const match = constraint.match(/^([<>=]+)(.+)$/);
+  // Parse constraint - use \S+ instead of .+ to avoid backtracking on whitespace
+  const match = constraint.match(/^([<>=]+)(\S+)$/);
   if (!match) {
     return version === constraint;
   }
