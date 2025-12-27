@@ -1476,3 +1476,130 @@ export interface ScanHistoryOptions {
   /** File path for file storage */
   filePath?: string;
 }
+
+// =============================================================================
+// Suppression Types
+// =============================================================================
+
+/**
+ * Type of suppression rule
+ */
+export type SuppressionType = "cve" | "package" | "path";
+
+/**
+ * A suppression rule for ignoring specific vulnerabilities
+ */
+export interface Suppression {
+  /** Unique identifier for this suppression */
+  id: string;
+  /** Type of suppression */
+  type: SuppressionType;
+  /** Pattern to match (CVE ID, package name, or path glob) */
+  pattern: string;
+  /** Reason for suppression */
+  reason: string;
+  /** Optional expiration date (ISO 8601) */
+  expires?: string;
+  /** Optional package version constraint (for package type) */
+  versionConstraint?: string;
+  /** Who created this suppression */
+  createdBy?: string;
+  /** When this suppression was created */
+  createdAt?: string;
+  /** Optional notes or comments */
+  notes?: string;
+}
+
+/**
+ * Result of matching a suppression against a vulnerability
+ */
+export interface SuppressionMatch {
+  /** The suppression that matched */
+  suppression: Suppression;
+  /** The vulnerability that was suppressed */
+  vulnerabilityId: string;
+  /** Package name if applicable */
+  package?: string;
+  /** File path if applicable */
+  path?: string;
+  /** Whether the suppression has expired */
+  expired: boolean;
+}
+
+/**
+ * A suppressed vulnerability with its suppression info
+ */
+export interface SuppressedVulnerability {
+  /** Original vulnerability ID */
+  id: string;
+  /** Package name */
+  package: string;
+  /** Package version */
+  version: string;
+  /** Severity level */
+  severity: string;
+  /** Target/path */
+  target: string;
+  /** The suppression that matched */
+  suppression: Suppression;
+}
+
+/**
+ * Result of applying suppressions to scan results
+ */
+export interface SuppressionResult {
+  /** Vulnerabilities that remain after suppression */
+  remaining: TrivyVulnerability[];
+  /** Vulnerabilities that were suppressed */
+  suppressed: SuppressedVulnerability[];
+  /** Summary of suppression actions */
+  summary: {
+    total: number;
+    suppressed: number;
+    remaining: number;
+    expiredSuppressions: number;
+  };
+  /** Applied suppressions with match details */
+  appliedSuppressions: SuppressionMatch[];
+}
+
+/**
+ * Suppression file schema (YAML/JSON)
+ */
+export interface SuppressionFileSchema {
+  /** Schema version */
+  version?: string;
+  /** List of suppressions */
+  suppressions: Suppression[];
+  /** Global settings */
+  settings?: {
+    /** Whether to fail on expired suppressions */
+    failOnExpired?: boolean;
+    /** Whether to require reasons */
+    requireReasons?: boolean;
+  };
+}
+
+/**
+ * Options for loading suppressions
+ */
+export interface SuppressionLoadOptions {
+  /** Validate suppression patterns */
+  validatePatterns?: boolean;
+  /** Skip expired suppressions */
+  skipExpired?: boolean;
+  /** Default creator if not specified */
+  defaultCreatedBy?: string;
+}
+
+/**
+ * Options for applying suppressions
+ */
+export interface SuppressionApplyOptions {
+  /** Include expired suppressions (default: false) */
+  includeExpired?: boolean;
+  /** Audit suppression applications */
+  audit?: boolean;
+  /** Minimum severity to suppress (won't suppress above this) */
+  maxSeverityToSuppress?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+}

@@ -192,6 +192,15 @@ export type {
   StoredScanRecord,
   ScanCompareOptions,
   ScanHistoryOptions,
+  // Suppression Types
+  SuppressionType,
+  Suppression,
+  SuppressionMatch,
+  SuppressedVulnerability,
+  SuppressionResult,
+  SuppressionFileSchema,
+  SuppressionLoadOptions,
+  SuppressionApplyOptions,
 } from "./types.js";
 export {
   // Trivy
@@ -335,3 +344,29 @@ export {
   compareWithPrevious,
   storeAndCompare,
 } from "./scan-diff.js";
+
+// Suppression exports
+export {
+  createSuppression,
+  suppressCve,
+  suppressPackage,
+  suppressPath,
+  isExpired,
+  getDaysUntilExpiration,
+  filterExpired,
+  getExpiredSuppressions,
+  matchesCve,
+  matchesPackage,
+  matchesVersion,
+  matchesPath,
+  matchesSuppression,
+  findSuppressionFile,
+  parseSuppressionFile,
+  validateSuppression,
+  loadSuppressions,
+  loadSuppressionsFromDirectory,
+  applySuppressionsToVulnerabilities,
+  applySuppressions,
+  generateSuppressionReport,
+  writeSuppressions,
+} from "./suppression.js";

@@ -3409,3 +3409,365 @@ describe("Scan Diff", () => {
     });
   });
 });
+
+// Suppression tests
+import {
+  createSuppression,
+  suppressCve,
+  suppressPackage,
+  suppressPath,
+  isExpired,
+  getDaysUntilExpiration,
+  filterExpired,
+  matchesCve,
+  matchesPackage,
+  matchesVersion,
+  matchesPath,
+  matchesSuppression,
+  validateSuppression,
+  applySuppressionsToVulnerabilities,
+  applySuppressions,
+  generateSuppressionReport,
+} from "./suppression.js";
+import type { Suppression, TrivyScanResult as SuppressionTrivyScanResult } from "./types.js";
+
+describe("Suppression", () => {
+  describe("createSuppression", () => {
+    it("should create a suppression with required fields", () => {
+      const suppression = createSuppression("cve", "CVE-2023-1234", "False positive");
+
+      expect(suppression.id).toBeDefined();
+      expect(suppression.type).toBe("cve");
+      expect(suppression.pattern).toBe("CVE-2023-1234");
+      expect(suppression.reason).toBe("False positive");
+      expect(suppression.createdAt).toBeDefined();
+    });
+
+    it("should include optional fields when provided", () => {
+      const suppression = createSuppression("package", "lodash", "Accepted risk", {
+        expires: "2025-12-31",
+        createdBy: "admin",
+        notes: "Test note",
+      });
+
+      expect(suppression.expires).toBe("2025-12-31");
+      expect(suppression.createdBy).toBe("admin");
+      expect(suppression.notes).toBe("Test note");
+    });
+  });
+
+  describe("suppressCve", () => {
+    it("should create a CVE suppression with uppercase pattern", () => {
+      const suppression = suppressCve("cve-2023-1234", "Test reason");
+
+      expect(suppression.type).toBe("cve");
+      expect(suppression.pattern).toBe("CVE-2023-1234");
+    });
+  });
+
+  describe("suppressPackage", () => {
+    it("should create a package suppression", () => {
+      const suppression = suppressPackage("lodash", "Old version OK", { version: "4.17.21" });
+
+      expect(suppression.type).toBe("package");
+      expect(suppression.pattern).toBe("lodash");
+      expect(suppression.versionConstraint).toBe("4.17.21");
+    });
+  });
+
+  describe("suppressPath", () => {
+    it("should create a path suppression", () => {
+      const suppression = suppressPath("**/test/**", "Test files only");
+
+      expect(suppression.type).toBe("path");
+      expect(suppression.pattern).toBe("**/test/**");
+    });
+  });
+
+  describe("isExpired", () => {
+    it("should return false for suppression without expiration", () => {
+      const suppression = createSuppression("cve", "CVE-2023-1234", "Test");
+      expect(isExpired(suppression)).toBe(false);
+    });
+
+    it("should return true for expired suppression", () => {
+      const suppression = createSuppression("cve", "CVE-2023-1234", "Test", {
+        expires: "2020-01-01",
+      });
+      expect(isExpired(suppression)).toBe(true);
+    });
+
+    it("should return false for future expiration", () => {
+      const suppression = createSuppression("cve", "CVE-2023-1234", "Test", {
+        expires: "2099-12-31",
+      });
+      expect(isExpired(suppression)).toBe(false);
+    });
+  });
+
+  describe("getDaysUntilExpiration", () => {
+    it("should return null for suppression without expiration", () => {
+      const suppression = createSuppression("cve", "CVE-2023-1234", "Test");
+      expect(getDaysUntilExpiration(suppression)).toBeNull();
+    });
+
+    it("should return negative for expired suppression", () => {
+      const suppression = createSuppression("cve", "CVE-2023-1234", "Test", {
+        expires: "2020-01-01",
+      });
+      const days = getDaysUntilExpiration(suppression);
+      expect(days).not.toBeNull();
+      expect(days!).toBeLessThan(0);
+    });
+  });
+
+  describe("filterExpired", () => {
+    it("should filter out expired suppressions", () => {
+      const suppressions: Suppression[] = [
+        createSuppression("cve", "CVE-1", "Test", { expires: "2020-01-01" }),
+        createSuppression("cve", "CVE-2", "Test", { expires: "2099-12-31" }),
+        createSuppression("cve", "CVE-3", "Test"),
+      ];
+
+      const active = filterExpired(suppressions);
+      expect(active.length).toBe(2);
+    });
+  });
+
+  describe("matchesCve", () => {
+    it("should match exact CVE IDs", () => {
+      expect(matchesCve("CVE-2023-1234", "CVE-2023-1234")).toBe(true);
+      expect(matchesCve("CVE-2023-1234", "CVE-2023-5678")).toBe(false);
+    });
+
+    it("should be case insensitive", () => {
+      expect(matchesCve("cve-2023-1234", "CVE-2023-1234")).toBe(true);
+    });
+
+    it("should support wildcard patterns", () => {
+      expect(matchesCve("CVE-2023-1234", "CVE-2023-*")).toBe(true);
+      expect(matchesCve("CVE-2024-1234", "CVE-2023-*")).toBe(false);
+    });
+  });
+
+  describe("matchesPackage", () => {
+    it("should match exact package names", () => {
+      expect(matchesPackage("lodash", "lodash")).toBe(true);
+      expect(matchesPackage("lodash", "express")).toBe(false);
+    });
+
+    it("should be case insensitive", () => {
+      expect(matchesPackage("Lodash", "lodash")).toBe(true);
+    });
+
+    it("should support glob patterns", () => {
+      expect(matchesPackage("@angular/core", "@angular/*")).toBe(true);
+    });
+  });
+
+  describe("matchesVersion", () => {
+    it("should match exact versions", () => {
+      expect(matchesVersion("1.0.0", "1.0.0")).toBe(true);
+      expect(matchesVersion("1.0.0", "2.0.0")).toBe(false);
+    });
+
+    it("should match wildcard", () => {
+      expect(matchesVersion("1.0.0", "*")).toBe(true);
+    });
+
+    it("should support >= operator", () => {
+      expect(matchesVersion("2.0.0", ">=1.0.0")).toBe(true);
+      expect(matchesVersion("0.5.0", ">=1.0.0")).toBe(false);
+    });
+
+    it("should support <= operator", () => {
+      expect(matchesVersion("1.0.0", "<=2.0.0")).toBe(true);
+      expect(matchesVersion("3.0.0", "<=2.0.0")).toBe(false);
+    });
+  });
+
+  describe("matchesPath", () => {
+    it("should match exact paths", () => {
+      expect(matchesPath("node_modules/lodash", "node_modules/lodash")).toBe(true);
+    });
+
+    it("should support glob patterns", () => {
+      expect(matchesPath("node_modules/lodash/index.js", "**/lodash/**")).toBe(true);
+      expect(matchesPath("src/index.js", "**/node_modules/**")).toBe(false);
+    });
+
+    it("should normalize path separators", () => {
+      expect(matchesPath("node_modules\\lodash", "node_modules/lodash")).toBe(true);
+    });
+  });
+
+  describe("matchesSuppression", () => {
+    it("should match CVE suppression", () => {
+      const suppression = suppressCve("CVE-2023-1234", "Test");
+      expect(
+        matchesSuppression(suppression, {
+          id: "CVE-2023-1234",
+          package: "lodash",
+          version: "4.17.20",
+          target: "node_modules",
+        })
+      ).toBe(true);
+    });
+
+    it("should match package suppression", () => {
+      const suppression = suppressPackage("lodash", "Test");
+      expect(
+        matchesSuppression(suppression, {
+          id: "CVE-2023-1234",
+          package: "lodash",
+          version: "4.17.20",
+          target: "node_modules",
+        })
+      ).toBe(true);
+    });
+
+    it("should match path suppression", () => {
+      const suppression = suppressPath("**/test/**", "Test");
+      expect(
+        matchesSuppression(suppression, {
+          id: "CVE-2023-1234",
+          package: "lodash",
+          version: "4.17.20",
+          target: "app/test/fixtures",
+        })
+      ).toBe(true);
+    });
+  });
+
+  describe("validateSuppression", () => {
+    it("should return no errors for valid suppression", () => {
+      const suppression = suppressCve("CVE-2023-1234", "Test reason");
+      const errors = validateSuppression(suppression);
+      expect(errors.length).toBe(0);
+    });
+
+    it("should return error for missing reason", () => {
+      const suppression = { ...suppressCve("CVE-2023-1234", "Test"), reason: "" };
+      const errors = validateSuppression(suppression);
+      expect(errors).toContain("Suppression must have a reason");
+    });
+
+    it("should return error for invalid type", () => {
+      const suppression = { ...suppressCve("CVE-2023-1234", "Test"), type: "invalid" as any };
+      const errors = validateSuppression(suppression);
+      expect(errors.some((e) => e.includes("Invalid suppression type"))).toBe(true);
+    });
+  });
+
+  describe("applySuppressionsToVulnerabilities", () => {
+    const createVuln = (id: string, pkg: string, severity: string) => ({
+      VulnerabilityID: id,
+      PkgName: pkg,
+      InstalledVersion: "1.0.0",
+      Severity: severity as "HIGH" | "MEDIUM" | "LOW" | "CRITICAL" | "UNKNOWN",
+    });
+
+    it("should suppress matching vulnerabilities", () => {
+      const vulns = [
+        createVuln("CVE-2023-1234", "lodash", "HIGH"),
+        createVuln("CVE-2023-5678", "express", "MEDIUM"),
+      ];
+
+      const suppressions = [suppressCve("CVE-2023-1234", "False positive")];
+
+      const result = applySuppressionsToVulnerabilities(vulns, "node_modules", suppressions);
+
+      expect(result.summary.total).toBe(2);
+      expect(result.summary.suppressed).toBe(1);
+      expect(result.summary.remaining).toBe(1);
+      expect(result.remaining[0].VulnerabilityID).toBe("CVE-2023-5678");
+      expect(result.suppressed[0].id).toBe("CVE-2023-1234");
+    });
+
+    it("should not suppress when maxSeverityToSuppress is exceeded", () => {
+      const vulns = [createVuln("CVE-2023-1234", "lodash", "CRITICAL")];
+      const suppressions = [suppressCve("CVE-2023-1234", "Test")];
+
+      const result = applySuppressionsToVulnerabilities(vulns, "node_modules", suppressions, {
+        maxSeverityToSuppress: "HIGH",
+      });
+
+      expect(result.summary.suppressed).toBe(0);
+      expect(result.summary.remaining).toBe(1);
+    });
+
+    it("should skip expired suppressions by default", () => {
+      const vulns = [createVuln("CVE-2023-1234", "lodash", "HIGH")];
+      const suppressions = [{ ...suppressCve("CVE-2023-1234", "Test"), expires: "2020-01-01" }];
+
+      const result = applySuppressionsToVulnerabilities(vulns, "node_modules", suppressions);
+
+      expect(result.summary.suppressed).toBe(0);
+    });
+
+    it("should include expired when option is set", () => {
+      const vulns = [createVuln("CVE-2023-1234", "lodash", "HIGH")];
+      const suppressions = [{ ...suppressCve("CVE-2023-1234", "Test"), expires: "2020-01-01" }];
+
+      const result = applySuppressionsToVulnerabilities(vulns, "node_modules", suppressions, {
+        includeExpired: true,
+      });
+
+      expect(result.summary.suppressed).toBe(1);
+      expect(result.summary.expiredSuppressions).toBe(1);
+    });
+  });
+
+  describe("applySuppressions", () => {
+    it("should apply suppressions to Trivy scan result", () => {
+      const scanResult: SuppressionTrivyScanResult = {
+        ArtifactName: "node:20",
+        Results: [
+          {
+            Target: "node_modules",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2023-1234",
+                PkgName: "lodash",
+                InstalledVersion: "4.17.20",
+                Severity: "HIGH",
+              },
+              {
+                VulnerabilityID: "CVE-2023-5678",
+                PkgName: "express",
+                InstalledVersion: "4.18.0",
+                Severity: "MEDIUM",
+              },
+            ],
+          },
+        ],
+      };
+
+      const suppressions = [suppressCve("CVE-2023-1234", "False positive")];
+
+      const { result, suppressionResult } = applySuppressions(scanResult, suppressions);
+
+      expect(suppressionResult.summary.suppressed).toBe(1);
+      expect(result.Results![0].Vulnerabilities?.length).toBe(1);
+      expect(result.Results![0].Vulnerabilities?.[0].VulnerabilityID).toBe("CVE-2023-5678");
+    });
+  });
+
+  describe("generateSuppressionReport", () => {
+    it("should generate markdown report", () => {
+      const suppressions = [
+        suppressCve("CVE-2023-1234", "False positive"),
+        suppressPackage("lodash", "Accepted risk", { expires: "2025-12-31" }),
+      ];
+
+      const report = generateSuppressionReport(suppressions);
+
+      expect(report).toContain("# Vulnerability Suppression Report");
+      expect(report).toContain("CVE-2023-1234");
+      expect(report).toContain("lodash");
+      expect(report).toContain("False positive");
+    });
+  });
+});
