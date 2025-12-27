@@ -103,7 +103,8 @@ export async function getTrivyDbStatus(): Promise<TrivyDbStatus> {
       sizeBytes: stats.size,
       isStale: ageHours > 24,
     };
-  } catch (error) {
+  } catch {
+    // Database metadata is unavailable, assume stale
     return {
       exists: true,
       isStale: true,

@@ -25,7 +25,7 @@ const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_SEVERITY = "HIGH,CRITICAL";
 
 // Duration parsing regex (e.g., "7d", "24h", "30m")
-const DURATION_REGEX = /^(\d+)(d|h|m|s)$/i;
+const DURATION_REGEX = /^(\d+)([dhms])$/i;
 
 // =============================================================================
 // Duration Parsing
@@ -136,7 +136,10 @@ export async function discoverImages(
 ): Promise<{ images: RegistryImage[]; skipped: string[]; repositoriesFound: number }> {
   const { repositories: repoPatterns, tagFilter, maxAge: _maxAge, allTags = true, limit } = options;
   // Note: maxAge filtering is not yet implemented (requires manifest inspection)
-  void _maxAge;
+  // Using _maxAge prefix to indicate intentionally unused parameter
+  if (_maxAge) {
+    // Reserved for future implementation
+  }
 
   // Get catalog from registry
   const catalog = await registryGetCatalog();

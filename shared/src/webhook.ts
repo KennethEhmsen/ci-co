@@ -159,10 +159,16 @@ export function formatSlackMessage(summary: WebhookScanSummary): SlackWebhookPay
 
   // Add top findings if available
   if (summary.topFindings && summary.topFindings.length > 0) {
-    const findingsText = summary.topFindings
-      .slice(0, 5)
-      .map((f) => `• \`${f.id}\` [${f.severity}] ${f.title}${f.package ? ` (${f.package})` : ""}`)
-      .join("\n");
+    const formatFinding = (f: {
+      id: string;
+      severity: string;
+      title: string;
+      package?: string;
+    }) => {
+      const packageSuffix = f.package ? ` (${f.package})` : "";
+      return `• \`${f.id}\` [${f.severity}] ${f.title}${packageSuffix}`;
+    };
+    const findingsText = summary.topFindings.slice(0, 5).map(formatFinding).join("\n");
 
     blocks.push(
       { type: "divider" },
@@ -359,10 +365,13 @@ export function formatTeamsMessage(summary: WebhookScanSummary): TeamsWebhookPay
       },
       {
         type: "FactSet",
-        facts: summary.topFindings.slice(0, 5).map((f) => ({
-          title: `${f.id} [${f.severity}]`,
-          value: `${f.title}${f.package ? ` (${f.package})` : ""}`,
-        })),
+        facts: summary.topFindings.slice(0, 5).map((f) => {
+          const valueSuffix = f.package ? ` (${f.package})` : "";
+          return {
+            title: `${f.id} [${f.severity}]`,
+            value: `${f.title}${valueSuffix}`,
+          };
+        }),
       }
     );
   }
