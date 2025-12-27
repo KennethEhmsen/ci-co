@@ -1617,7 +1617,7 @@ export interface SuppressionApplyOptions {
   /** Audit suppression applications */
   audit?: boolean;
   /** Minimum severity to suppress (won't suppress above this) */
-  maxSeverityToSuppress?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  maxSeverityToSuppress?: SeverityLevel;
 }
 
 // =============================================================================
@@ -1884,7 +1884,7 @@ export interface ScheduleWebhookConfig {
   /** Only notify on certain conditions */
   notifyOn?: ("success" | "failure" | "vulnerabilities")[];
   /** Minimum severity to trigger notification */
-  minSeverity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  minSeverity?: SeverityLevel;
 }
 
 /**
