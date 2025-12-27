@@ -29,6 +29,7 @@ import {
   dtrackGetVulnerabilities,
   dtrackGetFindings,
   dtrackGetComponents,
+  uploadSbomToDtrack,
   giteaGetRepos,
   giteaGetRepo,
   giteaGetBranches,
@@ -395,6 +396,48 @@ export const toolDefinitions = [
         },
       },
       required: ["projectUuid"],
+    },
+  },
+  {
+    name: "dtrack_upload_sbom",
+    description:
+      "Generate SBOM for a Docker image or path and upload to Dependency-Track. " +
+      "Creates or uses existing project, then tracks vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Target to scan - Docker image name (e.g., 'nginx:latest') or file path",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "path"],
+          description: "Type of target: 'image' for Docker images, 'path' for local directories",
+        },
+        projectName: {
+          type: "string",
+          description: "Project name in Dependency-Track (defaults to target name)",
+        },
+        projectVersion: {
+          type: "string",
+          description: "Project version (defaults to 'latest')",
+        },
+        autoCreateProject: {
+          type: "boolean",
+          description: "Auto-create project if it doesn't exist (default: true)",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tags to apply to the project",
+        },
+        waitForProcessing: {
+          type: "boolean",
+          description: "Wait for SBOM processing to complete before returning",
+        },
+      },
+      required: ["target"],
     },
   },
 
@@ -769,6 +812,16 @@ const dtrackHandlers: Record<string, ToolHandler> = {
   dtrack_get_vulnerabilities: (args) => dtrackGetVulnerabilities(args?.projectUuid as string),
   dtrack_get_findings: (args) => dtrackGetFindings(args?.projectUuid as string),
   dtrack_get_components: (args) => dtrackGetComponents(args?.projectUuid as string),
+  dtrack_upload_sbom: (args) =>
+    uploadSbomToDtrack({
+      target: args?.target as string,
+      targetType: args?.targetType as "image" | "path",
+      projectName: args?.projectName as string,
+      projectVersion: args?.projectVersion as string,
+      autoCreateProject: args?.autoCreateProject as boolean,
+      tags: args?.tags as string[],
+      waitForProcessing: args?.waitForProcessing as boolean,
+    }),
 };
 
 // Gitea handlers

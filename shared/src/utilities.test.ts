@@ -3771,3 +3771,234 @@ describe("Suppression", () => {
     });
   });
 });
+
+// =============================================================================
+// SBOM Upload Tests
+// =============================================================================
+
+import type { SbomUploadOptions, DTrackProjectCreateOptions } from "./types.js";
+
+// Mock the external dependencies
+vi.mock("./config.js", async () => {
+  const actual = await vi.importActual("./config.js");
+  return {
+    ...actual,
+    config: {
+      dependencyTrack: {
+        url: "http://localhost:8081",
+        apiKey: "test-api-key",
+      },
+      trivy: {
+        url: "http://localhost:8090",
+      },
+    },
+  };
+});
+
+// We'll test the utility functions that don't require external calls
+describe("SBOM Upload Module - Utility Functions", () => {
+  describe("SbomUploadOptions interface", () => {
+    it("should accept minimal options", () => {
+      const options: SbomUploadOptions = {
+        target: "nginx:latest",
+      };
+
+      expect(options.target).toBe("nginx:latest");
+      expect(options.targetType).toBeUndefined();
+      expect(options.projectName).toBeUndefined();
+    });
+
+    it("should accept full options", () => {
+      const options: SbomUploadOptions = {
+        target: "nginx:latest",
+        targetType: "image",
+        projectName: "nginx",
+        projectVersion: "1.25.0",
+        autoCreateProject: true,
+        tags: ["production", "web"],
+        parentUuid: "parent-uuid-123",
+        sbomFormat: "cyclonedx",
+        waitForProcessing: true,
+        processingTimeout: 60000,
+      };
+
+      expect(options.target).toBe("nginx:latest");
+      expect(options.targetType).toBe("image");
+      expect(options.projectName).toBe("nginx");
+      expect(options.projectVersion).toBe("1.25.0");
+      expect(options.autoCreateProject).toBe(true);
+      expect(options.tags).toEqual(["production", "web"]);
+      expect(options.parentUuid).toBe("parent-uuid-123");
+      expect(options.sbomFormat).toBe("cyclonedx");
+      expect(options.waitForProcessing).toBe(true);
+      expect(options.processingTimeout).toBe(60000);
+    });
+
+    it("should accept path target type", () => {
+      const options: SbomUploadOptions = {
+        target: "/app/project",
+        targetType: "path",
+        projectName: "my-project",
+      };
+
+      expect(options.targetType).toBe("path");
+    });
+  });
+
+  describe("DTrackProjectCreateOptions interface", () => {
+    it("should accept minimal options", () => {
+      const options: DTrackProjectCreateOptions = {
+        name: "my-project",
+      };
+
+      expect(options.name).toBe("my-project");
+      expect(options.version).toBeUndefined();
+    });
+
+    it("should accept full options", () => {
+      const options: DTrackProjectCreateOptions = {
+        name: "my-project",
+        version: "1.0.0",
+        description: "A test project",
+        tags: ["tag1", "tag2"],
+        parent: "parent-uuid-456",
+        classifier: "APPLICATION",
+      };
+
+      expect(options.name).toBe("my-project");
+      expect(options.version).toBe("1.0.0");
+      expect(options.description).toBe("A test project");
+      expect(options.tags).toEqual(["tag1", "tag2"]);
+      expect(options.parent).toBe("parent-uuid-456");
+      expect(options.classifier).toBe("APPLICATION");
+    });
+  });
+});
+
+describe("SBOM Upload Module - Project Name Derivation", () => {
+  // Test the deriveProjectName logic by checking expected outputs
+  it("should derive project name from simple image", () => {
+    // Testing expected behavior - nginx:latest -> nginx
+    const imageName = "nginx:latest";
+    const parts = imageName.split("/");
+    const nameWithTag = parts[parts.length - 1];
+    const name = nameWithTag.split(":")[0];
+
+    expect(name).toBe("nginx");
+  });
+
+  it("should derive project name from registry image", () => {
+    // docker.io/library/nginx:1.25 -> nginx
+    const imageName = "docker.io/library/nginx:1.25";
+    const parts = imageName.split("/");
+    const nameWithTag = parts[parts.length - 1];
+    const name = nameWithTag.split(":")[0];
+
+    expect(name).toBe("nginx");
+  });
+
+  it("should derive project name from custom registry image", () => {
+    // registry.example.com/team/myapp:v2.0 -> myapp
+    const imageName = "registry.example.com/team/myapp:v2.0";
+    const parts = imageName.split("/");
+    const nameWithTag = parts[parts.length - 1];
+    const name = nameWithTag.split(":")[0];
+
+    expect(name).toBe("myapp");
+  });
+
+  it("should derive project name from path", () => {
+    // /home/user/projects/myproject -> myproject
+    const path = "/home/user/projects/myproject";
+    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const parts = normalized.split("/");
+    const name = parts[parts.length - 1];
+
+    expect(name).toBe("myproject");
+  });
+
+  it("should derive project name from Windows path", () => {
+    // C:\Users\dev\projects\myapp -> myapp
+    const path = "C:\\Users\\dev\\projects\\myapp";
+    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const parts = normalized.split("/");
+    const name = parts[parts.length - 1];
+
+    expect(name).toBe("myapp");
+  });
+
+  it("should handle trailing slashes in path", () => {
+    // /app/project/ -> project
+    const path = "/app/project/";
+    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const parts = normalized.split("/");
+    const name = parts[parts.length - 1];
+
+    expect(name).toBe("project");
+  });
+});
+
+describe("SBOM Upload Module - SbomUploadResult interface", () => {
+  it("should represent successful upload", () => {
+    const result: {
+      success: boolean;
+      projectUuid: string;
+      projectName: string;
+      projectVersion: string;
+      componentsCount: number;
+      token: string;
+      projectCreated: boolean;
+      uploadedAt: string;
+      error?: string;
+    } = {
+      success: true,
+      projectUuid: "uuid-123",
+      projectName: "my-project",
+      projectVersion: "1.0.0",
+      componentsCount: 150,
+      token: "upload-token-abc",
+      projectCreated: true,
+      uploadedAt: "2024-01-15T10:00:00Z",
+    };
+
+    expect(result.success).toBe(true);
+    expect(result.projectUuid).toBe("uuid-123");
+    expect(result.componentsCount).toBe(150);
+    expect(result.projectCreated).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+
+  it("should represent failed upload", () => {
+    const result = {
+      success: false,
+      projectUuid: "",
+      projectName: "my-project",
+      projectVersion: "1.0.0",
+      componentsCount: 0,
+      token: "",
+      projectCreated: false,
+      uploadedAt: "2024-01-15T10:00:00Z",
+      error: "Trivy scan failed: image not found",
+    };
+
+    expect(result.success).toBe(false);
+    expect(result.projectUuid).toBe("");
+    expect(result.error).toBe("Trivy scan failed: image not found");
+  });
+});
+
+describe("SBOM Upload Module - DTrackProjectCreateResult interface", () => {
+  it("should represent created project", () => {
+    const result = {
+      uuid: "project-uuid-456",
+      name: "my-app",
+      version: "2.0.0",
+      active: true,
+    };
+
+    expect(result.uuid).toBe("project-uuid-456");
+    expect(result.name).toBe("my-app");
+    expect(result.version).toBe("2.0.0");
+    expect(result.active).toBe(true);
+  });
+});

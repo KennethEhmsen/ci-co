@@ -32,6 +32,7 @@ export {
   dtrackGetVulnerabilities,
   dtrackGetFindings,
   dtrackGetComponents,
+  uploadSbomToDtrack,
   // Gitea
   giteaGetRepos,
   giteaGetRepo,

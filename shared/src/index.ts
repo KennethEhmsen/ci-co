@@ -201,6 +201,12 @@ export type {
   SuppressionFileSchema,
   SuppressionLoadOptions,
   SuppressionApplyOptions,
+  // SBOM Upload Types
+  SbomTargetType,
+  SbomUploadOptions,
+  SbomUploadResult,
+  DTrackProjectCreateOptions,
+  DTrackProjectCreateResult,
 } from "./types.js";
 export {
   // Trivy
@@ -370,3 +376,15 @@ export {
   generateSuppressionReport,
   writeSuppressions,
 } from "./suppression.js";
+
+// SBOM upload exports
+export {
+  dtrackLookupProject,
+  dtrackCreateProject,
+  dtrackGetOrCreateProject,
+  dtrackUploadSbomToProject,
+  dtrackCheckBomProcessing,
+  dtrackWaitForProcessing,
+  uploadSbomToDtrack,
+  uploadSbomsBatch,
+} from "./sbom-upload.js";

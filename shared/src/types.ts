@@ -1603,3 +1603,90 @@ export interface SuppressionApplyOptions {
   /** Minimum severity to suppress (won't suppress above this) */
   maxSeverityToSuppress?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 }
+
+// =============================================================================
+// SBOM Upload Types
+// =============================================================================
+
+/**
+ * Target type for SBOM generation
+ */
+export type SbomTargetType = "image" | "path";
+
+/**
+ * Options for uploading SBOM to Dependency-Track
+ */
+export interface SbomUploadOptions {
+  /** Target to scan (image name or file path) */
+  target: string;
+  /** Type of target */
+  targetType?: SbomTargetType;
+  /** Project name in Dependency-Track (defaults to target name) */
+  projectName?: string;
+  /** Project version (defaults to 'latest' or git tag/commit) */
+  projectVersion?: string;
+  /** Auto-create project if it doesn't exist */
+  autoCreateProject?: boolean;
+  /** Tags to apply to the project */
+  tags?: string[];
+  /** Parent project UUID (for hierarchical projects) */
+  parentUuid?: string;
+  /** SBOM format */
+  sbomFormat?: "cyclonedx" | "spdx-json";
+  /** Wait for BOM processing to complete */
+  waitForProcessing?: boolean;
+  /** Timeout for waiting (ms) */
+  processingTimeout?: number;
+}
+
+/**
+ * Result of SBOM upload to Dependency-Track
+ */
+export interface SbomUploadResult {
+  /** Whether the upload was successful */
+  success: boolean;
+  /** Project UUID in Dependency-Track */
+  projectUuid: string;
+  /** Project name */
+  projectName: string;
+  /** Project version */
+  projectVersion: string;
+  /** Number of components in the SBOM */
+  componentsCount: number;
+  /** BOM processing token */
+  token: string;
+  /** Whether the project was newly created */
+  projectCreated: boolean;
+  /** Timestamp of upload */
+  uploadedAt: string;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Options for creating a project in Dependency-Track
+ */
+export interface DTrackProjectCreateOptions {
+  /** Project name */
+  name: string;
+  /** Project version */
+  version?: string;
+  /** Project description */
+  description?: string;
+  /** Tags */
+  tags?: string[];
+  /** Parent project UUID */
+  parent?: string;
+  /** Classifier (APPLICATION, LIBRARY, etc.) */
+  classifier?: string;
+}
+
+/**
+ * Result of project creation
+ */
+export interface DTrackProjectCreateResult {
+  uuid: string;
+  name: string;
+  version: string;
+  created: boolean;
+}
