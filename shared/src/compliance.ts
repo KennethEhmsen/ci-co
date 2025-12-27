@@ -637,6 +637,39 @@ function generateRecommendations(
 // =============================================================================
 
 /**
+ * Format organization prefix for header meta section.
+ */
+function formatOrganizationMeta(organization: string): string {
+  if (!organization) return "";
+  return `<strong>${escapeHtml(organization)}</strong> | `;
+}
+
+/**
+ * Format title with optional organization suffix.
+ */
+function formatTitleWithOrg(title: string, organization: string): string {
+  if (!organization) return escapeHtml(title);
+  return `${escapeHtml(title)} - ${escapeHtml(organization)}`;
+}
+
+/**
+ * Format package cell content for violation table.
+ */
+function formatPackageCell(vulnId: string, vulnPackage?: string): string {
+  const escapedId = escapeHtml(vulnId);
+  if (!vulnPackage) return escapedId;
+  return `${escapedId}<br><small>${escapeHtml(vulnPackage)}</small>`;
+}
+
+/**
+ * Format the "more violations" text when there are more than 10.
+ */
+function formatMoreViolationsText(totalCount: number): string {
+  if (totalCount <= 10) return "";
+  return `<p style="margin-top: 15px; color: #718096;">... and ${totalCount - 10} more violations</p>`;
+}
+
+/**
  * Generate an HTML compliance report with professional styling.
  */
 export function generateComplianceHtml(
@@ -651,7 +684,7 @@ export function generateComplianceHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}${organization ? ` - ${escapeHtml(organization)}` : ""}</title>
+  <title>${formatTitleWithOrg(title, organization)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }
@@ -705,7 +738,7 @@ export function generateComplianceHtml(
     <header>
       <h1>${escapeHtml(title)}</h1>
       <div class="meta">
-        ${organization ? `<strong>${escapeHtml(organization)}</strong> | ` : ""}
+        ${formatOrganizationMeta(organization)}
         Generated: ${new Date(report.generatedAt).toLocaleString()} |
         Target: ${escapeHtml(report.scanTarget)}
       </div>
@@ -816,7 +849,7 @@ export function generateComplianceHtml(
                   (v) => `
                 <tr>
                   <td><strong>${escapeHtml(v.control.id)}</strong><br><small>${escapeHtml(v.control.name)}</small></td>
-                  <td>${escapeHtml(v.vulnerability.id)}${v.vulnerability.package ? `<br><small>${escapeHtml(v.vulnerability.package)}</small>` : ""}</td>
+                  <td>${formatPackageCell(v.vulnerability.id, v.vulnerability.package)}</td>
                   <td><span class="severity-badge severity-${normalizeSeverity(v.vulnerability.severity)}">${escapeHtml(v.vulnerability.severity)}</span></td>
                   <td>${new Date(v.dueDate).toLocaleDateString()}</td>
                 </tr>
@@ -825,7 +858,7 @@ export function generateComplianceHtml(
                 .join("")}
             </tbody>
           </table>
-          ${summary.violations.length > 10 ? `<p style="margin-top: 15px; color: #718096;">... and ${summary.violations.length - 10} more violations</p>` : ""}
+          ${formatMoreViolationsText(summary.violations.length)}
           `
               : '<p style="color: #48bb78;">All controls passing</p>'
           }
