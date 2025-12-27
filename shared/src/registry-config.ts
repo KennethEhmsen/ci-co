@@ -503,9 +503,12 @@ async function getGcrAuth(auth: {
       // Parse service account key if string
       let key: Record<string, unknown>;
       if (typeof auth.serviceAccountKey === "string") {
-        const keyString = auth.serviceAccountKey.startsWith("{")
-          ? auth.serviceAccountKey
-          : Buffer.from(auth.serviceAccountKey, "base64").toString();
+        let keyString: string;
+        if (auth.serviceAccountKey.startsWith("{")) {
+          keyString = auth.serviceAccountKey;
+        } else {
+          keyString = Buffer.from(auth.serviceAccountKey, "base64").toString();
+        }
         key = JSON.parse(keyString);
       } else {
         key = auth.serviceAccountKey as Record<string, unknown>;
