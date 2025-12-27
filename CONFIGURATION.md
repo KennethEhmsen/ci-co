@@ -10,6 +10,9 @@
 6. [Security Hardening](#security-hardening)
 7. [Backup Configuration](#backup-configuration)
 8. [Monitoring Setup](#monitoring-setup)
+9. [MCP Server Configuration](#mcp-server-configuration)
+10. [CICD Agent Configuration](#cicd-agent-configuration)
+11. [Security Tools Configuration](#security-tools-configuration)
 
 ---
 
@@ -680,4 +683,416 @@ DRONE_LOGS_TRACE=false
 Use with:
 ```powershell
 docker compose --env-file .env.production up -d
+```
+
+---
+
+## MCP Server Configuration
+
+### Environment Variables
+
+Create `.env` file in `mcp-server/` directory:
+
+```env
+# Service URLs
+CICD_TRIVY_URL=http://localhost:4954
+CICD_SONARQUBE_URL=http://localhost:9000
+CICD_DTRACK_URL=http://localhost:8082
+CICD_GITEA_URL=http://localhost:3000
+CICD_DRONE_URL=http://localhost:8080
+CICD_REGISTRY_URL=http://localhost:5000
+
+# Authentication Tokens
+CICD_SONAR_TOKEN=your-sonarqube-token
+CICD_DTRACK_API_KEY=your-dependency-track-key
+CICD_GITEA_TOKEN=your-gitea-token
+CICD_DRONE_TOKEN=your-drone-token
+
+# Vulnerability Database Settings
+CICD_VULN_DB_PATH=~/.cicd/vuln-db
+CICD_VULN_DB_AUTO_SYNC=true
+CICD_VULN_DB_SYNC_INTERVAL=24  # hours
+
+# Scheduler Settings
+CICD_SCHEDULER_ENABLED=true
+CICD_SCHEDULER_DATA_PATH=~/.cicd/schedules
+CICD_SCHEDULER_TIMEZONE=UTC
+
+# Compliance Settings
+CICD_COMPLIANCE_TREND_PATH=~/.cicd/trends
+CICD_COMPLIANCE_TREND_RETENTION=90  # days
+
+# Logging
+CICD_LOG_LEVEL=info  # debug, info, warn, error
+```
+
+### Claude Desktop Configuration
+
+Full configuration for Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "cicd-platform": {
+      "command": "node",
+      "args": ["C:/path/to/ci-co/mcp-server/dist/index.js"],
+      "env": {
+        "CICD_TRIVY_URL": "http://localhost:4954",
+        "CICD_SONARQUBE_URL": "http://localhost:9000",
+        "CICD_DTRACK_URL": "http://localhost:8082",
+        "CICD_GITEA_URL": "http://localhost:3000",
+        "CICD_DRONE_URL": "http://localhost:8080",
+        "CICD_REGISTRY_URL": "http://localhost:5000",
+        "CICD_SONAR_TOKEN": "your-token",
+        "CICD_DTRACK_API_KEY": "your-key",
+        "CICD_GITEA_TOKEN": "your-token",
+        "CICD_DRONE_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+### VS Code Cline/Continue Configuration
+
+For VS Code extensions (`settings.json`):
+
+```json
+{
+  "cline.mcpServers": {
+    "cicd-platform": {
+      "command": "node",
+      "args": ["${workspaceFolder}/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+---
+
+## CICD Agent Configuration
+
+### Environment Variables
+
+```powershell
+# Required - Anthropic API Key
+$env:ANTHROPIC_API_KEY = "sk-ant-xxx"
+
+# Service Configuration
+$env:CICD_TRIVY_URL = "http://localhost:4954"
+$env:CICD_SONARQUBE_URL = "http://localhost:9000"
+$env:CICD_DTRACK_URL = "http://localhost:8082"
+$env:CICD_GITEA_URL = "http://localhost:3000"
+$env:CICD_DRONE_URL = "http://localhost:8080"
+$env:CICD_REGISTRY_URL = "http://localhost:5000"
+
+# Authentication
+$env:CICD_SONAR_TOKEN = "your-token"
+$env:CICD_DTRACK_API_KEY = "your-key"
+$env:CICD_GITEA_TOKEN = "your-token"
+$env:CICD_DRONE_TOKEN = "your-token"
+
+# Agent Behavior
+$env:CICD_AGENT_MODEL = "claude-sonnet-4-20250514"  # or opus, haiku
+$env:CICD_AGENT_MAX_TOKENS = "4096"
+$env:CICD_AGENT_TEMPERATURE = "0.7"
+```
+
+### Configuration File
+
+Create `cicd-agent.config.json` in your home directory:
+
+```json
+{
+  "services": {
+    "trivy": {
+      "url": "http://localhost:4954",
+      "timeout": 60000
+    },
+    "sonarqube": {
+      "url": "http://localhost:9000",
+      "token": "${CICD_SONAR_TOKEN}"
+    },
+    "dependencyTrack": {
+      "url": "http://localhost:8082",
+      "apiKey": "${CICD_DTRACK_API_KEY}"
+    },
+    "gitea": {
+      "url": "http://localhost:3000",
+      "token": "${CICD_GITEA_TOKEN}"
+    },
+    "drone": {
+      "url": "http://localhost:8080",
+      "token": "${CICD_DRONE_TOKEN}"
+    },
+    "registry": {
+      "url": "http://localhost:5000"
+    }
+  },
+  "agent": {
+    "model": "claude-sonnet-4-20250514",
+    "maxTokens": 4096,
+    "temperature": 0.7
+  },
+  "scheduler": {
+    "enabled": true,
+    "dataPath": "~/.cicd/schedules",
+    "timezone": "UTC"
+  },
+  "vulnDb": {
+    "path": "~/.cicd/vuln-db",
+    "autoSync": true,
+    "syncIntervalHours": 24
+  },
+  "compliance": {
+    "trendPath": "~/.cicd/trends",
+    "retentionDays": 90
+  }
+}
+```
+
+---
+
+## Security Tools Configuration
+
+### Compliance Frameworks
+
+Configure custom framework controls in `config/compliance-controls.json`:
+
+```json
+{
+  "customFrameworks": {
+    "INTERNAL": {
+      "name": "Internal Security Policy",
+      "controls": [
+        {
+          "id": "INT-001",
+          "name": "Critical Vulnerability SLA",
+          "description": "Critical vulnerabilities must be remediated within 24 hours",
+          "category": "Vulnerability Management",
+          "remediationSlaHours": 24,
+          "mappedFindings": ["CRITICAL"]
+        },
+        {
+          "id": "INT-002",
+          "name": "High Vulnerability SLA",
+          "description": "High vulnerabilities must be remediated within 7 days",
+          "category": "Vulnerability Management",
+          "remediationSlaHours": 168,
+          "mappedFindings": ["HIGH"]
+        }
+      ]
+    }
+  }
+}
+```
+
+### OPA/Rego Custom Policies
+
+Create custom policies in `config/policies/`:
+
+```rego
+# config/policies/custom-vuln-policy.rego
+package security.custom
+
+default allow = false
+
+# Allow if meeting custom thresholds
+allow {
+    input.scan.critical == 0
+    input.scan.high <= 3
+    input.scan.medium <= 20
+}
+
+# Generate violation messages
+violations[msg] {
+    input.scan.critical > 0
+    msg := sprintf("POLICY VIOLATION: Found %d critical vulnerabilities (allowed: 0)", [input.scan.critical])
+}
+
+violations[msg] {
+    input.scan.high > 3
+    msg := sprintf("POLICY VIOLATION: Found %d high vulnerabilities (allowed: 3)", [input.scan.high])
+}
+```
+
+### Scheduler Webhook Configuration
+
+Configure notification webhooks:
+
+```json
+{
+  "notifications": {
+    "slack": {
+      "defaultWebhook": "https://hooks.slack.com/services/xxx/yyy/zzz",
+      "channels": {
+        "security-alerts": "#security-alerts",
+        "dev-notifications": "#dev-notify"
+      },
+      "messageFormat": {
+        "onSuccess": false,
+        "onFailure": true,
+        "minSeverity": "HIGH"
+      }
+    },
+    "teams": {
+      "defaultWebhook": "https://outlook.office.com/webhook/xxx",
+      "messageFormat": {
+        "includeDetails": true
+      }
+    },
+    "email": {
+      "smtp": {
+        "host": "smtp.company.com",
+        "port": 587,
+        "secure": true
+      },
+      "from": "security@company.com",
+      "recipients": ["security-team@company.com"]
+    }
+  }
+}
+```
+
+### Vulnerability Database Configuration
+
+Configure offline database settings:
+
+```json
+{
+  "vulnDatabase": {
+    "storage": {
+      "path": "~/.cicd/vuln-db",
+      "maxSizeGB": 2
+    },
+    "sync": {
+      "enabled": true,
+      "intervalHours": 24,
+      "sources": ["trivy", "nvd"],
+      "proxy": null
+    },
+    "retention": {
+      "keepVersions": 3,
+      "maxAgeDays": 30
+    },
+    "annotations": {
+      "storagePath": "~/.cicd/annotations",
+      "sharedAcrossProjects": true
+    }
+  }
+}
+```
+
+### Multi-Registry Configuration
+
+Configure multiple container registries:
+
+```json
+{
+  "registries": {
+    "local": {
+      "url": "http://localhost:5000",
+      "type": "local",
+      "insecure": true
+    },
+    "dockerhub": {
+      "url": "https://registry-1.docker.io",
+      "type": "dockerhub",
+      "username": "${DOCKER_USERNAME}",
+      "password": "${DOCKER_PASSWORD}"
+    },
+    "ecr": {
+      "url": "123456789.dkr.ecr.us-east-1.amazonaws.com",
+      "type": "ecr",
+      "region": "us-east-1"
+    },
+    "gcr": {
+      "url": "gcr.io/my-project",
+      "type": "gcr",
+      "keyFile": "~/.gcloud/key.json"
+    },
+    "acr": {
+      "url": "myregistry.azurecr.io",
+      "type": "acr",
+      "tenantId": "${AZURE_TENANT_ID}",
+      "clientId": "${AZURE_CLIENT_ID}",
+      "clientSecret": "${AZURE_CLIENT_SECRET}"
+    }
+  }
+}
+```
+
+---
+
+## Complete .env.example
+
+```env
+# =============================================================================
+# CI/CD Platform Configuration
+# =============================================================================
+
+# PostgreSQL
+POSTGRES_USER=gitea
+POSTGRES_PASSWORD=change-me-in-production
+POSTGRES_DB=gitea
+
+# Gitea
+GITEA_SECRET_KEY=change-me-32-chars-minimum
+GITEA_ADMIN_USER=admin
+GITEA_ADMIN_PASSWORD=change-me
+GITEA_ADMIN_EMAIL=admin@localhost
+
+# Drone CI
+DRONE_RPC_SECRET=change-me-32-chars-minimum
+DRONE_GITEA_CLIENT_ID=your-oauth-client-id
+DRONE_GITEA_CLIENT_SECRET=your-oauth-client-secret
+DRONE_ADMIN_USER=admin
+
+# SonarQube
+SONAR_TOKEN=your-sonarqube-token
+
+# Dependency-Track
+DTRACK_API_KEY=your-dtrack-api-key
+
+# =============================================================================
+# MCP Server / CICD Agent Configuration
+# =============================================================================
+
+# Service URLs
+CICD_TRIVY_URL=http://localhost:4954
+CICD_SONARQUBE_URL=http://localhost:9000
+CICD_DTRACK_URL=http://localhost:8082
+CICD_GITEA_URL=http://localhost:3000
+CICD_DRONE_URL=http://localhost:8080
+CICD_REGISTRY_URL=http://localhost:5000
+
+# Authentication (copy from above or generate new)
+CICD_SONAR_TOKEN=${SONAR_TOKEN}
+CICD_DTRACK_API_KEY=${DTRACK_API_KEY}
+CICD_GITEA_TOKEN=your-gitea-personal-access-token
+CICD_DRONE_TOKEN=your-drone-token
+
+# Anthropic API (for CICD Agent only)
+ANTHROPIC_API_KEY=sk-ant-your-api-key
+
+# =============================================================================
+# Advanced Feature Configuration
+# =============================================================================
+
+# Vulnerability Database
+CICD_VULN_DB_PATH=~/.cicd/vuln-db
+CICD_VULN_DB_AUTO_SYNC=true
+CICD_VULN_DB_SYNC_INTERVAL=24
+
+# Scheduler
+CICD_SCHEDULER_ENABLED=true
+CICD_SCHEDULER_DATA_PATH=~/.cicd/schedules
+CICD_SCHEDULER_TIMEZONE=UTC
+
+# Compliance
+CICD_COMPLIANCE_TREND_PATH=~/.cicd/trends
+CICD_COMPLIANCE_TREND_RETENTION=90
+
+# Logging
+CICD_LOG_LEVEL=info
 ```

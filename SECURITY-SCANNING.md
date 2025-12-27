@@ -2,6 +2,19 @@
 
 Your CI/CD platform now includes enterprise-grade security scanning tools!
 
+## New Features (v2.0)
+
+In addition to basic scanning, the platform now includes:
+
+| Feature | Description | Documentation |
+|---------|-------------|---------------|
+| **Compliance Reporting** | Map findings to SOC2, HIPAA, PCI-DSS, CIS | [Features Guide](docs/FEATURES.md#1-compliance-reporting-issue-15) |
+| **OPA/Rego Policies** | Custom security policies in Rego | [Features Guide](docs/FEATURES.md#2-oparego-policy-engine-issue-16) |
+| **Scheduled Scanning** | Automated cron-based scans | [Features Guide](docs/FEATURES.md#3-scheduled-scanning-issue-17) |
+| **Offline VulnDB** | Air-gapped environment support | [Features Guide](docs/FEATURES.md#4-offline-vulnerability-database-issue-18) |
+
+See the [Cheat Sheet](docs/CHEAT-SHEET.md) for quick tool reference.
+
 ## Security Tools Overview
 
 | Tool | Purpose | URL | Default Login |
@@ -582,3 +595,140 @@ This gives you:
 - Container image scanning
 
 All with minimal resource usage!
+
+---
+
+## Advanced Features
+
+### Compliance Reporting
+
+Check compliance status against industry frameworks:
+
+```yaml
+steps:
+  - name: compliance-check
+    image: node:20-alpine
+    commands:
+      # Using the CICD Agent
+      - npx cicd-agent compliance_check_status \
+          --image my-image:tag \
+          --frameworks SOC2,PCI-DSS
+```
+
+Or generate HTML reports for audits:
+
+```yaml
+  - name: compliance-report
+    image: node:20-alpine
+    commands:
+      - npx cicd-agent compliance_generate_report \
+          --image my-image:tag \
+          --format html \
+          --title "Release Compliance Report"
+```
+
+### OPA/Rego Policy Enforcement
+
+Enforce custom security policies:
+
+```yaml
+steps:
+  - name: policy-gate
+    image: node:20-alpine
+    commands:
+      # Block builds with critical vulnerabilities
+      - npx cicd-agent opa_evaluate_policy \
+          --image my-image:tag \
+          --policy vulnerability-threshold \
+          --thresholds.critical 0 \
+          --thresholds.high 5
+```
+
+Available built-in policies:
+- `vulnerability-threshold` - Enforce vuln count limits
+- `license-compliance` - Block forbidden licenses
+- `secrets-detection` - Zero tolerance for secrets
+- `container-security` - Container best practices
+- `quality-gate` - Code quality requirements
+
+### Scheduled Security Scans
+
+Set up automated nightly scans:
+
+```yaml
+# Using MCP tools or CICD Agent
+scheduler_create_job:
+  name: "nightly-prod-scan"
+  cron: "@daily"
+  target:
+    type: image
+    value: production:latest
+  notifications:
+    webhooks:
+      - url: https://hooks.slack.com/services/xxx
+        type: slack
+        onFailure: true
+```
+
+### Offline Scanning (Air-Gapped Environments)
+
+For environments without internet access:
+
+```yaml
+# Step 1: Sync database (on connected machine)
+steps:
+  - name: sync-vuln-db
+    image: node:20-alpine
+    commands:
+      - npx cicd-agent vuln_db_sync
+
+# Step 2: Scan offline (no internet required)
+  - name: offline-scan
+    image: node:20-alpine
+    commands:
+      - npx cicd-agent trivy_scan_offline \
+          --image my-image:tag \
+          --ignoreUnfixed true
+```
+
+---
+
+## MCP and Agent Tool Integration
+
+All scanning capabilities are available through two interfaces:
+
+### MCP Server (Claude Integration)
+
+Configure in Claude Desktop or Cline:
+
+```json
+{
+  "mcpServers": {
+    "cicd-security": {
+      "command": "node",
+      "args": ["path/to/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+### CICD Agent (CLI/CI Integration)
+
+Use in pipelines or command line:
+
+```bash
+# Install
+npm install -g @cicd/agent
+
+# Configure
+export CICD_TRIVY_URL=http://localhost:4954
+export CICD_SONARQUBE_URL=http://localhost:9000
+
+# Run scans
+cicd-agent trivy_scan_image --image nginx:latest
+cicd-agent compliance_check_status --image nginx:latest --frameworks SOC2
+```
+
+### Full Tool Reference
+
+See the [Cheat Sheet](docs/CHEAT-SHEET.md) for all 25 security tools.

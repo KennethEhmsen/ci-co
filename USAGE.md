@@ -10,6 +10,9 @@
 6. [Secrets Management](#secrets-management)
 7. [Multi-Stage Pipelines](#multi-stage-pipelines)
 8. [Advanced Workflows](#advanced-workflows)
+9. [MCP Server Usage](#mcp-server-usage)
+10. [CICD Agent Usage](#cicd-agent-usage)
+11. [Security Tools Reference](#security-tools-reference)
 
 ---
 
@@ -828,3 +831,250 @@ drone repo disable owner/repo
 - Add health checks to services
 - Set reasonable timeouts
 - Handle failures gracefully with notifications
+
+---
+
+## MCP Server Usage
+
+The MCP (Model Context Protocol) server enables Claude AI to interact directly with the CI/CD platform through 60+ tools.
+
+### Installation
+
+```powershell
+cd mcp-server
+npm install
+npm run build
+```
+
+### Configuration for Claude Desktop
+
+Add to your Claude Desktop configuration (`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "cicd-platform": {
+      "command": "node",
+      "args": ["C:/path/to/ci-co/mcp-server/dist/index.js"],
+      "env": {
+        "CICD_TRIVY_URL": "http://localhost:4954",
+        "CICD_SONARQUBE_URL": "http://localhost:9000",
+        "CICD_DTRACK_URL": "http://localhost:8082",
+        "CICD_GITEA_URL": "http://localhost:3000",
+        "CICD_DRONE_URL": "http://localhost:8080",
+        "CICD_REGISTRY_URL": "http://localhost:5000"
+      }
+    }
+  }
+}
+```
+
+### Configuration for Cline/Continue
+
+```json
+{
+  "mcpServers": {
+    "cicd-platform": {
+      "command": "node",
+      "args": ["./mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+### Available Tool Categories
+
+| Category | Tool Count | Description |
+|----------|------------|-------------|
+| Trivy Scanning | 11 | Image and path vulnerability scanning |
+| SonarQube | 5 | Code quality and SAST |
+| Dependency-Track | 5 | SCA and SBOM management |
+| Gitea | 11 | Git repository management |
+| Drone CI | 5 | CI/CD pipeline control |
+| Registry | 6 | Docker registry operations |
+| Compliance | 7 | Framework compliance reporting |
+| OPA/Rego | 5 | Policy evaluation |
+| Scheduler | 7 | Automated scan scheduling |
+| VulnDB | 6 | Offline vulnerability database |
+
+### Example Conversation with Claude
+
+```
+User: Scan the nginx:latest image for vulnerabilities
+
+Claude: I'll scan the nginx:latest image using Trivy.
+[Uses trivy_scan_image tool]
+
+Found 23 vulnerabilities:
+- 0 CRITICAL
+- 5 HIGH
+- 18 MEDIUM
+
+Would you like me to check compliance status or generate a report?
+```
+
+---
+
+## CICD Agent Usage
+
+The CICD Agent is a standalone CLI tool that can be used in scripts, CI/CD pipelines, or interactively.
+
+### Installation
+
+```powershell
+cd cicd-agent
+npm install
+npm run build
+
+# Global install (optional)
+npm link
+```
+
+### Environment Variables
+
+```powershell
+# Required for API access
+$env:ANTHROPIC_API_KEY = "sk-ant-xxx"
+
+# Service URLs (optional, uses defaults)
+$env:CICD_TRIVY_URL = "http://localhost:4954"
+$env:CICD_SONARQUBE_URL = "http://localhost:9000"
+$env:CICD_DTRACK_URL = "http://localhost:8082"
+$env:CICD_GITEA_URL = "http://localhost:3000"
+$env:CICD_DRONE_URL = "http://localhost:8080"
+$env:CICD_REGISTRY_URL = "http://localhost:5000"
+
+# Optional authentication
+$env:CICD_SONAR_TOKEN = "your-token"
+$env:CICD_DTRACK_API_KEY = "your-key"
+$env:CICD_GITEA_TOKEN = "your-token"
+$env:CICD_DRONE_TOKEN = "your-token"
+```
+
+### Interactive Mode
+
+```powershell
+# Start interactive agent
+node dist/index.js
+
+# Example prompts:
+> Scan nginx:latest for vulnerabilities
+> Check SOC2 compliance for the scan results
+> Create a nightly scan schedule for production images
+> Generate a compliance report in HTML format
+```
+
+### Script Mode
+
+```powershell
+# Single command execution
+node dist/index.js "Scan localhost:5000/myapp:latest and check PCI-DSS compliance"
+
+# Piped input
+echo "List all scheduled scans" | node dist/index.js
+```
+
+### CI/CD Pipeline Integration
+
+```yaml
+# Drone CI example
+steps:
+  - name: security-scan
+    image: node:20-alpine
+    environment:
+      ANTHROPIC_API_KEY:
+        from_secret: anthropic_key
+    commands:
+      - npm install -g @cicd/agent
+      - cicd-agent "Scan ${DRONE_REPO}:${DRONE_COMMIT_SHA:0:8} and fail if critical vulnerabilities found"
+```
+
+---
+
+## Security Tools Reference
+
+### Quick Reference Table
+
+| Tool | Purpose | Example |
+|------|---------|---------|
+| `trivy_scan_image` | Scan Docker image | `{"image": "nginx:latest"}` |
+| `trivy_scan_path` | Scan local directory | `{"path": "/app/src"}` |
+| `compliance_check_status` | Check framework compliance | `{"image": "app:v1", "frameworks": ["SOC2"]}` |
+| `compliance_generate_report` | Generate audit report | `{"image": "app:v1", "format": "html"}` |
+| `opa_evaluate_policy` | Evaluate security policy | `{"image": "app:v1", "policy": "vulnerability-threshold"}` |
+| `scheduler_create_job` | Create scheduled scan | `{"name": "nightly", "cron": "@daily"}` |
+| `vuln_db_sync` | Download vuln database | `{"force": true}` |
+| `trivy_scan_offline` | Scan without internet | `{"image": "app:v1"}` |
+
+### Detailed Documentation
+
+- **Feature Overview**: [docs/FEATURES.md](docs/FEATURES.md)
+- **Tool Cheat Sheet**: [docs/CHEAT-SHEET.md](docs/CHEAT-SHEET.md)
+- **Security Scanning**: [SECURITY-SCANNING.md](SECURITY-SCANNING.md)
+
+### Common Workflows
+
+#### 1. Basic Security Scan
+
+```json
+// Step 1: Scan image
+{ "tool": "trivy_scan_image", "input": { "image": "myapp:latest" } }
+
+// Step 2: Check compliance
+{ "tool": "compliance_check_status", "input": { "image": "myapp:latest", "frameworks": ["SOC2"] } }
+```
+
+#### 2. Policy-Gated Pipeline
+
+```json
+// Evaluate against vulnerability thresholds
+{
+  "tool": "opa_evaluate_policy",
+  "input": {
+    "image": "myapp:latest",
+    "policy": "vulnerability-threshold",
+    "thresholds": { "critical": 0, "high": 5 }
+  }
+}
+```
+
+#### 3. Scheduled Monitoring
+
+```json
+// Create nightly scan
+{
+  "tool": "scheduler_create_job",
+  "input": {
+    "name": "production-nightly",
+    "cron": "0 2 * * *",
+    "target": { "type": "image", "value": "production:latest" },
+    "notifications": {
+      "webhooks": [{
+        "url": "https://hooks.slack.com/xxx",
+        "type": "slack",
+        "onFailure": true
+      }]
+    }
+  }
+}
+```
+
+#### 4. Compliance Trending
+
+```json
+// Record daily snapshot
+{ "tool": "compliance_trend_record", "input": { "target": "prod-api", "image": "prod-api:latest" } }
+
+// Get 30-day trend
+{ "tool": "compliance_trend_get", "input": { "target": "prod-api", "days": 30 } }
+```
+
+#### 5. Air-Gapped Scanning
+
+```json
+// Sync database (requires internet)
+{ "tool": "vuln_db_sync", "input": {} }
+
+// Scan offline (no internet required)
+{ "tool": "trivy_scan_offline", "input": { "image": "internal:latest" } }
+```
