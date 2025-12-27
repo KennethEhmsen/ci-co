@@ -150,17 +150,17 @@ export function validatePolicySchema(policy: unknown): PolicyValidationResult {
 
   // Optional: rules (must be array)
   if (obj.rules !== undefined) {
-    if (!Array.isArray(obj.rules)) {
-      errors.push({
-        path: "rules",
-        message: "Rules must be an array",
-      });
-    } else {
+    if (Array.isArray(obj.rules)) {
       // Validate each rule
       obj.rules.forEach((rule, index) => {
         const ruleErrors = validateRule(rule, `rules[${index}]`);
         errors.push(...ruleErrors.errors);
         warnings.push(...ruleErrors.warnings);
+      });
+    } else {
+      errors.push({
+        path: "rules",
+        message: "Rules must be an array",
       });
     }
   }

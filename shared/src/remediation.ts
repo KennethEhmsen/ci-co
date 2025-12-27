@@ -230,9 +230,7 @@ function mergeSuggestions(suggestions: RemediationSuggestion[]): RemediationSugg
     const key = `${suggestion.packageManager}:${suggestion.package}`;
     const existing = byPackage.get(key);
 
-    if (!existing) {
-      byPackage.set(key, suggestion);
-    } else {
+    if (existing) {
       // Merge CVEs fixed
       const allCves = new Set([...existing.cvesFixed, ...suggestion.cvesFixed]);
       existing.cvesFixed = Array.from(allCves);
@@ -255,6 +253,8 @@ function mergeSuggestions(suggestions: RemediationSuggestion[]): RemediationSugg
         );
         existing.breaking = isBreakingChange(existing.currentVersion, suggestion.fixedVersion);
       }
+    } else {
+      byPackage.set(key, suggestion);
     }
   }
 
