@@ -670,6 +670,49 @@ function formatMoreViolationsText(totalCount: number): string {
 }
 
 /**
+ * Format a single violation row for the table.
+ */
+function formatViolationRow(v: ComplianceViolation): string {
+  return `
+    <tr>
+      <td><strong>${escapeHtml(v.control.id)}</strong><br><small>${escapeHtml(v.control.name)}</small></td>
+      <td>${formatPackageCell(v.vulnerability.id, v.vulnerability.package)}</td>
+      <td><span class="severity-badge severity-${normalizeSeverity(v.vulnerability.severity)}">${escapeHtml(v.vulnerability.severity)}</span></td>
+      <td>${new Date(v.dueDate).toLocaleDateString()}</td>
+    </tr>
+  `;
+}
+
+/**
+ * Format the violations section for a framework.
+ */
+function formatViolationsSection(violations: ComplianceViolation[]): string {
+  if (violations.length === 0) {
+    return '<p style="color: #48bb78;">All controls passing</p>';
+  }
+
+  const rows = violations.slice(0, 10).map(formatViolationRow).join("");
+  const moreText = formatMoreViolationsText(violations.length);
+
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Control</th>
+          <th>Vulnerability</th>
+          <th>Severity</th>
+          <th>Due Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+    ${moreText}
+  `;
+}
+
+/**
  * Generate an HTML compliance report with professional styling.
  */
 export function generateComplianceHtml(
@@ -830,38 +873,7 @@ export function generateComplianceHtml(
             ${summary.passingControls} of ${summary.totalControls} controls passing |
             ${summary.violations.length} violations found
           </p>
-          ${
-            summary.violations.length > 0
-              ? `
-          <table>
-            <thead>
-              <tr>
-                <th>Control</th>
-                <th>Vulnerability</th>
-                <th>Severity</th>
-                <th>Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${summary.violations
-                .slice(0, 10)
-                .map(
-                  (v) => `
-                <tr>
-                  <td><strong>${escapeHtml(v.control.id)}</strong><br><small>${escapeHtml(v.control.name)}</small></td>
-                  <td>${formatPackageCell(v.vulnerability.id, v.vulnerability.package)}</td>
-                  <td><span class="severity-badge severity-${normalizeSeverity(v.vulnerability.severity)}">${escapeHtml(v.vulnerability.severity)}</span></td>
-                  <td>${new Date(v.dueDate).toLocaleDateString()}</td>
-                </tr>
-              `
-                )
-                .join("")}
-            </tbody>
-          </table>
-          ${formatMoreViolationsText(summary.violations.length)}
-          `
-              : '<p style="color: #48bb78;">All controls passing</p>'
-          }
+          ${formatViolationsSection(summary.violations)}
         </div>
       `;
       })
