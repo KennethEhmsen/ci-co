@@ -183,59 +183,41 @@ class MetricsCollector {
     cacheSizes?: Record<string, number>;
     rateLimiterQueues?: Record<string, number>;
   }): MetricsSnapshot {
-    const metrics: CollectedMetric[] = [];
-
-    // Scan total counter
-    metrics.push(
+    // Collect all core metrics
+    const metrics: CollectedMetric[] = [
+      // Scan total counter
       this.collectCounter(METRICS.scanTotal, this.scanCounts, (key) => {
         const [targetType, status] = key.split(":");
         return { target_type: targetType, status };
-      })
-    );
-
-    // Scan duration histogram
-    metrics.push(this.collectHistogram());
-
-    // Vulnerabilities counter
-    metrics.push(
+      }),
+      // Scan duration histogram
+      this.collectHistogram(),
+      // Vulnerabilities counter
       this.collectCounter(METRICS.vulnerabilitiesTotal, this.vulnerabilityCounts, (key) => ({
         severity: key,
-      }))
-    );
-
-    // Scan errors counter
-    metrics.push(
+      })),
+      // Scan errors counter
       this.collectCounter(METRICS.scanErrorsTotal, this.errorCounts, (key) => {
         const [targetType, errorType] = key.split(":");
         return { target_type: targetType, error_type: errorType };
-      })
-    );
-
-    // Circuit breaker state gauge
-    metrics.push(this.collectCircuitBreakerState());
-
-    // Circuit breaker failures counter
-    metrics.push(
+      }),
+      // Circuit breaker state gauge
+      this.collectCircuitBreakerState(),
+      // Circuit breaker failures counter
       this.collectCounter(
         METRICS.circuitBreakerFailures,
         this.circuitBreakerFailureCounts,
         (key) => ({ service: key })
-      )
-    );
-
-    // Cache hits counter
-    metrics.push(
+      ),
+      // Cache hits counter
       this.collectCounter(METRICS.cacheHits, this.cacheHitCounts, (key) => ({
         cache: key,
-      }))
-    );
-
-    // Cache misses counter
-    metrics.push(
+      })),
+      // Cache misses counter
       this.collectCounter(METRICS.cacheMisses, this.cacheMissCounts, (key) => ({
         cache: key,
-      }))
-    );
+      })),
+    ];
 
     // Cache size gauge (if provided)
     if (options?.cacheSizes) {
@@ -445,8 +427,10 @@ function formatMetric(metric: CollectedMetric): string {
 
       // Sum and count
       const sumLabels = baseLabels || "";
-      lines.push(`${baseName}_sum${sumLabels} ${histValue.sum}`);
-      lines.push(`${baseName}_count${sumLabels} ${histValue.count}`);
+      lines.push(
+        `${baseName}_sum${sumLabels} ${histValue.sum}`,
+        `${baseName}_count${sumLabels} ${histValue.count}`
+      );
     } else {
       const simpleValue = value as CounterValue | GaugeValue;
       const labels = formatLabels(simpleValue.labels);

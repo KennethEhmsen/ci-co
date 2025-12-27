@@ -5,7 +5,7 @@
  * for continuous security monitoring.
  */
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { trivyScanImage, trivyScanPath } from "./handlers.js";
 import { scanRegistry } from "./registry-scanner.js";
 import { sendWebhooks, createScanSummary } from "./webhook.js";
@@ -827,7 +827,7 @@ export function stopScheduler(): void {
  * Save schedules to a file
  */
 export async function saveSchedulesToFile(filePath: string): Promise<void> {
-  const { writeFile } = await import("fs/promises");
+  const { writeFile } = await import("node:fs/promises");
   const schedules = Array.from(scheduleStore.values());
   await writeFile(filePath, JSON.stringify(schedules, null, 2), "utf-8");
 }
@@ -836,7 +836,7 @@ export async function saveSchedulesToFile(filePath: string): Promise<void> {
  * Load schedules from a file
  */
 export async function loadSchedulesFromFile(filePath: string): Promise<void> {
-  const { readFile } = await import("fs/promises");
+  const { readFile } = await import("node:fs/promises");
 
   try {
     const content = await readFile(filePath, "utf-8");

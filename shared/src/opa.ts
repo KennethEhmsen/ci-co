@@ -17,7 +17,7 @@ import type {
   SecurityDashboardResult,
 } from "./types.js";
 import type { ScanResults } from "./policy.js";
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 
 // =============================================================================
 // BUILT-IN REGO POLICIES (for reference and documentation)

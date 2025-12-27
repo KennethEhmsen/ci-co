@@ -159,27 +159,28 @@ export function formatSlackMessage(summary: WebhookScanSummary): SlackWebhookPay
 
   // Add top findings if available
   if (summary.topFindings && summary.topFindings.length > 0) {
-    blocks.push({ type: "divider" });
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "*Top Findings:*",
-      },
-    });
-
     const findingsText = summary.topFindings
       .slice(0, 5)
       .map((f) => `• \`${f.id}\` [${f.severity}] ${f.title}${f.package ? ` (${f.package})` : ""}`)
       .join("\n");
 
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: findingsText,
+    blocks.push(
+      { type: "divider" },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "*Top Findings:*",
+        },
       },
-    });
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: findingsText,
+        },
+      }
+    );
   }
 
   // Add details link if available
@@ -349,20 +350,21 @@ export function formatTeamsMessage(summary: WebhookScanSummary): TeamsWebhookPay
 
   // Add top findings if available
   if (summary.topFindings && summary.topFindings.length > 0) {
-    body.push({
-      type: "TextBlock",
-      text: "Top Findings",
-      weight: "bolder",
-      size: "medium",
-    });
-
-    body.push({
-      type: "FactSet",
-      facts: summary.topFindings.slice(0, 5).map((f) => ({
-        title: `${f.id} [${f.severity}]`,
-        value: `${f.title}${f.package ? ` (${f.package})` : ""}`,
-      })),
-    });
+    body.push(
+      {
+        type: "TextBlock",
+        text: "Top Findings",
+        weight: "bolder",
+        size: "medium",
+      },
+      {
+        type: "FactSet",
+        facts: summary.topFindings.slice(0, 5).map((f) => ({
+          title: `${f.id} [${f.severity}]`,
+          value: `${f.title}${f.package ? ` (${f.package})` : ""}`,
+        })),
+      }
+    );
   }
 
   const actions: Array<{ type: string; title: string; url: string }> = [];

@@ -473,30 +473,28 @@ export function formatRemediationAsMarkdown(plan: RemediationPlan): string {
   ];
 
   for (const suggestion of plan.suggestions) {
-    lines.push(`### ${suggestion.package}`);
-    lines.push("");
-    lines.push(`- **Vulnerability:** ${suggestion.vulnerability.id}`);
-    lines.push(`- **Severity:** ${suggestion.vulnerability.severity}`);
-    lines.push(`- **Current Version:** ${suggestion.currentVersion}`);
-    lines.push(`- **Fixed Version:** ${suggestion.fixedVersion}`);
+    lines.push(
+      `### ${suggestion.package}`,
+      "",
+      `- **Vulnerability:** ${suggestion.vulnerability.id}`,
+      `- **Severity:** ${suggestion.vulnerability.severity}`,
+      `- **Current Version:** ${suggestion.currentVersion}`,
+      `- **Fixed Version:** ${suggestion.fixedVersion}`
+    );
     if (suggestion.breaking) {
       lines.push(`- **⚠️ Breaking Change:** Major version update`);
     }
-    lines.push(`- **CVEs Fixed:** ${suggestion.cvesFixed.join(", ")}`);
-    lines.push("");
-    lines.push("```bash");
-    lines.push(suggestion.command);
-    lines.push("```");
-    lines.push("");
+    lines.push(
+      `- **CVEs Fixed:** ${suggestion.cvesFixed.join(", ")}`,
+      "",
+      "```bash",
+      suggestion.command,
+      "```",
+      ""
+    );
   }
 
-  lines.push("## Quick Fix Commands");
-  lines.push("");
-  lines.push("```bash");
-  for (const command of plan.commands) {
-    lines.push(command);
-  }
-  lines.push("```");
+  lines.push("## Quick Fix Commands", "", "```bash", ...plan.commands, "```");
 
   return lines.join("\n");
 }

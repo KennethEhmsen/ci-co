@@ -5,7 +5,7 @@
  * vulnerabilities. Supports scan history storage for tracking changes over time.
  */
 
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 import type {
   TrivyScanResult,
   TrivyVulnerability,

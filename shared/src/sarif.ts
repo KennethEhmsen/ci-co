@@ -59,9 +59,9 @@ function generateFingerprint(ruleId: string, location: string, message: string):
  * Normalize file path for SARIF (use forward slashes, remove base path)
  */
 function normalizePath(filePath: string, basePath?: string): string {
-  let normalized = filePath.replace(/\\/g, "/");
+  let normalized = filePath.replaceAll("\\", "/");
   if (basePath) {
-    const normalizedBase = basePath.replace(/\\/g, "/");
+    const normalizedBase = basePath.replaceAll("\\", "/");
     if (normalized.startsWith(normalizedBase)) {
       normalized = normalized.slice(normalizedBase.length);
     }

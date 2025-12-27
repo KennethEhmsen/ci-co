@@ -6,9 +6,9 @@
  * expiration dates and audit trail integration.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import * as crypto from "crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as crypto from "node:crypto";
 import * as yaml from "yaml";
 import { minimatch } from "minimatch";
 import type {
@@ -273,8 +273,8 @@ export function matchesVersion(version: string, constraint: string): boolean {
  */
 export function matchesPath(filePath: string, pattern: string): boolean {
   // Normalize paths
-  const normalizedPath = filePath.replace(/\\/g, "/");
-  const normalizedPattern = pattern.replace(/\\/g, "/");
+  const normalizedPath = filePath.replaceAll("\\", "/");
+  const normalizedPattern = pattern.replaceAll("\\", "/");
 
   return minimatch(normalizedPath, normalizedPattern, { dot: true });
 }
@@ -634,17 +634,17 @@ export function applySuppressions(
 export function generateSuppressionReport(suppressions: Suppression[]): string {
   const lines: string[] = [];
 
-  lines.push("# Vulnerability Suppression Report");
-  lines.push(`Generated: ${new Date().toISOString()}`);
-  lines.push(`Total Suppressions: ${suppressions.length}`);
-  lines.push("");
+  lines.push(
+    "# Vulnerability Suppression Report",
+    `Generated: ${new Date().toISOString()}`,
+    `Total Suppressions: ${suppressions.length}`,
+    ""
+  );
 
   const active = filterExpired(suppressions);
   const expired = getExpiredSuppressions(suppressions);
 
-  lines.push(`Active: ${active.length}`);
-  lines.push(`Expired: ${expired.length}`);
-  lines.push("");
+  lines.push(`Active: ${active.length}`, `Expired: ${expired.length}`, "");
 
   // Group by type
   const byType = {
@@ -656,17 +656,16 @@ export function generateSuppressionReport(suppressions: Suppression[]): string {
   for (const [type, items] of Object.entries(byType)) {
     if (items.length === 0) continue;
 
-    lines.push(`## ${type.toUpperCase()} Suppressions (${items.length})`);
-    lines.push("");
+    lines.push(`## ${type.toUpperCase()} Suppressions (${items.length})`, "");
 
     for (const s of items) {
       const expiredTag = isExpired(s) ? " [EXPIRED]" : "";
       const expiresTag = s.expires ? ` (expires: ${s.expires})` : "";
-      lines.push(`- **${s.pattern}**${expiredTag}${expiresTag}`);
-      lines.push(`  - Reason: ${s.reason}`);
-      if (s.createdBy) lines.push(`  - Created by: ${s.createdBy}`);
-      if (s.notes) lines.push(`  - Notes: ${s.notes}`);
-      lines.push("");
+      const itemLines = [`- **${s.pattern}**${expiredTag}${expiresTag}`, `  - Reason: ${s.reason}`];
+      if (s.createdBy) itemLines.push(`  - Created by: ${s.createdBy}`);
+      if (s.notes) itemLines.push(`  - Notes: ${s.notes}`);
+      itemLines.push("");
+      lines.push(...itemLines);
     }
   }
 

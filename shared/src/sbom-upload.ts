@@ -411,8 +411,7 @@ function deriveProjectName(target: string, targetType: string): string {
     return imageName.split(":")[0];
   } else {
     // Extract directory name from path
-    // NOSONAR: These regexes are safe - linear patterns with no backtracking risk
-    const normalized = target.replace(/\\/g, "/").replace(/\/+$/, "");
+    const normalized = target.replaceAll("\\", "/").replace(/\/+$/, "");
     const parts = normalized.split("/");
     return parts[parts.length - 1] || "unknown";
   }
