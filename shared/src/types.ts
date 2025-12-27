@@ -2669,3 +2669,159 @@ export interface ComplianceCheckResult {
   /** Full report for details */
   report: ComplianceReport;
 }
+
+// =============================================================================
+// OPA/Rego Policy Types
+// =============================================================================
+
+/**
+ * A violation detected by OPA policy evaluation
+ */
+export interface OpaViolation {
+  /** Type of violation (e.g., "vulnerability_threshold", "license_violation") */
+  type: string;
+  /** Severity of the violation */
+  severity: "critical" | "high" | "medium" | "low";
+  /** Unique code for this violation type */
+  code: string;
+  /** Human-readable message describing the violation */
+  message: string;
+  /** Resource that caused the violation (e.g., package name) */
+  resource?: string;
+  /** Rego package that produced this violation */
+  package?: string;
+  /** Suggested remediation action */
+  remediation?: string;
+}
+
+/**
+ * Result of evaluating an OPA policy
+ */
+export interface OpaEvaluationResult {
+  /** Whether the policy allows the input (no critical violations) */
+  allow: boolean;
+  /** List of violations found during evaluation */
+  violations: OpaViolation[];
+  /** Metadata about the evaluation */
+  metadata: {
+    /** Name of the policy that was evaluated */
+    policyName: string;
+    /** Version of the policy */
+    policyVersion: string;
+    /** ISO timestamp when evaluation occurred */
+    evaluatedAt: string;
+    /** Hash of the input for caching/debugging */
+    inputHash?: string;
+  };
+}
+
+/**
+ * Information about an available OPA policy
+ */
+export interface OpaPolicyInfo {
+  /** Policy name (e.g., "vulnerability-threshold") */
+  name: string;
+  /** Policy version */
+  version: string;
+  /** Description of what the policy does */
+  description?: string;
+  /** Entry points available in the policy */
+  entrypoints: string[];
+  /** Number of rules in the policy */
+  ruleCount: number;
+  /** Where the policy came from */
+  source: "builtin" | "file" | "inline";
+}
+
+/**
+ * Vulnerability counts for OPA input
+ */
+export interface OpaVulnerabilityCounts {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  unknown?: number;
+  total: number;
+}
+
+/**
+ * Input structure for OPA policy evaluation
+ */
+export interface OpaEvaluationInput {
+  /** Scan results to evaluate */
+  scan: {
+    /** Vulnerability counts by severity */
+    vulnerabilities: OpaVulnerabilityCounts;
+    /** License identifiers found (e.g., ["MIT", "GPL-3.0"]) */
+    licenses?: string[];
+    /** Whether secrets were detected */
+    secretsFound?: boolean;
+    /** Code coverage percentage (0-100) */
+    codeCoverage?: number;
+    /** Whether quality gate passed */
+    qualityGatePassed?: boolean;
+  };
+  /** Docker image name if scanning an image */
+  image?: string;
+  /** File path if scanning a directory */
+  path?: string;
+  /** Thresholds for policy evaluation */
+  thresholds?: {
+    critical?: number;
+    high?: number;
+    medium?: number;
+    low?: number;
+    coverage?: number;
+  };
+  /** Additional metadata for policy evaluation */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for OPA policy evaluation
+ */
+export interface OpaPolicyOptions {
+  /** Policy name (for builtin) or inline Rego code */
+  policy: string;
+  /** Policy entrypoint (default: "security/allow") */
+  entrypoint?: string;
+  /** External data to provide to the policy */
+  data?: Record<string, unknown>;
+  /** Fail on undefined result (default: false) */
+  strict?: boolean;
+}
+
+/**
+ * Options for compiling Rego to WASM
+ */
+export interface OpaCompileOptions {
+  /** Policy entrypoint */
+  entrypoint: string;
+  /** Output path for the WASM file */
+  outputPath?: string;
+  /** Enable optimization */
+  optimize?: boolean;
+}
+
+/**
+ * Result of Rego to WASM compilation
+ */
+export interface OpaCompileResult {
+  /** Whether compilation succeeded */
+  success: boolean;
+  /** Path to the generated WASM file */
+  wasmPath?: string;
+  /** Error message if compilation failed */
+  error?: string;
+}
+
+/**
+ * Result of Rego syntax validation
+ */
+export interface OpaValidationResult {
+  /** Whether the Rego syntax is valid */
+  valid: boolean;
+  /** Syntax errors if invalid */
+  errors?: string[];
+}

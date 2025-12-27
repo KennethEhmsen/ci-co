@@ -91,6 +91,14 @@ import {
   recordComplianceTrend,
   getComplianceTrend,
   checkComplianceStatus,
+  // OPA/Rego
+  listBuiltinPolicies,
+  getBuiltinPolicyInfo,
+  getBuiltinPolicy,
+  validateRegoSyntax,
+  evaluateOpaPolicy,
+  trivyResultToOpaInput,
+  createOpaInput,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -1686,6 +1694,109 @@ export const toolDefinitions = [
       properties: {},
     },
   },
+  // ==========================================================================
+  // OPA/Rego Policy Tools
+  // ==========================================================================
+  {
+    name: "opa_list_policies",
+    description:
+      "List all available built-in OPA/Rego security policies. " +
+      "Returns policy names, descriptions, entrypoints, and rule counts.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "opa_get_policy_info",
+    description:
+      "Get detailed information about a specific built-in OPA/Rego policy including its Rego source code.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description:
+            "Policy name (e.g., 'vulnerability-threshold', 'license-compliance', 'secrets-detection', 'container-security', 'quality-gate')",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "opa_validate_policy",
+    description:
+      "Validate Rego policy syntax. Checks for common syntax errors like missing package declarations, unbalanced braces, and missing rule definitions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policy: {
+          type: "string",
+          description: "Rego policy source code to validate",
+        },
+      },
+      required: ["policy"],
+    },
+  },
+  {
+    name: "opa_evaluate_policy",
+    description:
+      "Evaluate scan results against an OPA/Rego policy. " +
+      "Can use a built-in policy name or provide inline Rego code. " +
+      "Scans an image or path first, then evaluates the policy against the results.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Docker image to scan before policy evaluation",
+        },
+        path: {
+          type: "string",
+          description: "Local path to scan before policy evaluation",
+        },
+        policy: {
+          type: "string",
+          description:
+            "Policy name (built-in) or inline Rego code. " +
+            "Built-in policies: 'vulnerability-threshold', 'license-compliance', 'secrets-detection', 'container-security', 'quality-gate'",
+        },
+        severity: {
+          type: "string",
+          description: "Severity filter for scan (default: HIGH,CRITICAL)",
+        },
+        thresholds: {
+          type: "object",
+          properties: {
+            critical: { type: "number", description: "Max critical vulnerabilities" },
+            high: { type: "number", description: "Max high vulnerabilities" },
+            medium: { type: "number", description: "Max medium vulnerabilities" },
+            low: { type: "number", description: "Max low vulnerabilities" },
+            coverage: { type: "number", description: "Min code coverage percentage" },
+          },
+          description: "Threshold values for policy evaluation",
+        },
+        licenses: {
+          type: "array",
+          items: { type: "string" },
+          description: "License identifiers to check (for license-compliance policy)",
+        },
+        secretsFound: {
+          type: "boolean",
+          description: "Whether secrets were found (for secrets-detection policy)",
+        },
+        codeCoverage: {
+          type: "number",
+          description: "Code coverage percentage (for quality-gate policy)",
+        },
+        qualityGatePassed: {
+          type: "boolean",
+          description: "Whether quality gate passed (for quality-gate policy)",
+        },
+      },
+      required: ["policy"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -2454,6 +2565,126 @@ const complianceHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// OPA/Rego handlers
+const opaHandlers: Record<string, ToolHandler> = {
+  opa_list_policies: async () => {
+    const policies = listBuiltinPolicies();
+    return {
+      count: policies.length,
+      policies,
+    };
+  },
+
+  opa_get_policy_info: async (args) => {
+    const name = args?.name as string;
+    if (!name) {
+      return { error: "name is required" };
+    }
+
+    const info = getBuiltinPolicyInfo(name);
+    if (!info) {
+      return {
+        error: `Policy '${name}' not found. Available policies: vulnerability-threshold, license-compliance, secrets-detection, container-security, quality-gate`,
+      };
+    }
+
+    const source = getBuiltinPolicy(name);
+    return {
+      ...info,
+      source: source,
+    };
+  },
+
+  opa_validate_policy: async (args) => {
+    const policy = args?.policy as string;
+    if (!policy) {
+      return { error: "policy is required" };
+    }
+
+    const result = validateRegoSyntax(policy);
+    return result;
+  },
+
+  opa_evaluate_policy: async (args) => {
+    const policy = args?.policy as string;
+    if (!policy) {
+      return { error: "policy is required" };
+    }
+
+    const severity = (args?.severity as string) || "HIGH,CRITICAL";
+    let opaInput;
+
+    // If image or path specified, scan first
+    if (args?.image || args?.path) {
+      let scanResult;
+      if (args?.image) {
+        scanResult = await trivyScanImage(args.image as string, severity);
+      } else {
+        scanResult = await trivyScanPath(args.path as string, severity);
+      }
+
+      if ("error" in scanResult) {
+        return scanResult;
+      }
+
+      // Convert Trivy result to OPA input
+      opaInput = trivyResultToOpaInput(
+        scanResult,
+        args?.image as string | undefined,
+        args?.path as string | undefined
+      );
+
+      // Add additional fields from args
+      if (args?.licenses) {
+        opaInput.scan.licenses = args.licenses as string[];
+      }
+      if (args?.secretsFound !== undefined) {
+        opaInput.scan.secretsFound = args.secretsFound as boolean;
+      }
+      if (args?.codeCoverage !== undefined) {
+        opaInput.scan.codeCoverage = args.codeCoverage as number;
+      }
+      if (args?.qualityGatePassed !== undefined) {
+        opaInput.scan.qualityGatePassed = args.qualityGatePassed as boolean;
+      }
+      if (args?.thresholds) {
+        opaInput.thresholds = args.thresholds as {
+          critical?: number;
+          high?: number;
+          medium?: number;
+          low?: number;
+          coverage?: number;
+        };
+      }
+    } else {
+      // Create OPA input from provided args (no scan)
+      opaInput = createOpaInput({
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        licenses: args?.licenses as string[] | undefined,
+        secretsFound: args?.secretsFound as boolean | undefined,
+        codeCoverage: args?.codeCoverage as number | undefined,
+        qualityGatePassed: args?.qualityGatePassed as boolean | undefined,
+        image: args?.image as string | undefined,
+        path: args?.path as string | undefined,
+        thresholds: args?.thresholds as {
+          critical?: number;
+          high?: number;
+          medium?: number;
+          low?: number;
+          coverage?: number;
+        },
+      });
+    }
+
+    // Evaluate the policy
+    const result = await evaluateOpaPolicy(opaInput, { policy });
+    return result;
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -2467,6 +2698,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...schedulerHandlers,
   ...remediationHandlers,
   ...complianceHandlers,
+  ...opaHandlers,
 };
 
 export async function handleCallTool(

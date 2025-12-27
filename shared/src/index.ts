@@ -264,6 +264,16 @@ export type {
   ComplianceTrendResult,
   ComplianceCheckOptions,
   ComplianceCheckResult,
+  // OPA/Rego Types
+  OpaVulnerabilityCounts,
+  OpaViolation,
+  OpaEvaluationResult,
+  OpaPolicyInfo,
+  OpaEvaluationInput,
+  OpaPolicyOptions,
+  OpaCompileOptions,
+  OpaCompileResult,
+  OpaValidationResult,
 } from "./types.js";
 export {
   // Trivy
@@ -521,3 +531,31 @@ export {
   getComplianceTrendTargets,
   checkComplianceStatus,
 } from "./compliance.js";
+
+// OPA/Rego exports
+export {
+  BUILTIN_POLICIES,
+  listBuiltinPolicies,
+  getBuiltinPolicy,
+  getBuiltinPolicyInfo,
+  validateRegoSyntax,
+  evaluateOpaPolicy,
+  evaluateMultiplePolicies,
+  scanResultsToOpaInput,
+  trivyResultToOpaInput,
+  dashboardResultToOpaInput,
+  createOpaInput,
+} from "./opa.js";
+
+// OPA Compiler exports
+export {
+  isOpaInstalled,
+  getOpaVersion,
+  getOpaInstallInstructions,
+  compileRegoToWasm,
+  compileRegoFileToWasm,
+  loadWasmPolicy,
+  createPolicyBundle,
+  checkRegoSyntax,
+  formatRego,
+} from "./opa-compiler.js";

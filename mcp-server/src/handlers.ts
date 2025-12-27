@@ -115,4 +115,16 @@ export {
   clearComplianceTrends,
   getComplianceTrendTargets,
   checkComplianceStatus,
+  // OPA/Rego
+  BUILTIN_POLICIES,
+  listBuiltinPolicies,
+  getBuiltinPolicy,
+  getBuiltinPolicyInfo,
+  validateRegoSyntax,
+  evaluateOpaPolicy,
+  evaluateMultiplePolicies,
+  scanResultsToOpaInput,
+  trivyResultToOpaInput,
+  dashboardResultToOpaInput,
+  createOpaInput,
 } from "@cicd/shared";
