@@ -2,6 +2,8 @@
 
 This document provides a complete reference for all tools and handlers available in the CI/CD Security Platform.
 
+**Version:** 1.21.0 | **Total Tools:** 76
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -12,7 +14,13 @@ This document provides a complete reference for all tools and handlers available
   - [Gitea Tools](#gitea-tools)
   - [Drone CI Tools](#drone-ci-tools)
   - [Docker Registry Tools](#docker-registry-tools)
-  - [Platform Tools](#platform-tools)
+  - [Security Dashboard Tools](#security-dashboard-tools)
+  - [SARIF Reporting Tools](#sarif-reporting-tools)
+  - [Scheduler Tools](#scheduler-tools)
+  - [Remediation Tools](#remediation-tools)
+  - [Compliance Tools](#compliance-tools)
+  - [OPA/Rego Policy Tools](#oparego-policy-tools)
+  - [Vulnerability Database Tools](#vulnerability-database-tools)
 - [MCP Resources](#mcp-resources)
 - [Handler Functions](#handler-functions)
 - [Configuration](#configuration)
@@ -22,7 +30,7 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides 41 tools for security scanning and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides **76 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration
@@ -34,12 +42,19 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 | Category | Tools | Description |
 |----------|-------|-------------|
 | **Trivy** | 11 | Vulnerability, secret, license, IaC scanning + SBOM |
-| **SonarQube** | 5 | Code quality, SAST analysis, quality gates |
+| **SonarQube** | 4 | Code quality, SAST analysis, security hotspots |
 | **Dependency-Track** | 5 | Software composition analysis + SBOM upload |
-| **Gitea** | 12 | Git repos, branches, commits, PRs, issues |
+| **Gitea** | 6 | Git repos, branches, commits |
 | **Drone CI** | 5 | CI/CD pipeline management |
-| **Docker Registry** | 2 | Container image management |
-| **Platform** | 1 | Platform health monitoring |
+| **Container Registry** | 10 | Multi-cloud registry scanning (ECR, ACR, GCR, GHCR) |
+| **Security Dashboard** | 2 | Unified security aggregation |
+| **SARIF Reporting** | 2 | GitHub Code Scanning integration |
+| **Scheduler** | 9 | Cron-based automated security scans |
+| **Remediation** | 5 | Fix generation and prioritization |
+| **Compliance** | 7 | SOC2, HIPAA, PCI-DSS, CIS frameworks |
+| **OPA/Rego Policy** | 4 | Declarative policy enforcement |
+| **Vulnerability Database** | 6 | Offline scanning and CVE management |
+| **Total** | **76** | |
 
 ---
 
@@ -1263,6 +1278,653 @@ Check the health status of all CI/CD platform services.
     "trivy": { "status": "healthy", "statusCode": 200 },
     "registry": { "status": "healthy", "statusCode": 200 }
   }
+}
+```
+
+---
+
+### Security Dashboard Tools
+
+#### `security_scan_all`
+
+Run comprehensive security scan using all available tools.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "sonarProject": { "type": "string", "description": "SonarQube project key" }
+  }
+}
+```
+
+---
+
+#### `get_security_dashboard`
+
+Get unified security dashboard aggregating all security sources.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "sonarProject": { "type": "string", "description": "SonarQube project key" },
+    "severity": { "type": "string", "description": "Severity filter (default: HIGH,CRITICAL)" }
+  }
+}
+```
+
+---
+
+### SARIF Reporting Tools
+
+#### `sarif_generate`
+
+Generate SARIF 2.1.0 report from scan results.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "sources": { "type": "array", "items": { "type": "string" }, "description": "Sources: trivy, sonarqube, dtrack" },
+    "outputPath": { "type": "string", "description": "Output file path" }
+  }
+}
+```
+
+---
+
+#### `sarif_upload_github`
+
+Upload SARIF report to GitHub Code Scanning.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "sarifPath": { "type": "string", "description": "Path to SARIF file" },
+    "owner": { "type": "string", "description": "GitHub repo owner" },
+    "repo": { "type": "string", "description": "GitHub repo name" },
+    "ref": { "type": "string", "description": "Git ref (e.g., refs/heads/main)" },
+    "commitSha": { "type": "string", "description": "Commit SHA" },
+    "token": { "type": "string", "description": "GitHub token" }
+  },
+  "required": ["sarifPath", "owner", "repo", "ref", "commitSha", "token"]
+}
+```
+
+---
+
+### Scheduler Tools
+
+#### `schedule_create`
+
+Create a scheduled security scan job.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "description": "Job name" },
+    "cron": { "type": "string", "description": "Cron expression or alias (@daily, @weekly)" },
+    "target": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["image", "path", "registry"] },
+        "value": { "type": "string" },
+        "severity": { "type": "string" }
+      }
+    },
+    "enabled": { "type": "boolean" },
+    "notifications": { "type": "object" }
+  },
+  "required": ["name", "cron", "target"]
+}
+```
+
+---
+
+#### `schedule_list`
+
+List all scheduled scan jobs.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "enabled": { "type": "boolean", "description": "Filter by enabled status" }
+  }
+}
+```
+
+---
+
+#### `schedule_get`
+
+Get schedule details by ID.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "Schedule ID" }
+  },
+  "required": ["id"]
+}
+```
+
+---
+
+#### `schedule_update`
+
+Update schedule configuration.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "Schedule ID" },
+    "cron": { "type": "string" },
+    "enabled": { "type": "boolean" }
+  },
+  "required": ["id"]
+}
+```
+
+---
+
+#### `schedule_delete`
+
+Delete a scheduled job.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "Schedule ID" }
+  },
+  "required": ["id"]
+}
+```
+
+---
+
+#### `schedule_trigger`
+
+Manually trigger a scheduled scan.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "Schedule ID" }
+  },
+  "required": ["id"]
+}
+```
+
+---
+
+#### `schedule_history`
+
+Get execution history for a schedule.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "Schedule ID" },
+    "limit": { "type": "number", "description": "Max results (default: 10)" }
+  },
+  "required": ["id"]
+}
+```
+
+---
+
+#### `cron_validate`
+
+Validate a cron expression.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "expression": { "type": "string", "description": "Cron expression to validate" }
+  },
+  "required": ["expression"]
+}
+```
+
+---
+
+#### `scheduler_control`
+
+Start or stop the scheduler engine.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "action": { "type": "string", "enum": ["start", "stop", "status"] }
+  },
+  "required": ["action"]
+}
+```
+
+---
+
+### Remediation Tools
+
+#### `generate_remediations`
+
+Generate fix commands for vulnerabilities.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to analyze" }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `get_remediation_summary`
+
+Get text summary of remediations.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to analyze" }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `get_remediation_markdown`
+
+Get Markdown-formatted remediation report.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to analyze" }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `get_high_priority_fixes`
+
+Get CRITICAL and HIGH severity fixes only.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to analyze" }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+#### `get_safe_fixes`
+
+Get non-breaking upgrades only.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to analyze" },
+    "excludeBreaking": { "type": "boolean", "description": "Exclude breaking changes" }
+  },
+  "required": ["image"]
+}
+```
+
+---
+
+### Compliance Tools
+
+#### `compliance_get_frameworks`
+
+List available compliance frameworks.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+**Response:** SOC2, HIPAA, PCI-DSS, CIS frameworks with control counts.
+
+---
+
+#### `compliance_get_controls`
+
+Get controls for a specific framework.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "framework": { "type": "string", "description": "Framework ID (SOC2, HIPAA, PCI-DSS, CIS)" },
+    "controlId": { "type": "string", "description": "Optional specific control ID" }
+  },
+  "required": ["framework"]
+}
+```
+
+---
+
+#### `compliance_check_status`
+
+Check compliance pass/fail status.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "frameworks": { "type": "array", "items": { "type": "string" } },
+    "severity": { "type": "string" }
+  },
+  "required": ["image", "frameworks"]
+}
+```
+
+---
+
+#### `compliance_generate_report`
+
+Generate compliance report in JSON or HTML.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "frameworks": { "type": "array", "items": { "type": "string" } },
+    "format": { "type": "string", "enum": ["json", "html"] },
+    "title": { "type": "string" },
+    "organization": { "type": "string" }
+  },
+  "required": ["image", "frameworks"]
+}
+```
+
+---
+
+#### `compliance_trend_record`
+
+Record compliance snapshot for trend tracking.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "target": { "type": "string", "description": "Target identifier" },
+    "image": { "type": "string", "description": "Docker image" },
+    "frameworks": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["target", "image"]
+}
+```
+
+---
+
+#### `compliance_trend_get`
+
+Get compliance trends over time.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "target": { "type": "string", "description": "Target identifier" },
+    "days": { "type": "number", "description": "Number of days (default: 30)" }
+  },
+  "required": ["target"]
+}
+```
+
+---
+
+#### `compliance_trend_list_targets`
+
+List all targets with trend data.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+---
+
+### OPA/Rego Policy Tools
+
+#### `opa_list_policies`
+
+List all built-in OPA/Rego policies.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+**Response:** vulnerability-threshold, license-compliance, secrets-detection, container-security, quality-gate
+
+---
+
+#### `opa_get_policy_info`
+
+Get policy details and Rego source code.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "description": "Policy name" }
+  },
+  "required": ["name"]
+}
+```
+
+---
+
+#### `opa_validate_policy`
+
+Validate Rego policy syntax.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "policy": { "type": "string", "description": "Rego policy source code" }
+  },
+  "required": ["policy"]
+}
+```
+
+---
+
+#### `opa_evaluate_policy`
+
+Evaluate scan results against a policy.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "policy": { "type": "string", "description": "Policy name or inline Rego" },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "critical": { "type": "number" },
+        "high": { "type": "number" },
+        "medium": { "type": "number" }
+      }
+    }
+  },
+  "required": ["image", "policy"]
+}
+```
+
+---
+
+### Vulnerability Database Tools
+
+#### `vuln_db_sync`
+
+Download/update the vulnerability database.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "force": { "type": "boolean", "description": "Force sync regardless of age" },
+    "skipIfRecent": { "type": "number", "description": "Skip if synced within N hours" }
+  }
+}
+```
+
+---
+
+#### `vuln_db_status`
+
+Get database status and statistics.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+---
+
+#### `vuln_db_lookup`
+
+Look up a vulnerability by CVE ID.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "CVE ID (e.g., CVE-2024-1234)" }
+  },
+  "required": ["id"]
+}
+```
+
+---
+
+#### `vuln_db_search`
+
+Search vulnerabilities by criteria.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "packageName": { "type": "string" },
+    "ecosystem": { "type": "string", "description": "npm, pypi, go, maven, etc." },
+    "severity": { "type": "array", "items": { "type": "string" } },
+    "limit": { "type": "number" }
+  }
+}
+```
+
+---
+
+#### `trivy_scan_offline`
+
+Scan using local database only (no internet required).
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": { "type": "string", "description": "Docker image to scan" },
+    "path": { "type": "string", "description": "Path to scan (alternative to image)" },
+    "severity": { "type": "string" },
+    "ignoreUnfixed": { "type": "boolean" }
+  }
+}
+```
+
+---
+
+#### `vuln_db_annotate`
+
+Annotate vulnerability status (false positive, acknowledged, etc.).
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "vulnId": { "type": "string", "description": "CVE ID" },
+    "status": { "type": "string", "enum": ["active", "acknowledged", "false_positive", "mitigated"] },
+    "notes": { "type": "string" }
+  },
+  "required": ["vulnId", "status"]
 }
 ```
 

@@ -2,304 +2,362 @@
 
 ## Executive Summary
 
-The CI/CD Security Scanning Platform provides a comprehensive suite of security tools designed for enterprise environments. This document details four major features that extend the platform's capabilities beyond basic vulnerability scanning into compliance management, policy enforcement, automated scheduling, and offline operations.
+The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **76 MCP tools** across **13 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, and policy enforcement into a unified security automation framework.
 
-**Key Capabilities:**
-- **Compliance Reporting**: Map vulnerabilities to SOC2, HIPAA, PCI-DSS, and CIS frameworks
-- **OPA/Rego Policy Engine**: Define and evaluate custom security policies using industry-standard Rego
-- **Scheduled Scanning**: Automate security scans with cron-based scheduling and notifications
-- **Offline Vulnerability Database**: Air-gapped environments support with local vulnerability data
+**Platform Version:** 1.21.0
 
-**Total Tools Available**: 25 new MCP tools across 4 feature areas
+### Key Capabilities
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Vulnerability Scanning** | 11 | Trivy-based container, dependency, IaC, and secret scanning |
+| **Code Quality** | 4 | SonarQube SAST, code smells, and metrics |
+| **Software Composition** | 5 | Dependency-Track SCA and SBOM management |
+| **Source Control** | 6 | Gitea repository management |
+| **CI/CD Automation** | 5 | Drone CI pipeline management |
+| **Registry Scanning** | 10 | Multi-cloud container registry scanning |
+| **Security Dashboard** | 2 | Unified security aggregation |
+| **SARIF Reporting** | 2 | GitHub Code Scanning integration |
+| **Scheduled Scanning** | 9 | Cron-based automated security scans |
+| **Remediation** | 5 | Fix generation and prioritization |
+| **Compliance** | 7 | SOC2, HIPAA, PCI-DSS, CIS frameworks |
+| **Policy Engine** | 4 | OPA/Rego declarative policies |
+| **Vulnerability Database** | 6 | Offline scanning and CVE management |
+
+**Total: 76 MCP Tools**
 
 ---
 
 ## Table of Contents
 
-1. [Compliance Reporting](#1-compliance-reporting-issue-15)
-2. [OPA/Rego Policy Engine](#2-oparego-policy-engine-issue-16)
-3. [Scheduled Scanning](#3-scheduled-scanning-issue-17)
-4. [Offline Vulnerability Database](#4-offline-vulnerability-database-issue-18)
-5. [Architecture Overview](#5-architecture-overview)
-6. [Integration Patterns](#6-integration-patterns)
+1. [Vulnerability Scanning (Trivy)](#1-vulnerability-scanning-trivy)
+2. [Code Quality Analysis (SonarQube)](#2-code-quality-analysis-sonarqube)
+3. [Software Composition Analysis (Dependency-Track)](#3-software-composition-analysis-dependency-track)
+4. [Source Control (Gitea)](#4-source-control-gitea)
+5. [CI/CD Automation (Drone)](#5-cicd-automation-drone)
+6. [Container Registry Scanning](#6-container-registry-scanning)
+7. [Security Dashboard](#7-security-dashboard)
+8. [SARIF Reporting](#8-sarif-reporting)
+9. [Scheduled Scanning](#9-scheduled-scanning)
+10. [Remediation Engine](#10-remediation-engine)
+11. [Compliance Reporting](#11-compliance-reporting)
+12. [OPA/Rego Policy Engine](#12-oparego-policy-engine)
+13. [Offline Vulnerability Database](#13-offline-vulnerability-database)
+14. [Architecture Overview](#14-architecture-overview)
+15. [Integration Patterns](#15-integration-patterns)
 
 ---
 
-## 1. Compliance Reporting (Issue #15)
+## 1. Vulnerability Scanning (Trivy)
 
 ### Overview
 
-The Compliance Reporting feature maps security scan findings to industry-standard compliance frameworks, enabling organizations to demonstrate compliance with regulatory requirements and internal security policies.
+Trivy integration provides comprehensive security scanning for containers, filesystems, IaC configurations, secrets, and licenses. The platform supports both online (Trivy server) and offline scanning modes.
 
-### Supported Frameworks
-
-| Framework | Description | Use Cases |
-|-----------|-------------|-----------|
-| **SOC2** | Service Organization Control 2 | SaaS providers, cloud services |
-| **HIPAA** | Health Insurance Portability and Accountability Act | Healthcare, PHI handling |
-| **PCI-DSS** | Payment Card Industry Data Security Standard | Payment processing, e-commerce |
-| **CIS** | Center for Internet Security Benchmarks | General security hardening |
-
-### Tools (7 MCP Tools)
+### Tools (11 MCP Tools)
 
 | Tool | Description |
 |------|-------------|
-| `compliance_get_frameworks` | List all available compliance frameworks with descriptions |
-| `compliance_get_controls` | Get controls for a specific framework (optionally by ID) |
-| `compliance_check_status` | Check compliance pass/fail status against scan results |
-| `compliance_generate_report` | Generate JSON or HTML compliance reports |
-| `compliance_trend_record` | Record a compliance snapshot for trend tracking |
-| `compliance_trend_get` | Retrieve compliance trends over time |
-| `compliance_trend_list_targets` | List all targets with recorded trend data |
+| `trivy_scan_path` | Scan local filesystem for vulnerabilities |
+| `trivy_scan_image` | Scan Docker image for vulnerabilities |
+| `trivy_generate_sbom` | Generate SBOM for local path (CycloneDX/SPDX) |
+| `trivy_generate_sbom_image` | Generate SBOM for Docker image |
+| `trivy_scan_iac` | Scan IaC files (Terraform, K8s, Docker, CloudFormation) |
+| `trivy_scan_secrets` | Scan local path for hardcoded secrets |
+| `trivy_scan_secrets_image` | Scan Docker image for hardcoded secrets |
+| `trivy_scan_licenses` | Scan local path for license information |
+| `trivy_scan_licenses_image` | Scan Docker image for licenses |
+| `trivy_scan_image_full` | Comprehensive image scan (vulns + secrets + licenses + SBOM) |
+| `trivy_scan_path_full` | Comprehensive path scan (vulns + secrets + licenses + IaC + SBOM) |
 
-### Architecture
-
-```
-+------------------+     +-------------------+     +------------------+
-|   Scan Results   | --> | Compliance Engine | --> | Compliance       |
-| (Trivy, Sonar,   |     |                   |     | Reports (JSON/   |
-|  Dependency-     |     | - Control Mapping |     | HTML)            |
-|  Track)          |     | - Status Checking |     |                  |
-+------------------+     | - Trend Recording |     +------------------+
-                         +-------------------+
-                                  |
-                                  v
-                         +-------------------+
-                         | Trend Database    |
-                         | (In-memory/File)  |
-                         +-------------------+
-```
-
-### Control Mapping
-
-Each compliance framework contains controls that map to specific security finding types:
+### Scan Types
 
 ```
-SOC2 CC7.1 (System Security) --> CRITICAL/HIGH vulnerabilities
-                            --> Container misconfigurations
-                            --> Secret exposures
-
-HIPAA 164.312(e)(1)         --> Encryption requirements
-(Transmission Security)     --> TLS configuration
-                            --> Key management
-
-PCI-DSS 6.5.x               --> Web application vulnerabilities
-(Secure Development)        --> SQL Injection
-                            --> Cross-site Scripting
++------------------+     +------------------+     +------------------+
+|   Path Scanning  |     |  Image Scanning  |     |   IaC Scanning   |
++------------------+     +------------------+     +------------------+
+|                  |     |                  |     |                  |
+| - Dependencies   |     | - OS Packages    |     | - Terraform      |
+| - package.json   |     | - App Deps       |     | - Kubernetes     |
+| - requirements   |     | - Base Image     |     | - Dockerfiles    |
+| - go.mod         |     | - Multi-stage    |     | - CloudFormation |
++------------------+     +------------------+     +------------------+
 ```
 
 ### Use Cases
 
-1. **Audit Preparation**
-   - Generate compliance reports before SOC2 Type II audits
-   - Track remediation progress over time
-   - Provide evidence of continuous monitoring
+1. **Pre-commit Scanning**: Scan code before pushing to repository
+2. **CI Pipeline Gate**: Block builds with critical vulnerabilities
+3. **Container Registry Audit**: Scan all images in registry
+4. **IaC Security Review**: Validate infrastructure configurations
 
-2. **Pre-Release Compliance Gates**
-   - Block deployments that fail compliance checks
-   - Ensure all CRITICAL findings are addressed before release
-   - Document compliance status for each release
-
-3. **Executive Reporting**
-   - Generate HTML reports for non-technical stakeholders
-   - Track compliance trends across teams and projects
-   - Identify systemic compliance gaps
-
-### Example: Generate Compliance Report
+### Example: Full Image Scan
 
 ```json
 {
-  "tool": "compliance_generate_report",
+  "tool": "trivy_scan_image_full",
   "input": {
-    "image": "myapp:latest",
-    "frameworks": ["SOC2", "PCI-DSS"],
-    "format": "html",
-    "title": "Q4 2024 Security Compliance Report",
-    "organization": "Acme Corp"
+    "image": "nginx:1.25",
+    "severity": "HIGH,CRITICAL",
+    "sbomFormat": "cyclonedx"
+  }
+}
+
+// Response includes:
+// - vulnerabilities: Full CVE list
+// - secrets: Hardcoded credentials
+// - licenses: License information
+// - sbom: CycloneDX SBOM
+```
+
+---
+
+## 2. Code Quality Analysis (SonarQube)
+
+### Overview
+
+SonarQube integration provides static application security testing (SAST), code quality metrics, and security hotspot detection for continuous code inspection.
+
+### Tools (4 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `sonar_list_projects` | List all analyzed projects |
+| `sonar_get_issues` | Get bugs, vulnerabilities, code smells |
+| `sonar_get_security_hotspots` | Get security hotspots requiring review |
+| `sonar_get_metrics` | Get quality metrics (coverage, duplication, etc.) |
+
+### Metrics Tracked
+
+- **Bugs**: Code defects that may cause runtime failures
+- **Vulnerabilities**: Security issues in code
+- **Code Smells**: Maintainability issues
+- **Coverage**: Test coverage percentage
+- **Duplicated Lines**: Code duplication metrics
+- **Security Hotspots**: Areas requiring security review
+
+### Example: Get Project Issues
+
+```json
+{
+  "tool": "sonar_get_issues",
+  "input": {
+    "projectKey": "ci-co",
+    "types": "VULNERABILITY,BUG"
   }
 }
 ```
 
 ---
 
-## 2. OPA/Rego Policy Engine (Issue #16)
+## 3. Software Composition Analysis (Dependency-Track)
 
 ### Overview
 
-The OPA (Open Policy Agent) integration enables declarative security policies written in Rego, the policy language used by industry-standard tools like Kubernetes admission controllers, Terraform Sentinel, and enterprise security platforms.
-
-### Built-in Policies
-
-| Policy Name | Description | Default Thresholds |
-|-------------|-------------|-------------------|
-| `vulnerability-threshold` | Enforce vulnerability count limits | critical: 0, high: 5 |
-| `license-compliance` | Block forbidden licenses | GPL, AGPL, SSPL |
-| `secrets-detection` | Fail if secrets found | Zero tolerance |
-| `container-security` | Container best practices | Root user, privileged mode |
-| `quality-gate` | Code quality requirements | Coverage > 80% |
+Dependency-Track integration provides software composition analysis (SCA) with continuous monitoring of component vulnerabilities and license compliance.
 
 ### Tools (5 MCP Tools)
 
 | Tool | Description |
 |------|-------------|
-| `policy_evaluate` | Evaluate Rego policy against scan results |
-| `policy_evaluate_many` | Evaluate policies against multiple targets |
-| `policy_get_violations` | Get policy violations for scan results |
-| `policy_get_examples` | Get example Rego policies for common use cases |
-| `policy_validate` | Validate Rego policy syntax before deployment |
+| `dtrack_list_projects` | List all Dependency-Track projects |
+| `dtrack_get_vulnerabilities` | Get vulnerabilities for project |
+| `dtrack_get_findings` | Get detailed security findings |
+| `dtrack_get_components` | List all components/dependencies |
+| `dtrack_upload_sbom` | Upload SBOM for analysis |
 
-### Architecture
+### Workflow
 
 ```
-+------------------+     +------------------+     +------------------+
-|   Scan Input     | --> | OPA Evaluator    | --> | Policy Decision  |
-|                  |     |                  |     |                  |
-| - Vulnerabilities|     | - Built-in Rules |     | - allow: boolean |
-| - Licenses       |     | - Custom Rego    |     | - violations: [] |
-| - Secrets        |     | - Thresholds     |     | - reasons: []    |
-| - Coverage       |     +------------------+     +------------------+
-+------------------+
+Generate SBOM (trivy_generate_sbom)
+         |
+         v
+Upload to D-Track (dtrack_upload_sbom)
+         |
+         v
+Continuous Monitoring
+         |
+         v
+Get Findings (dtrack_get_findings)
 ```
 
-### Rego Policy Structure
+---
 
-```rego
-package security.vulnerability
+## 4. Source Control (Gitea)
 
-# Default deny
-default allow = false
+### Overview
 
-# Allow if no critical vulnerabilities and high count below threshold
-allow {
-    input.scan.critical == 0
-    input.scan.high <= input.thresholds.high
-}
+Gitea integration provides Git repository management including repository creation, branch management, and commit history.
 
-# Generate violation messages
-violations[msg] {
-    input.scan.critical > 0
-    msg := sprintf("Found %d critical vulnerabilities", [input.scan.critical])
-}
+### Tools (6 MCP Tools)
 
-violations[msg] {
-    input.scan.high > input.thresholds.high
-    msg := sprintf("High vulnerabilities (%d) exceed threshold (%d)",
-                   [input.scan.high, input.thresholds.high])
-}
-```
+| Tool | Description |
+|------|-------------|
+| `gitea_list_repos` | List all repositories |
+| `gitea_get_repo` | Get repository details |
+| `gitea_get_branches` | List branches |
+| `gitea_get_commits` | Get commit history |
+| `gitea_create_repo` | Create new repository |
+| `gitea_migrate_repo` | Migrate from GitHub |
 
-### Use Cases
+---
 
-1. **CI/CD Pipeline Gates**
-   - Fail builds that violate security policies
-   - Enforce organization-specific security standards
-   - Custom thresholds per project or environment
+## 5. CI/CD Automation (Drone)
 
-2. **License Compliance**
-   - Block copyleft licenses in proprietary software
-   - Audit open-source license usage
-   - Automated license policy enforcement
+### Overview
 
-3. **Security Governance**
-   - Centralized policy management
-   - Version-controlled security rules
-   - Auditable policy decisions
+Drone CI integration enables pipeline management, build triggering, and log retrieval for continuous integration and deployment workflows.
 
-### Example: Custom Policy Evaluation
+### Tools (5 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `drone_list_repos` | List synced repositories |
+| `drone_get_builds` | Get build history |
+| `drone_get_build` | Get specific build details |
+| `drone_get_build_logs` | Get build step logs |
+| `drone_trigger_build` | Trigger new build |
+
+---
+
+## 6. Container Registry Scanning
+
+### Overview
+
+Multi-registry scanning supports Docker Registry, Amazon ECR, Azure ACR, Google GCR, GitHub GHCR, and Harbor with batch scanning capabilities.
+
+### Tools (10 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `registry_list_images` | List images in registry |
+| `registry_get_tags` | Get image tags |
+| `registry_scan` | Scan registry with filters |
+| `registry_detect_type` | Auto-detect registry type |
+| `registry_configure` | Configure registry authentication |
+| `registry_list_configs` | List configured registries |
+| `registry_get_config` | Get registry configuration |
+| `registry_remove_config` | Remove registry configuration |
+| `registry_test_connection` | Test registry connectivity |
+| `registry_scan_multiple` | Scan across multiple registries |
+
+### Supported Registries
+
+| Registry | Type | Authentication |
+|----------|------|----------------|
+| Docker Registry | `docker` | Basic auth |
+| Amazon ECR | `ecr` | AWS credentials |
+| Azure ACR | `acr` | Service principal |
+| Google GCR | `gcr` | Service account |
+| GitHub GHCR | `ghcr` | Personal access token |
+| Harbor | `harbor` | Basic auth |
+
+### Example: Multi-Registry Scan
 
 ```json
 {
-  "tool": "opa_evaluate_policy",
+  "tool": "registry_scan_multiple",
   "input": {
-    "image": "production-app:v2.1.0",
-    "policy": "vulnerability-threshold",
-    "thresholds": {
-      "critical": 0,
-      "high": 0,
-      "medium": 10
-    }
+    "registries": ["production-ecr", "staging-acr"],
+    "includePatterns": ["**/production-*"],
+    "severity": "CRITICAL"
   }
 }
 ```
 
 ---
 
-## 3. Scheduled Scanning (Issue #17)
+## 7. Security Dashboard
 
 ### Overview
 
-Scheduled Scanning enables automated security scans using cron expressions. Supports webhook notifications, execution history tracking, and manual triggering for ad-hoc scans.
+Unified security dashboard aggregating findings from Trivy, SonarQube, and Dependency-Track into a single view.
 
-### Features
-
-- **Cron Scheduling**: Standard cron expressions plus aliases (@daily, @weekly, @hourly, @monthly)
-- **Multiple Targets**: Scan images, paths, or entire registries
-- **Webhook Notifications**: Slack, Microsoft Teams, or generic webhooks
-- **Execution History**: Track past scan results and timing
-- **Manual Trigger**: Run scheduled scans on-demand
-
-### Tools (7 MCP Tools)
+### Tools (2 MCP Tools)
 
 | Tool | Description |
 |------|-------------|
-| `scheduler_create_job` | Create a new scheduled scan job |
-| `scheduler_list_jobs` | List all scheduled jobs with status |
-| `scheduler_get_job` | Get detailed job configuration |
-| `scheduler_delete_job` | Remove a scheduled job |
-| `scheduler_trigger_job` | Manually trigger a job execution |
-| `scheduler_get_history` | Get job execution history |
-| `scheduler_update_job` | Modify job configuration |
+| `security_scan_all` | Run comprehensive scan using all tools |
+| `get_security_dashboard` | Get unified security dashboard |
 
-### Architecture
+### Dashboard Response Structure
 
-```
-+------------------+     +------------------+     +------------------+
-|   Cron Parser    | --> | Schedule Manager | --> | Scan Executor    |
-|                  |     |                  |     |                  |
-| - Parse cron     |     | - Job storage    |     | - Image scans    |
-| - Calculate next |     | - Enable/disable |     | - Path scans     |
-| - Validate       |     | - History track  |     | - Registry scans |
-+------------------+     +------------------+     +------------------+
-                                  |
-                                  v
-                         +-------------------+
-                         | Notification      |
-                         | Handler           |
-                         |                   |
-                         | - Slack           |
-                         | - Teams           |
-                         | - Generic webhook |
-                         +-------------------+
+```json
+{
+  "summary": {
+    "critical": 5,
+    "high": 12,
+    "medium": 45,
+    "low": 100,
+    "total": 162
+  },
+  "sources": {
+    "trivy": { "vulnerabilities": 50, "secrets": 2 },
+    "sonarqube": { "bugs": 3, "vulnerabilities": 5, "hotspots": 10 },
+    "dependencyTrack": { "findings": 50 }
+  },
+  "findings": [...]
+}
 ```
 
-### Cron Expression Reference
+---
 
-| Expression | Description |
-|------------|-------------|
-| `0 2 * * *` | Daily at 2:00 AM |
-| `0 0 * * 0` | Weekly on Sunday at midnight |
-| `0 */6 * * *` | Every 6 hours |
-| `@daily` | Alias for `0 0 * * *` |
-| `@weekly` | Alias for `0 0 * * 0` |
-| `@hourly` | Alias for `0 * * * *` |
-| `@monthly` | Alias for `0 0 1 * *` |
+## 8. SARIF Reporting
 
-### Use Cases
+### Overview
 
-1. **Nightly Security Scans**
-   - Scan production images daily
-   - Detect new vulnerabilities from updated databases
-   - Generate morning security reports
+SARIF (Static Analysis Results Interchange Format) support enables integration with GitHub Code Scanning and other SARIF-compatible tools.
 
-2. **Continuous Registry Monitoring**
-   - Scan all images in private registry
-   - Track vulnerability counts over time
-   - Alert on new critical findings
+### Tools (2 MCP Tools)
 
-3. **Compliance Scheduled Checks**
-   - Weekly compliance status snapshots
-   - Trend tracking for audit documentation
-   - Automated executive reporting
+| Tool | Description |
+|------|-------------|
+| `sarif_generate` | Generate SARIF report from scan results |
+| `sarif_upload_github` | Upload SARIF to GitHub Code Scanning |
+
+### SARIF Integration
+
+```
+Scan Results --> sarif_generate --> SARIF 2.1.0 JSON
+                                          |
+                                          v
+                                sarif_upload_github
+                                          |
+                                          v
+                                GitHub Code Scanning
+                                Security Alerts Tab
+```
+
+---
+
+## 9. Scheduled Scanning
+
+### Overview
+
+Automated security scanning with cron-based scheduling, webhook notifications, and execution history tracking.
+
+### Tools (9 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `schedule_create` | Create scheduled scan job |
+| `schedule_list` | List all scheduled jobs |
+| `schedule_get` | Get schedule details |
+| `schedule_update` | Update schedule configuration |
+| `schedule_delete` | Delete scheduled job |
+| `schedule_trigger` | Manually trigger scan |
+| `schedule_history` | Get execution history |
+| `cron_validate` | Validate cron expression |
+| `scheduler_control` | Start/stop scheduler |
+
+### Cron Aliases
+
+| Alias | Expression | Description |
+|-------|------------|-------------|
+| `@hourly` | `0 * * * *` | Every hour |
+| `@daily` | `0 0 * * *` | Every day at midnight |
+| `@weekly` | `0 0 * * 0` | Every Sunday |
+| `@monthly` | `0 0 1 * *` | First of month |
 
 ### Example: Create Nightly Scan
 
@@ -307,21 +365,16 @@ Scheduled Scanning enables automated security scans using cron expressions. Supp
 {
   "tool": "schedule_create",
   "input": {
-    "name": "production-nightly-scan",
+    "name": "production-nightly",
     "cron": "0 2 * * *",
     "target": {
       "type": "image",
-      "value": "production-app:latest",
-      "severity": "HIGH,CRITICAL"
+      "value": "production:latest"
     },
-    "enabled": true,
     "notifications": {
       "webhooks": [{
         "url": "https://hooks.slack.com/services/xxx",
-        "type": "slack",
-        "onSuccess": false,
-        "onFailure": true,
-        "minSeverity": "HIGH"
+        "type": "slack"
       }]
     }
   }
@@ -330,280 +383,404 @@ Scheduled Scanning enables automated security scans using cron expressions. Supp
 
 ---
 
-## 4. Offline Vulnerability Database (Issue #18)
+## 10. Remediation Engine
 
 ### Overview
 
-The Offline Vulnerability Database feature enables security scanning in air-gapped environments by maintaining a local copy of the Trivy vulnerability database. This is critical for organizations with strict network isolation requirements.
+Intelligent remediation suggestions with fix commands, priority ranking, and safe upgrade identification.
 
-### Features
+### Tools (5 MCP Tools)
 
-- **Database Sync**: Download and update Trivy vulnerability database locally
-- **Offline Scanning**: Scan images and paths without internet connectivity
-- **Vulnerability Lookup**: Query CVE details from local database
-- **Search Capabilities**: Find vulnerabilities by package, ecosystem, or severity
-- **Annotations**: Mark vulnerabilities as false positives or acknowledged
+| Tool | Description |
+|------|-------------|
+| `generate_remediations` | Generate fix commands for vulnerabilities |
+| `get_remediation_summary` | Get text summary of remediations |
+| `get_remediation_markdown` | Get Markdown-formatted report |
+| `get_high_priority_fixes` | Get CRITICAL/HIGH severity fixes |
+| `get_safe_fixes` | Get non-breaking upgrades only |
+
+### Package Manager Support
+
+- **npm**: `npm update`, `npm audit fix`
+- **pip**: `pip install --upgrade`
+- **go**: `go get -u`
+- **maven**: POM version updates
+- **gradle**: Build file updates
+
+### Example: Get Safe Fixes
+
+```json
+{
+  "tool": "get_safe_fixes",
+  "input": {
+    "image": "myapp:latest",
+    "excludeBreaking": true
+  }
+}
+
+// Response
+{
+  "fixes": [
+    {
+      "package": "lodash",
+      "currentVersion": "4.17.20",
+      "fixedVersion": "4.17.21",
+      "breaking": false,
+      "command": "npm update lodash"
+    }
+  ]
+}
+```
+
+---
+
+## 11. Compliance Reporting
+
+### Overview
+
+Map security findings to compliance frameworks with trend tracking and audit-ready HTML reports.
+
+### Tools (7 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `compliance_get_frameworks` | List available frameworks |
+| `compliance_get_controls` | Get framework controls |
+| `compliance_check_status` | Check compliance pass/fail |
+| `compliance_generate_report` | Generate JSON/HTML report |
+| `compliance_trend_record` | Record compliance snapshot |
+| `compliance_trend_get` | Get trends over time |
+| `compliance_trend_list_targets` | List tracked targets |
+
+### Supported Frameworks
+
+| Framework | Controls | Use Cases |
+|-----------|----------|-----------|
+| **SOC2** | 6 | SaaS providers, cloud services |
+| **HIPAA** | 6 | Healthcare, PHI handling |
+| **PCI-DSS** | 6 | Payment processing |
+| **CIS** | 5 | General security hardening |
+
+### Control Mapping Example
+
+```
+CVE-2024-1234 (CRITICAL)
+         |
+         +--> SOC2 CC7.1 (System Security)
+         +--> PCI-DSS 6.2 (Secure Development)
+         +--> HIPAA 164.312(e)(1) (Technical Safeguards)
+```
+
+### Example: Generate Compliance Report
+
+```json
+{
+  "tool": "compliance_generate_report",
+  "input": {
+    "image": "production:latest",
+    "frameworks": ["SOC2", "PCI-DSS"],
+    "format": "html",
+    "title": "Q4 2024 Compliance Report",
+    "organization": "Acme Corp"
+  }
+}
+```
+
+---
+
+## 12. OPA/Rego Policy Engine
+
+### Overview
+
+Open Policy Agent (OPA) integration enables declarative security policies using the Rego policy language for flexible, auditable policy enforcement.
+
+### Tools (4 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `opa_list_policies` | List built-in policies |
+| `opa_get_policy_info` | Get policy details and Rego source |
+| `opa_validate_policy` | Validate Rego syntax |
+| `opa_evaluate_policy` | Evaluate scan against policy |
+
+### Built-in Policies
+
+| Policy | Description | Default Thresholds |
+|--------|-------------|-------------------|
+| `vulnerability-threshold` | Enforce vuln count limits | critical: 0, high: 5 |
+| `license-compliance` | Block forbidden licenses | GPL, AGPL, SSPL |
+| `secrets-detection` | Fail if secrets found | Zero tolerance |
+| `container-security` | Container best practices | Root user, privileged |
+| `quality-gate` | Code quality requirements | Coverage > 80% |
+
+### Rego Policy Example
+
+```rego
+package security.vulnerability
+
+default allow = false
+
+allow {
+    input.scan.critical == 0
+    input.scan.high <= input.thresholds.high
+}
+
+violations[msg] {
+    input.scan.critical > 0
+    msg := sprintf("Found %d critical vulnerabilities", [input.scan.critical])
+}
+```
+
+### Example: Evaluate Policy
+
+```json
+{
+  "tool": "opa_evaluate_policy",
+  "input": {
+    "image": "production:latest",
+    "policy": "vulnerability-threshold",
+    "thresholds": {
+      "critical": 0,
+      "high": 0,
+      "medium": 10
+    }
+  }
+}
+
+// Response
+{
+  "allow": false,
+  "violations": [
+    "Found 3 critical vulnerabilities (threshold: 0)"
+  ]
+}
+```
+
+---
+
+## 13. Offline Vulnerability Database
+
+### Overview
+
+Local vulnerability database for air-gapped environments with SQLite storage, Trivy DB synchronization, and offline scanning capabilities.
 
 ### Tools (6 MCP Tools)
 
 | Tool | Description |
 |------|-------------|
-| `vuln_db_sync` | Download/update the vulnerability database |
-| `vuln_db_status` | Get database status, version, and statistics |
-| `vuln_db_lookup` | Look up a specific CVE by ID |
+| `vuln_db_sync` | Download/update vulnerability database |
+| `vuln_db_status` | Get database status and statistics |
+| `vuln_db_lookup` | Look up CVE by ID |
 | `vuln_db_search` | Search vulnerabilities by criteria |
-| `trivy_scan_offline` | Scan using only local database |
-| `vuln_db_annotate` | Annotate vulnerabilities with status |
-
-### Architecture
-
-```
-+------------------+     +------------------+     +------------------+
-|  Trivy DB Source | --> | Sync Manager     | --> | Local Database   |
-|  (aquasec.com)   |     |                  |     | (SQLite/JSON)    |
-+------------------+     | - Download       |     |                  |
-                         | - Verify         |     | - CVE data       |
-                         | - Extract        |     | - Advisories     |
-                         +------------------+     | - Fix versions   |
-                                                  +------------------+
-                                                           |
-                                  +------------------------+
-                                  |
-                         +------------------+     +------------------+
-                         | Offline Scanner  | <-- | Annotation Store |
-                         |                  |     |                  |
-                         | - Image scanning |     | - False positive |
-                         | - Path scanning  |     | - Acknowledged   |
-                         | - No network     |     | - Mitigated      |
-                         +------------------+     +------------------+
-```
+| `trivy_scan_offline` | Scan using local database |
+| `vuln_db_annotate` | Annotate vulnerability status |
 
 ### Database Statistics
-
-The local vulnerability database typically contains:
 
 | Metric | Typical Value |
 |--------|--------------|
 | Total CVEs | 200,000+ |
-| Last 30 days CVEs | 2,000+ |
-| Supported ecosystems | 15+ |
-| Database size | ~500MB |
-
-### Use Cases
-
-1. **Air-Gapped Environments**
-   - Government/defense systems
-   - Financial trading platforms
-   - Critical infrastructure
-
-2. **Consistent Scanning**
-   - Lock vulnerability database to specific version
-   - Reproducible scan results
-   - Audit trail of database versions
-
-3. **Vulnerability Management**
-   - Mark false positives across scans
-   - Track acknowledged vulnerabilities
-   - Document mitigation status
+| Ecosystems | npm, pypi, go, maven, etc. |
+| Database Size | ~500MB |
 
 ### Annotation Status Values
 
 | Status | Description |
 |--------|-------------|
-| `active` | Vulnerability requires attention (default) |
-| `acknowledged` | Vulnerability reviewed, scheduled for fix |
-| `false_positive` | Not applicable to this context |
-| `mitigated` | Risk mitigated through other controls |
+| `active` | Requires attention |
+| `acknowledged` | Reviewed, scheduled for fix |
+| `false_positive` | Not applicable |
+| `mitigated` | Risk mitigated |
 
-### Example: Sync and Scan Offline
+### Air-Gapped Workflow
 
-```json
-// Step 1: Sync database (requires network)
-{
-  "tool": "vuln_db_sync",
-  "input": {
-    "force": false,
-    "skipIfRecent": 24
-  }
-}
-
-// Step 2: Scan offline (no network required)
-{
-  "tool": "trivy_scan_offline",
-  "input": {
-    "image": "myapp:latest",
-    "severity": "HIGH,CRITICAL",
-    "ignoreUnfixed": true
-  }
-}
+```
+Internet Zone:                 Air-Gapped Zone:
+vuln_db_sync                   vuln_db_status
+      |                              |
+      v                              v
+Export DB  ====== Transfer ======>  Import
+                                     |
+                                     v
+                              trivy_scan_offline
+                                     |
+                                     v
+                              vuln_db_annotate
 ```
 
 ---
 
-## 5. Architecture Overview
+## 14. Architecture Overview
 
 ### System Component Diagram
 
 ```
-+------------------------------------------------------------------+
-|                    CI/CD Security Platform                        |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +------------------------+    +------------------------+         |
-|  |     MCP Server         |    |    CICD Agent          |         |
-|  |                        |    |    (Anthropic API)     |         |
-|  | - 25 Feature Tools     |    |                        |         |
-|  | - MCP Protocol         |    | - Same 25 Tools        |         |
-|  | - Claude Integration   |    | - Direct API calls     |         |
-|  +------------------------+    +------------------------+         |
-|             |                           |                         |
-|             +-----------+---------------+                         |
-|                         |                                         |
-|                         v                                         |
-|  +----------------------------------------------------------+    |
-|  |                   Shared Library (@cicd/shared)           |    |
-|  +----------------------------------------------------------+    |
-|  |                                                           |    |
-|  |  +---------------+  +---------------+  +---------------+  |    |
-|  |  | Compliance    |  | OPA/Rego      |  | Scheduler     |  |    |
-|  |  | Engine        |  | Engine        |  | Engine        |  |    |
-|  |  +---------------+  +---------------+  +---------------+  |    |
-|  |                                                           |    |
-|  |  +---------------+  +---------------+  +---------------+  |    |
-|  |  | Vuln Database |  | Trivy         |  | SonarQube     |  |    |
-|  |  | Manager       |  | Integration   |  | Integration   |  |    |
-|  |  +---------------+  +---------------+  +---------------+  |    |
-|  |                                                           |    |
-|  +----------------------------------------------------------+    |
-|                                                                   |
-+------------------------------------------------------------------+
-|                     External Services                             |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------+  +---------------+  +------------------+         |
-|  | Trivy       |  | SonarQube     |  | Dependency-Track |         |
-|  | Server      |  | Server        |  | Server           |         |
-|  +-------------+  +---------------+  +------------------+         |
-|                                                                   |
-+------------------------------------------------------------------+
++============================================================================+
+|                     CI/CD SECURITY SCANNING PLATFORM                        |
++============================================================================+
+|                                                                             |
+|  +----------------------------+       +----------------------------+        |
+|  |      MCP Server            |       |       CICD Agent           |        |
+|  |      (76 Tools)            |       |       (CLI)                |        |
+|  |                            |       |                            |        |
+|  | - Model Context Protocol   |       | - Anthropic SDK            |        |
+|  | - Claude Code Integration  |       | - CLI Automation           |        |
+|  | - JSON-RPC over stdio      |       | - GitHub Actions Ready     |        |
+|  +-------------+--------------+       +-------------+--------------+        |
+|                |                                    |                       |
+|                +----------------+-------------------+                       |
+|                                 |                                           |
+|                                 v                                           |
+|  +---------------------------------------------------------------------+   |
+|  |                    @cicd/shared LIBRARY                              |   |
+|  +---------------------------------------------------------------------+   |
+|  |                                                                      |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  | | Trivy Engine   | | SonarQube      | | Dependency-    |             |   |
+|  | | (11 tools)     | | Engine         | | Track Engine   |             |   |
+|  | |                | | (4 tools)      | | (5 tools)      |             |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  |                                                                      |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  | | Registry       | | Scheduler      | | Compliance     |             |   |
+|  | | Scanner        | | Engine         | | Engine         |             |   |
+|  | | (10 tools)     | | (9 tools)      | | (7 tools)      |             |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  |                                                                      |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  | | OPA/Rego       | | Vuln Database  | | Remediation    |             |   |
+|  | | Engine         | | Manager        | | Engine         |             |   |
+|  | | (4 tools)      | | (6 tools)      | | (5 tools)      |             |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  |                                                                      |   |
+|  | +----------------+ +----------------+                                |   |
+|  | | SARIF          | | Core           |                                |   |
+|  | | Reporter       | | Utilities      |                                |   |
+|  | | (2 tools)      | | - Config       |                                |   |
+|  | |                | | - Caching      |                                |   |
+|  | +----------------+ | - Circuit      |                                |   |
+|  |                    |   Breaker      |                                |   |
+|  |                    | - Rate Limiter |                                |   |
+|  |                    | - Audit Logger |                                |   |
+|  |                    +----------------+                                |   |
+|  +---------------------------------------------------------------------+   |
+|                                                                             |
++============================================================================+
+|                          EXTERNAL SERVICES                                  |
++============================================================================+
+|                                                                             |
+|  +----------+  +----------+  +-------------+  +----------+  +----------+   |
+|  | Trivy    |  | SonarQube|  | Dependency- |  | Docker   |  | Cloud    |   |
+|  | Server   |  | Server   |  | Track       |  | Registry |  | Registries|  |
+|  +----------+  +----------+  +-------------+  +----------+  +----------+   |
+|                                                                             |
+|  +----------+  +----------+  +-------------+                               |
+|  | Gitea    |  | Drone CI |  | GitHub      |                               |
+|  | Server   |  | Server   |  | (SARIF)     |                               |
+|  +----------+  +----------+  +-------------+                               |
+|                                                                             |
++============================================================================+
 ```
 
 ### Data Flow
 
 ```
-User Request
-     |
-     v
-+------------------+
-| Tool Router      |---> Compliance Tools ---> Compliance Engine
-| (MCP or Agent)   |---> Policy Tools ------> OPA Engine
-|                  |---> Scheduler Tools ---> Schedule Manager
-|                  |---> VulnDB Tools ------> Database Manager
-+------------------+
-     |
-     v
-+------------------+
-| Scan Services    |
-| (Trivy, Sonar)   |
-+------------------+
-     |
-     v
-+------------------+
-| Result Processor |
-| & Formatter      |
-+------------------+
-     |
-     v
-JSON Response
+User Request --> Tool Router --> Handler --> Cache --> External API
+                     |                                      |
+                     v                                      v
+               Policy Engine                          Result Aggregator
+                     |                                      |
+                     v                                      v
+            Compliance Mapper                        JSON Response
 ```
 
 ---
 
-## 6. Integration Patterns
+## 15. Integration Patterns
 
-### Pattern 1: CI/CD Pipeline Integration
+### Pattern 1: CI/CD Pipeline Security Gate
 
 ```yaml
-# .drone.yml / GitHub Actions / GitLab CI
-security-scan:
-  steps:
-    - name: Sync vulnerability database
-      run: cicd-agent vuln_db_sync
-
-    - name: Scan container image
-      run: cicd-agent trivy_scan_offline --image $IMAGE
-
-    - name: Evaluate security policy
-      run: cicd-agent opa_evaluate_policy --policy vulnerability-threshold
-
-    - name: Check compliance
-      run: cicd-agent compliance_check_status --frameworks SOC2,PCI-DSS
-
-    - name: Record trend
-      run: cicd-agent compliance_trend_record --target $IMAGE
+# .drone.yml
+pipeline:
+  security-scan:
+    - trivy_scan_image (container)
+    - sonar_get_issues (code quality)
+    - opa_evaluate_policy (policy gate)
+    - compliance_check_status (compliance)
+    - sarif_upload_github (reporting)
+    - [GATE] Pass/Fail decision
 ```
 
-### Pattern 2: Scheduled Monitoring
+### Pattern 2: Scheduled Registry Monitoring
 
 ```
-+------------------+
-| Schedule Manager | -----> Nightly at 2AM
-+------------------+
-         |
-         v
-+------------------+     +------------------+
-| Scan All Images  | --> | Generate Report  |
-| in Registry      |     |                  |
-+------------------+     +------------------+
-                                  |
-                                  v
-                         +------------------+
-                         | Send Webhook     |
-                         | Notifications    |
-                         +------------------+
-                                  |
-                    +-------------+-------------+
-                    |             |             |
-                    v             v             v
-               +--------+   +---------+   +----------+
-               | Slack  |   | Teams   |   | Email    |
-               +--------+   +---------+   +----------+
+@daily (2AM)
+    |
+    v
+schedule_trigger
+    |
+    v
+registry_scan_multiple
+    |
+    +--> ECR
+    +--> ACR
+    +--> GHCR
+    |
+    v
+compliance_trend_record
+    |
+    v
+Webhook (Slack/Teams)
 ```
 
-### Pattern 3: Air-Gapped Deployment
+### Pattern 3: Vulnerability Remediation Workflow
 
 ```
-Internet Zone                    Air-Gapped Zone
-+------------------+            +------------------+
-|                  |            |                  |
-| 1. Sync VulnDB   |  Transfer  | 3. Import DB     |
-|    on bastion    | =========> |    on air-gapped |
-|                  |  (USB/DVD) |    server        |
-+------------------+            |                  |
-                                | 4. Scan offline  |
-                                |                  |
-                                | 5. Generate      |
-                                |    reports       |
-                                +------------------+
+trivy_scan_image
+    |
+    v
+generate_remediations
+    |
+    +--> get_high_priority_fixes
+    +--> get_safe_fixes
+    |
+    v
+get_remediation_markdown
+    |
+    v
+PR with fixes --> Rescan --> Policy Gate
 ```
 
-### Pattern 4: Compliance Audit Workflow
+### Pattern 4: Compliance Audit Preparation
 
 ```
-+------------------+     +------------------+     +------------------+
-| Daily Scans      | --> | Record Trends    | --> | Generate Monthly |
-| (Scheduled)      |     | (Automated)      |     | Reports          |
-+------------------+     +------------------+     +------------------+
-                                                          |
-                                                          v
-                                                 +------------------+
-                                                 | Compliance       |
-                                                 | Dashboard        |
-                                                 |                  |
-                                                 | - Trend charts   |
-                                                 | - Control status |
-                                                 | - Violations     |
-                                                 +------------------+
+Daily: trivy_scan + sonar_get_issues + dtrack_get_findings
+            |
+            v
+    compliance_trend_record
+            |
+            v (90 days)
+    compliance_generate_report (HTML)
+            |
+            v
+    Audit-ready documentation
+```
+
+### Pattern 5: Air-Gapped Deployment
+
+```
+Internet Zone          Transfer         Air-Gapped Zone
+vuln_db_sync    -----> USB/DVD ----->   vuln_db_status
+                                              |
+                                              v
+                                        trivy_scan_offline
+                                              |
+                                              v
+                                        vuln_db_annotate
+                                              |
+                                              v
+                                        compliance_generate_report
 ```
 
 ---
@@ -611,38 +788,34 @@ Internet Zone                    Air-Gapped Zone
 ## Benefits Summary
 
 ### For Security Teams
-
-- Unified view of security posture across tools
-- Automated compliance monitoring and reporting
+- 76 tools for comprehensive security automation
+- Unified view across all security sources
 - Policy-as-code for consistent enforcement
 - Historical trend analysis
 
 ### For DevOps Teams
-
-- Automated scheduled scans reduce manual work
-- CI/CD integration with standard tools
-- Fast feedback on policy violations
+- Automated scheduled scans
+- CI/CD pipeline integration
+- Fast feedback on violations
 - Offline capability for restricted environments
 
 ### For Compliance Officers
-
 - Pre-built framework mappings (SOC2, HIPAA, PCI-DSS, CIS)
 - Audit-ready HTML reports
-- Trend data for continuous compliance demonstration
+- Trend tracking for continuous compliance
 - Evidence of remediation progress
 
 ### For Architects
-
-- Extensible policy engine (Rego)
-- Modular architecture for custom integrations
-- API-first design for automation
-- Support for air-gapped deployments
+- Extensible OPA/Rego policy engine
+- Modular architecture
+- API-first design
+- Multi-cloud registry support
 
 ---
 
-## Next Steps
+## Quick Links
 
-1. Review the [Cheat Sheet](./CHEAT-SHEET.md) for quick tool reference
-2. Explore [Configuration Options](../CONFIGURATION.md) for customization
-3. Follow [Usage Examples](../USAGE.md) for hands-on tutorials
-4. Check [Security Scanning Guide](../SECURITY-SCANNING.md) for Trivy integration details
+- [Cheat Sheet](./CHEAT-SHEET.md) - Quick tool reference
+- [API Reference](./API.md) - Complete API documentation
+- [Configuration](./CONFIGURATION.md) - Setup and configuration
+- [Troubleshooting](./TROUBLESHOOTING.md) - Common issues and solutions

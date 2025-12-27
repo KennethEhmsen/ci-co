@@ -1,61 +1,73 @@
 # Milestone: v1.21.0
 
-**Due Date:** April 30, 2025
+**Release Date:** December 27, 2024
 
-## Features
-- Compliance reporting (SOC2, HIPAA, PCI-DSS, CIS benchmarks)
-- Security policy as code with OPA/Rego integration
-- Vulnerability database caching with offline mode
-- Container image signing verification (Cosign/Notary)
+## Summary
 
-## Improvements
-- Redis-backed caching for scan results
-- Parallel scanning performance optimizations
-- Enhanced webhook retry logic with exponential backoff
-- CLI interactive mode for guided scanning
+Version 1.21.0 introduces **4 major feature areas** with **25 new MCP tools**, bringing the platform total to **76 tools** for comprehensive security automation.
 
-## Developer Experience
-- VS Code extension for inline vulnerability display
-- Pre-commit hooks for security scanning
-- GitHub Actions marketplace action
-- Improved error messages and troubleshooting guides
+## Features Implemented
 
----
+### Issue #15: Compliance Reporting (7 tools)
+Map vulnerabilities to compliance frameworks with trend tracking and audit-ready reports.
+- **Frameworks:** SOC2, HIPAA, PCI-DSS, CIS
+- **23 compliance controls** mapped across frameworks
+- JSON and HTML report generation with professional styling
+- Compliance trend tracking over time
 
-## Proposed Issues
+**Tools:** `compliance_get_frameworks`, `compliance_get_controls`, `compliance_check_status`, `compliance_generate_report`, `compliance_trend_record`, `compliance_trend_get`, `compliance_trend_list_targets`
 
-### Issue #15: Compliance Reporting
-Generate compliance reports for common frameworks (SOC2, HIPAA, PCI-DSS, CIS).
-- Map vulnerabilities to compliance controls
-- Generate audit-ready PDF/HTML reports
-- Track compliance trends over time
+### Issue #16: Policy as Code (OPA/Rego) (4 tools)
+Define and enforce security policies using Open Policy Agent and Rego.
+- **5 built-in policies:** vulnerability-threshold, license-compliance, secrets-detection, container-security, quality-gate
+- Custom Rego policy support
+- Policy validation and evaluation
 
-### Issue #16: Policy as Code (OPA/Rego)
-Define security policies using OPA/Rego for custom enforcement.
-- Custom policy rules for vulnerability thresholds
-- License compliance policies
-- Container configuration policies
+**Tools:** `opa_list_policies`, `opa_get_policy_info`, `opa_validate_policy`, `opa_evaluate_policy`
 
-### Issue #17: Offline Vulnerability Database
-Cache vulnerability databases for air-gapped environments.
-- Download and cache NVD/OSV databases
-- Offline scanning mode
-- Database update scheduling
+### Issue #17: Scheduled Scanning (9 tools)
+Cron-based automated security scanning with notifications.
+- Standard cron expressions with aliases (@daily, @weekly, @hourly, @monthly)
+- Webhook notifications (Slack, Microsoft Teams, generic)
+- Execution history tracking
+- Manual trigger support
 
-### Issue #18: Container Image Signing Verification
-Verify container image signatures before scanning.
-- Cosign signature verification
-- Notary v2 support
-- Policy enforcement for unsigned images
+**Tools:** `schedule_create`, `schedule_list`, `schedule_get`, `schedule_update`, `schedule_delete`, `schedule_trigger`, `schedule_history`, `cron_validate`, `scheduler_control`
 
-### Issue #19: Redis Caching Backend
-Use Redis for distributed scan result caching.
-- Shared cache across multiple instances
-- Configurable TTL per scan type
-- Cache invalidation API
+### Issue #18: Offline Vulnerability Database (6 tools)
+Local vulnerability database for air-gapped environments.
+- SQLite-based persistent storage (200,000+ CVEs)
+- Trivy database synchronization
+- Offline scanning without internet connectivity
+- Vulnerability annotation (false positive, acknowledged, mitigated)
 
-### Issue #20: GitHub Actions Marketplace Action
-Publish official GitHub Action for CI/CD integration.
-- Easy YAML configuration
-- SARIF upload integration
-- PR comments with scan summaries
+**Tools:** `vuln_db_sync`, `vuln_db_status`, `vuln_db_lookup`, `vuln_db_search`, `trivy_scan_offline`, `vuln_db_annotate`
+
+## Technical Highlights
+
+- **better-sqlite3** integration for high-performance local database
+- Comprehensive test coverage across all new modules
+- Full TypeScript type definitions for all new features
+- Documentation: Feature paper, cheat sheet, and API reference updated
+
+## Platform Statistics
+
+| Metric | Value |
+|--------|-------|
+| Total MCP Tools | 76 |
+| New Tools (v1.21.0) | 25 |
+| Compliance Frameworks | 4 |
+| Compliance Controls | 23 |
+| Built-in OPA Policies | 5 |
+
+## Documentation
+
+- [Features Documentation](./FEATURES.md) - Complete feature paper
+- [Cheat Sheet](./CHEAT-SHEET.md) - Quick reference for all 76 tools
+- [API Reference](./API.md) - Complete API documentation
+
+## CI/CD
+
+- Build #185 passing on Drone CI
+- SonarQube analysis complete
+- Coverage thresholds met across all modules

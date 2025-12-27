@@ -1,357 +1,416 @@
 # CI/CD Security Platform - Cheat Sheet
 
-Quick reference for all 25 MCP/Agent tools across the four feature areas.
+Quick reference for all **76 MCP/Agent tools** across 13 functional categories.
+
+**Version:** 1.21.0
 
 ---
 
 ## Table of Contents
 
-1. [Compliance Reporting (7 tools)](#compliance-reporting-7-tools)
-2. [OPA/Rego Policy Engine (5 tools)](#oparego-policy-engine-5-tools)
-3. [Scheduled Scanning (7 tools)](#scheduled-scanning-7-tools)
-4. [Offline Vulnerability Database (6 tools)](#offline-vulnerability-database-6-tools)
-5. [Common Workflows](#common-workflows)
-6. [Troubleshooting](#troubleshooting)
+1. [Trivy Scanning (11 tools)](#1-trivy-scanning-11-tools)
+2. [SonarQube (4 tools)](#2-sonarqube-4-tools)
+3. [Dependency-Track (5 tools)](#3-dependency-track-5-tools)
+4. [Gitea (6 tools)](#4-gitea-6-tools)
+5. [Drone CI (5 tools)](#5-drone-ci-5-tools)
+6. [Container Registry (10 tools)](#6-container-registry-10-tools)
+7. [Security Dashboard (2 tools)](#7-security-dashboard-2-tools)
+8. [SARIF Reporting (2 tools)](#8-sarif-reporting-2-tools)
+9. [Scheduler (9 tools)](#9-scheduler-9-tools)
+10. [Remediation (5 tools)](#10-remediation-5-tools)
+11. [Compliance (7 tools)](#11-compliance-7-tools)
+12. [OPA/Rego Policy (4 tools)](#12-oparego-policy-4-tools)
+13. [Vulnerability Database (6 tools)](#13-vulnerability-database-6-tools)
+14. [Common Workflows](#14-common-workflows)
+15. [Quick Reference Table](#15-quick-reference-table)
 
 ---
 
-## Compliance Reporting (7 tools)
+## 1. Trivy Scanning (11 tools)
 
-### compliance_get_frameworks
-
-List all available compliance frameworks.
-
+### trivy_scan_path
+Scan local filesystem for vulnerabilities.
 ```json
-// No input required
+{ "path": "/app/project", "severity": "HIGH,CRITICAL" }
+```
+
+### trivy_scan_image
+Scan Docker image for vulnerabilities.
+```json
+{ "image": "nginx:1.25", "severity": "HIGH,CRITICAL" }
+```
+
+### trivy_generate_sbom
+Generate SBOM for local path.
+```json
+{ "path": "/app/project", "format": "cyclonedx" }
+// format: "cyclonedx" | "spdx-json"
+```
+
+### trivy_generate_sbom_image
+Generate SBOM for Docker image.
+```json
+{ "image": "myapp:latest", "format": "cyclonedx" }
+```
+
+### trivy_scan_iac
+Scan IaC files (Terraform, K8s, Docker).
+```json
+{ "path": "/app/infrastructure", "severity": "MEDIUM,HIGH,CRITICAL" }
+```
+
+### trivy_scan_secrets
+Scan local path for hardcoded secrets.
+```json
+{ "path": "/app/project", "severity": "MEDIUM,HIGH,CRITICAL" }
+```
+
+### trivy_scan_secrets_image
+Scan Docker image for hardcoded secrets.
+```json
+{ "image": "myapp:latest", "severity": "MEDIUM,HIGH,CRITICAL" }
+```
+
+### trivy_scan_licenses
+Scan local path for license information.
+```json
+{ "path": "/app/project", "severity": "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL" }
+```
+
+### trivy_scan_licenses_image
+Scan Docker image for licenses.
+```json
+{ "image": "myapp:latest" }
+```
+
+### trivy_scan_image_full
+Comprehensive image scan (vulns + secrets + licenses + SBOM).
+```json
+{
+  "image": "production:latest",
+  "severity": "HIGH,CRITICAL",
+  "sbomFormat": "cyclonedx"
+}
+```
+
+### trivy_scan_path_full
+Comprehensive path scan (vulns + secrets + licenses + IaC + SBOM).
+```json
+{
+  "path": "/app/project",
+  "severity": "HIGH,CRITICAL",
+  "sbomFormat": "cyclonedx"
+}
+```
+
+---
+
+## 2. SonarQube (4 tools)
+
+### sonar_list_projects
+List all SonarQube projects.
+```json
 {}
+```
 
-// Response
+### sonar_get_issues
+Get bugs, vulnerabilities, code smells.
+```json
 {
-  "frameworks": [
-    { "id": "SOC2", "name": "SOC 2 Type II", "controlCount": 12 },
-    { "id": "HIPAA", "name": "HIPAA Security Rule", "controlCount": 18 },
-    { "id": "PCI-DSS", "name": "PCI DSS v4.0", "controlCount": 15 },
-    { "id": "CIS", "name": "CIS Controls v8", "controlCount": 18 }
-  ]
+  "projectKey": "ci-co",
+  "types": "VULNERABILITY,BUG,CODE_SMELL"
+}
+```
+
+### sonar_get_security_hotspots
+Get security hotspots requiring review.
+```json
+{ "projectKey": "ci-co" }
+```
+
+### sonar_get_metrics
+Get quality metrics (coverage, bugs, etc.).
+```json
+{ "projectKey": "ci-co" }
+// Returns: bugs, vulnerabilities, coverage, duplications, etc.
+```
+
+---
+
+## 3. Dependency-Track (5 tools)
+
+### dtrack_list_projects
+List all Dependency-Track projects.
+```json
+{}
+// Response includes UUID, name, version, vulnerability counts
+```
+
+### dtrack_get_vulnerabilities
+Get vulnerabilities for a project.
+```json
+{ "projectUuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
+```
+
+### dtrack_get_findings
+Get detailed security findings.
+```json
+{ "projectUuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
+```
+
+### dtrack_get_components
+List all components/dependencies.
+```json
+{ "projectUuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
+```
+
+### dtrack_upload_sbom
+Upload SBOM for analysis.
+```json
+{
+  "projectName": "my-application",
+  "projectVersion": "1.0.0",
+  "sbom": "{\"bomFormat\":\"CycloneDX\",...}",
+  "autoCreate": true
 }
 ```
 
 ---
 
-### compliance_get_controls
+## 4. Gitea (6 tools)
 
-Get controls for a specific framework.
-
+### gitea_list_repos
+List all repositories.
 ```json
-// Get all controls for SOC2
-{
-  "framework": "SOC2"
-}
+{}
+```
 
-// Get specific control
-{
-  "framework": "SOC2",
-  "controlId": "CC7.1"
-}
+### gitea_get_repo
+Get repository details.
+```json
+{ "owner": "localadmin", "repo": "ci-co" }
+```
 
-// Response (single control)
+### gitea_get_branches
+List repository branches.
+```json
+{ "owner": "localadmin", "repo": "ci-co" }
+```
+
+### gitea_get_commits
+Get commit history.
+```json
+{ "owner": "localadmin", "repo": "ci-co", "limit": 10 }
+```
+
+### gitea_create_repo
+Create new repository.
+```json
 {
-  "id": "CC7.1",
-  "name": "System Security",
-  "description": "Security controls for system protection",
-  "category": "Security",
-  "remediationSlaHours": 72,
-  "mappedFindings": ["CRITICAL", "HIGH"]
+  "name": "new-project",
+  "description": "My new project",
+  "private": false
+}
+```
+
+### gitea_migrate_repo
+Migrate repository from GitHub.
+```json
+{
+  "cloneUrl": "https://github.com/user/repo.git",
+  "repoName": "migrated-repo",
+  "authToken": "ghp_xxxxx"  // optional for private repos
 }
 ```
 
 ---
 
-### compliance_check_status
+## 5. Drone CI (5 tools)
 
-Check compliance status for scan results.
+### drone_list_repos
+List repositories synced with Drone.
+```json
+{}
+```
 
+### drone_get_builds
+Get build history.
+```json
+{ "owner": "localadmin", "repo": "ci-co" }
+```
+
+### drone_get_build
+Get specific build details.
+```json
+{ "owner": "localadmin", "repo": "ci-co", "build": 42 }
+```
+
+### drone_get_build_logs
+Get build step logs.
 ```json
 {
-  "image": "myapp:latest",
-  "frameworks": ["SOC2", "PCI-DSS"],
+  "owner": "localadmin",
+  "repo": "ci-co",
+  "build": 42,
+  "stage": 1,
+  "step": 1
+}
+```
+
+### drone_trigger_build
+Trigger new build.
+```json
+{
+  "owner": "localadmin",
+  "repo": "ci-co",
+  "branch": "main"
+}
+```
+
+---
+
+## 6. Container Registry (10 tools)
+
+### registry_list_images
+List images in registry.
+```json
+{}
+```
+
+### registry_get_tags
+Get image tags.
+```json
+{ "image": "myapp" }
+```
+
+### registry_scan
+Scan registry with filters.
+```json
+{
+  "includePatterns": ["production-*"],
+  "excludePatterns": ["*-dev"],
+  "severity": "HIGH,CRITICAL",
+  "maxAge": "7d"
+}
+```
+
+### registry_detect_type
+Auto-detect registry type.
+```json
+{ "url": "123456789.dkr.ecr.us-east-1.amazonaws.com" }
+// Returns: ecr, acr, gcr, ghcr, harbor, docker
+```
+
+### registry_configure
+Configure registry authentication.
+```json
+{
+  "name": "production-ecr",
+  "url": "123456789.dkr.ecr.us-east-1.amazonaws.com",
+  "type": "ecr",
+  "auth": {
+    "region": "us-east-1",
+    "accessKeyId": "AKIA...",
+    "secretAccessKey": "..."
+  }
+}
+```
+
+### registry_list_configs
+List configured registries.
+```json
+{}
+```
+
+### registry_get_config
+Get registry configuration.
+```json
+{ "name": "production-ecr" }
+```
+
+### registry_remove_config
+Remove registry configuration.
+```json
+{ "name": "old-registry" }
+```
+
+### registry_test_connection
+Test registry connectivity.
+```json
+{ "name": "production-ecr" }
+```
+
+### registry_scan_multiple
+Scan across multiple registries.
+```json
+{
+  "registries": ["production-ecr", "staging-acr"],
+  "includePatterns": ["**/production-*"],
+  "severity": "CRITICAL",
+  "concurrency": 5
+}
+```
+
+---
+
+## 7. Security Dashboard (2 tools)
+
+### security_scan_all
+Run comprehensive scan using all tools.
+```json
+{
+  "image": "production:latest",
+  "sonarProject": "ci-co"
+}
+```
+
+### get_security_dashboard
+Get unified security dashboard.
+```json
+{
+  "image": "production:latest",
+  "sonarProject": "ci-co",
   "severity": "HIGH,CRITICAL"
 }
-
-// Response
-{
-  "overallStatus": "FAIL",
-  "frameworks": {
-    "SOC2": {
-      "status": "FAIL",
-      "compliancePercentage": 75,
-      "passedControls": 9,
-      "failedControls": 3,
-      "violations": [
-        {
-          "controlId": "CC7.1",
-          "reason": "5 critical vulnerabilities found"
-        }
-      ]
-    }
-  }
-}
+// Returns aggregated findings from Trivy, SonarQube, D-Track
 ```
 
 ---
 
-### compliance_generate_report
+## 8. SARIF Reporting (2 tools)
 
-Generate compliance reports in JSON or HTML format.
-
+### sarif_generate
+Generate SARIF report from scan results.
 ```json
-// JSON Report
 {
   "image": "myapp:latest",
-  "frameworks": ["SOC2"],
-  "format": "json"
+  "sources": ["trivy", "sonarqube", "dtrack"],
+  "outputPath": "/tmp/results.sarif"
 }
+```
 
-// HTML Report for audit
+### sarif_upload_github
+Upload SARIF to GitHub Code Scanning.
+```json
 {
-  "image": "myapp:latest",
-  "frameworks": ["SOC2", "HIPAA", "PCI-DSS"],
-  "format": "html",
-  "title": "Q4 2024 Compliance Report",
-  "organization": "Acme Corp"
+  "sarifPath": "/tmp/results.sarif",
+  "owner": "myorg",
+  "repo": "myrepo",
+  "ref": "refs/heads/main",
+  "commitSha": "abc123...",
+  "token": "ghp_xxxxx"
 }
 ```
 
 ---
 
-### compliance_trend_record
+## 9. Scheduler (9 tools)
 
-Record a compliance snapshot for trend tracking.
-
+### schedule_create
+Create scheduled scan job.
 ```json
 {
-  "target": "production-api",
-  "image": "production-api:latest",
-  "frameworks": ["SOC2", "PCI-DSS"]
-}
-
-// Response
-{
-  "recorded": true,
-  "timestamp": "2024-12-27T10:30:00Z",
-  "target": "production-api",
-  "complianceScore": 85
-}
-```
-
----
-
-### compliance_trend_get
-
-Get compliance trends over time.
-
-```json
-{
-  "target": "production-api",
-  "days": 30
-}
-
-// Response
-{
-  "target": "production-api",
-  "trend": "improving",
-  "dataPoints": [
-    { "date": "2024-12-01", "score": 75 },
-    { "date": "2024-12-15", "score": 82 },
-    { "date": "2024-12-27", "score": 85 }
-  ],
-  "change": "+10%"
-}
-```
-
----
-
-### compliance_trend_list_targets
-
-List all targets with trend data.
-
-```json
-// No input required
-{}
-
-// Response
-{
-  "targets": [
-    { "name": "production-api", "lastRecorded": "2024-12-27T10:30:00Z" },
-    { "name": "frontend-app", "lastRecorded": "2024-12-27T08:00:00Z" }
-  ]
-}
-```
-
----
-
-## OPA/Rego Policy Engine (5 tools)
-
-### opa_list_policies
-
-List all available built-in policies.
-
-```json
-// No input required
-{}
-
-// Response
-{
-  "count": 5,
-  "policies": [
-    {
-      "name": "vulnerability-threshold",
-      "description": "Enforce vulnerability count limits",
-      "entrypoint": "security.vulnerability.allow"
-    },
-    {
-      "name": "license-compliance",
-      "description": "Block forbidden software licenses",
-      "entrypoint": "security.license.allow"
-    },
-    {
-      "name": "secrets-detection",
-      "description": "Fail if secrets are detected",
-      "entrypoint": "security.secrets.allow"
-    },
-    {
-      "name": "container-security",
-      "description": "Container security best practices",
-      "entrypoint": "security.container.allow"
-    },
-    {
-      "name": "quality-gate",
-      "description": "Code quality requirements",
-      "entrypoint": "security.quality.allow"
-    }
-  ]
-}
-```
-
----
-
-### opa_get_policy_info
-
-Get detailed policy information including Rego source.
-
-```json
-{
-  "name": "vulnerability-threshold"
-}
-
-// Response
-{
-  "name": "vulnerability-threshold",
-  "description": "Enforce vulnerability count limits",
-  "entrypoint": "security.vulnerability.allow",
-  "ruleCount": 4,
-  "source": "package security.vulnerability\n\ndefault allow = false\n..."
-}
-```
-
----
-
-### opa_validate_policy
-
-Validate Rego policy syntax.
-
-```json
-{
-  "policy": "package security.custom\n\ndefault allow = false\n\nallow {\n  input.critical == 0\n}"
-}
-
-// Response (valid)
-{
-  "valid": true,
-  "errors": []
-}
-
-// Response (invalid)
-{
-  "valid": false,
-  "errors": [
-    { "line": 3, "message": "Missing closing brace" }
-  ]
-}
-```
-
----
-
-### opa_evaluate_policy
-
-Evaluate a policy against scan results.
-
-```json
-// Using built-in policy
-{
-  "image": "myapp:latest",
-  "policy": "vulnerability-threshold",
-  "thresholds": {
-    "critical": 0,
-    "high": 5
-  }
-}
-
-// Using custom inline Rego
-{
-  "image": "myapp:latest",
-  "policy": "package custom\n\ndefault allow = false\n\nallow { input.scan.critical == 0 }"
-}
-
-// Response
-{
-  "allow": false,
-  "violations": [
-    "Found 3 critical vulnerabilities (threshold: 0)"
-  ],
-  "details": {
-    "critical": 3,
-    "high": 12,
-    "medium": 45
-  }
-}
-```
-
----
-
-### policy_evaluate_many (Agent Only)
-
-Evaluate policies against multiple targets.
-
-```json
-{
-  "targets": [
-    { "type": "image", "value": "app1:latest" },
-    { "type": "image", "value": "app2:latest" }
-  ],
-  "policy": "vulnerability-threshold"
-}
-
-// Response
-{
-  "results": [
-    { "target": "app1:latest", "allow": true },
-    { "target": "app2:latest", "allow": false, "violations": [...] }
-  ]
-}
-```
-
----
-
-## Scheduled Scanning (7 tools)
-
-### scheduler_create_job
-
-Create a new scheduled scan job.
-
-```json
-{
-  "name": "nightly-production-scan",
+  "name": "nightly-production",
   "cron": "0 2 * * *",
   "target": {
     "type": "image",
@@ -363,536 +422,444 @@ Create a new scheduled scan job.
     "webhooks": [{
       "url": "https://hooks.slack.com/services/xxx",
       "type": "slack",
-      "onFailure": true,
-      "minSeverity": "HIGH"
+      "onFailure": true
     }]
   }
 }
-
 // Cron aliases: @hourly, @daily, @weekly, @monthly
-{
-  "name": "weekly-registry-scan",
-  "cron": "@weekly",
-  "target": {
-    "type": "registry",
-    "value": "localhost:5000"
-  }
-}
-
-// Response
-{
-  "id": "sch_abc123",
-  "name": "nightly-production-scan",
-  "nextRun": "2024-12-28T02:00:00Z",
-  "created": true
-}
 ```
 
----
-
-### scheduler_list_jobs
-
+### schedule_list
 List all scheduled jobs.
-
 ```json
-// List all
 {}
-
-// Filter by status
-{
-  "enabled": true
-}
-
-// Filter by target type
-{
-  "targetType": "image"
-}
-
-// Response
-{
-  "jobs": [
-    {
-      "id": "sch_abc123",
-      "name": "nightly-production-scan",
-      "cron": "0 2 * * *",
-      "enabled": true,
-      "nextRun": "2024-12-28T02:00:00Z",
-      "lastRun": "2024-12-27T02:00:00Z",
-      "lastStatus": "success"
-    }
-  ]
-}
+// Optional: { "enabled": true } to filter
 ```
 
----
-
-### scheduler_get_job
-
-Get job details.
-
+### schedule_get
+Get schedule details.
 ```json
-{
-  "id": "sch_abc123"
-}
-
-// Response
-{
-  "id": "sch_abc123",
-  "name": "nightly-production-scan",
-  "cron": "0 2 * * *",
-  "cronDescription": "At 02:00 AM every day",
-  "target": {
-    "type": "image",
-    "value": "production:latest"
-  },
-  "enabled": true,
-  "nextRun": "2024-12-28T02:00:00Z",
-  "stats": {
-    "totalRuns": 30,
-    "successRate": 96.7
-  }
-}
+{ "id": "sch_abc123" }
 ```
 
----
-
-### scheduler_update_job
-
-Update job configuration.
-
+### schedule_update
+Update schedule configuration.
 ```json
 {
   "id": "sch_abc123",
   "cron": "0 3 * * *",
   "enabled": false
 }
+```
 
-// Response
+### schedule_delete
+Delete scheduled job.
+```json
+{ "id": "sch_abc123" }
+```
+
+### schedule_trigger
+Manually trigger scan.
+```json
+{ "id": "sch_abc123" }
+```
+
+### schedule_history
+Get execution history.
+```json
+{ "id": "sch_abc123", "limit": 10 }
+```
+
+### cron_validate
+Validate cron expression.
+```json
+{ "expression": "0 2 * * *" }
+// Returns: valid, description, next runs
+```
+
+### scheduler_control
+Start/stop scheduler.
+```json
+{ "action": "start" }  // or "stop", "status"
+```
+
+---
+
+## 10. Remediation (5 tools)
+
+### generate_remediations
+Generate fix commands for vulnerabilities.
+```json
+{ "image": "myapp:latest" }
+```
+
+### get_remediation_summary
+Get text summary of remediations.
+```json
+{ "image": "myapp:latest" }
+```
+
+### get_remediation_markdown
+Get Markdown-formatted report.
+```json
+{ "image": "myapp:latest" }
+// Great for PR descriptions
+```
+
+### get_high_priority_fixes
+Get CRITICAL/HIGH severity fixes.
+```json
+{ "image": "myapp:latest" }
+```
+
+### get_safe_fixes
+Get non-breaking upgrades only.
+```json
 {
-  "id": "sch_abc123",
-  "updated": true,
-  "nextRun": "2024-12-28T03:00:00Z"
+  "image": "myapp:latest",
+  "excludeBreaking": true
 }
 ```
 
 ---
 
-### scheduler_delete_job
+## 11. Compliance (7 tools)
 
-Delete a scheduled job.
-
+### compliance_get_frameworks
+List available frameworks.
 ```json
-{
-  "id": "sch_abc123"
-}
-
-// Response
-{
-  "deleted": true,
-  "id": "sch_abc123"
-}
-```
-
----
-
-### scheduler_trigger_job
-
-Manually trigger a job execution.
-
-```json
-{
-  "id": "sch_abc123"
-}
-
-// Response
-{
-  "triggered": true,
-  "executionId": "exec_xyz789",
-  "startTime": "2024-12-27T14:30:00Z"
-}
-```
-
----
-
-### scheduler_get_history
-
-Get job execution history.
-
-```json
-{
-  "id": "sch_abc123",
-  "limit": 10
-}
-
-// Response
-{
-  "history": [
-    {
-      "executionId": "exec_001",
-      "startTime": "2024-12-27T02:00:00Z",
-      "endTime": "2024-12-27T02:05:32Z",
-      "status": "success",
-      "findings": {
-        "critical": 0,
-        "high": 3
-      }
-    },
-    {
-      "executionId": "exec_002",
-      "startTime": "2024-12-26T02:00:00Z",
-      "endTime": "2024-12-26T02:04:15Z",
-      "status": "success",
-      "findings": {
-        "critical": 0,
-        "high": 5
-      }
-    }
-  ]
-}
-```
-
----
-
-## Offline Vulnerability Database (6 tools)
-
-### vuln_db_sync
-
-Download/update the vulnerability database.
-
-```json
-// Standard sync (skip if recent)
 {}
+// Returns: SOC2, HIPAA, PCI-DSS, CIS
+```
 
-// Force sync regardless of age
-{
-  "force": true
-}
+### compliance_get_controls
+Get framework controls.
+```json
+{ "framework": "SOC2" }
+// Optional: { "framework": "SOC2", "controlId": "CC7.1" }
+```
 
-// Skip if synced within N hours
+### compliance_check_status
+Check compliance pass/fail.
+```json
 {
-  "skipIfRecent": 48
+  "image": "production:latest",
+  "frameworks": ["SOC2", "PCI-DSS"],
+  "severity": "HIGH,CRITICAL"
 }
+```
 
-// Response
+### compliance_generate_report
+Generate JSON/HTML report.
+```json
 {
-  "success": true,
-  "version": "2024.12.27",
-  "vulnerabilities": 215432,
-  "downloadTime": "45s",
-  "size": "512MB"
+  "image": "production:latest",
+  "frameworks": ["SOC2", "PCI-DSS"],
+  "format": "html",
+  "title": "Q4 2024 Compliance Report",
+  "organization": "Acme Corp"
 }
+```
+
+### compliance_trend_record
+Record compliance snapshot.
+```json
+{
+  "target": "production-api",
+  "image": "production-api:latest",
+  "frameworks": ["SOC2", "PCI-DSS"]
+}
+```
+
+### compliance_trend_get
+Get trends over time.
+```json
+{ "target": "production-api", "days": 30 }
+```
+
+### compliance_trend_list_targets
+List tracked targets.
+```json
+{}
 ```
 
 ---
 
-### vuln_db_status
+## 12. OPA/Rego Policy (4 tools)
 
-Get database status and statistics.
-
+### opa_list_policies
+List built-in policies.
 ```json
-// No input required
 {}
+// Returns: vulnerability-threshold, license-compliance,
+//          secrets-detection, container-security, quality-gate
+```
 
-// Response
+### opa_get_policy_info
+Get policy details and Rego source.
+```json
+{ "name": "vulnerability-threshold" }
+```
+
+### opa_validate_policy
+Validate Rego syntax.
+```json
 {
-  "trivyDatabase": {
-    "version": "2024.12.27",
-    "lastUpdated": "2024-12-27T00:00:00Z",
-    "age": "10h 30m"
-  },
-  "offlineScanAvailable": true,
-  "capabilities": {
-    "imageScanning": true,
-    "pathScanning": true,
-    "sbomGeneration": true
-  },
-  "localCache": {
-    "totalVulnerabilities": 215432,
-    "ecosystems": ["npm", "pypi", "go", "maven", "rubygems"],
-    "lastSync": "2024-12-27T00:00:00Z"
+  "policy": "package security.custom\n\ndefault allow = false\n..."
+}
+```
+
+### opa_evaluate_policy
+Evaluate scan against policy.
+```json
+{
+  "image": "production:latest",
+  "policy": "vulnerability-threshold",
+  "thresholds": {
+    "critical": 0,
+    "high": 5,
+    "medium": 20
   }
 }
+// Response: { "allow": true/false, "violations": [...] }
 ```
 
 ---
+
+## 13. Vulnerability Database (6 tools)
+
+### vuln_db_sync
+Download/update vulnerability database.
+```json
+{}
+// Optional: { "force": true } or { "skipIfRecent": 48 }
+```
+
+### vuln_db_status
+Get database status and statistics.
+```json
+{}
+// Returns: version, age, vulnerability count, ecosystems
+```
 
 ### vuln_db_lookup
-
-Look up a specific vulnerability.
-
+Look up CVE by ID.
 ```json
-{
-  "id": "CVE-2024-1234"
-}
-
-// Response
-{
-  "id": "CVE-2024-1234",
-  "title": "Remote Code Execution in Example Package",
-  "description": "A vulnerability in example-package allows...",
-  "severity": "CRITICAL",
-  "cvss": 9.8,
-  "publishedDate": "2024-01-15",
-  "affectedPackages": [
-    {
-      "name": "example-package",
-      "ecosystem": "npm",
-      "affectedVersions": "<2.0.0",
-      "fixedVersion": "2.0.0"
-    }
-  ],
-  "references": [
-    "https://nvd.nist.gov/vuln/detail/CVE-2024-1234"
-  ]
-}
+{ "id": "CVE-2024-1234" }
 ```
 
----
-
 ### vuln_db_search
-
 Search vulnerabilities by criteria.
-
 ```json
-// Search by package name
 {
-  "packageName": "lodash"
-}
-
-// Search by ecosystem and severity
-{
+  "packageName": "lodash",
   "ecosystem": "npm",
   "severity": ["CRITICAL", "HIGH"],
   "limit": 50
 }
-
-// Search by CVE pattern
-{
-  "cvePattern": "CVE-2024",
-  "limit": 100
-}
-
-// Response
-{
-  "total": 150,
-  "returned": 50,
-  "vulnerabilities": [
-    {
-      "id": "CVE-2024-1234",
-      "severity": "CRITICAL",
-      "package": "lodash",
-      "ecosystem": "npm"
-    }
-  ]
-}
 ```
 
----
-
 ### trivy_scan_offline
-
-Scan using local database only (no internet required).
-
+Scan using local database (no internet).
 ```json
-// Scan image
 {
   "image": "myapp:latest",
   "severity": "HIGH,CRITICAL",
   "ignoreUnfixed": true
 }
-
-// Scan path
-{
-  "path": "/app/source",
-  "severity": "HIGH,CRITICAL"
-}
-
-// Response
-{
-  "scanType": "offline",
-  "databaseVersion": "2024.12.27",
-  "target": "myapp:latest",
-  "vulnerabilities": {
-    "critical": 0,
-    "high": 5,
-    "medium": 23,
-    "low": 12
-  },
-  "findings": [...]
-}
+// Also supports: { "path": "/app/project" }
 ```
 
----
-
 ### vuln_db_annotate
-
-Annotate vulnerabilities with status.
-
+Annotate vulnerability status.
 ```json
 {
   "vulnId": "CVE-2024-1234",
   "status": "false_positive",
-  "notes": "Not applicable - affected code path not used"
+  "notes": "Not applicable - code path not used"
 }
-
-// Status options: acknowledged, false_positive, mitigated, active
-
-// Response
-{
-  "annotated": true,
-  "vulnId": "CVE-2024-1234",
-  "status": "false_positive",
-  "updatedAt": "2024-12-27T14:30:00Z"
-}
+// Status: active, acknowledged, false_positive, mitigated
 ```
 
 ---
 
-## Common Workflows
+## 14. Common Workflows
 
-### Workflow 1: Full Security Pipeline
-
+### Full Security Pipeline
 ```bash
-# 1. Sync vulnerability database (optional, for offline capability)
+# 1. Sync vuln database (optional)
 vuln_db_sync
 
-# 2. Scan the image
-trivy_scan_image --image myapp:latest --severity HIGH,CRITICAL
+# 2. Scan container
+trivy_scan_image --image myapp:latest
 
-# 3. Evaluate against security policy
+# 3. Evaluate policy
 opa_evaluate_policy --image myapp:latest --policy vulnerability-threshold
 
-# 4. Check compliance status
+# 4. Check compliance
 compliance_check_status --image myapp:latest --frameworks SOC2,PCI-DSS
 
 # 5. Generate report
 compliance_generate_report --image myapp:latest --format html
 ```
 
-### Workflow 2: Set Up Continuous Monitoring
-
+### Set Up Continuous Monitoring
 ```bash
-# 1. Create nightly scan schedule
-scheduler_create_job \
-  --name "production-nightly" \
-  --cron "@daily" \
-  --target.type image \
-  --target.value production:latest
+# 1. Create schedule
+schedule_create --name "nightly" --cron "@daily" --target.type image --target.value prod:latest
 
-# 2. Verify schedule
-scheduler_list_jobs
+# 2. Verify
+schedule_list
 
-# 3. Check history (after runs)
-scheduler_get_history --id sch_xxx --limit 10
+# 3. Check history
+schedule_history --id sch_xxx --limit 10
 ```
 
-### Workflow 3: Compliance Trend Analysis
-
+### Compliance Trend Analysis
 ```bash
-# 1. Record daily snapshots (automated via scheduler)
-compliance_trend_record --target production-api --image production-api:latest
+# Daily (automated)
+compliance_trend_record --target prod --image prod:latest
 
-# 2. Get trend analysis
-compliance_trend_get --target production-api --days 30
-
-# 3. Generate monthly report
-compliance_generate_report \
-  --image production-api:latest \
-  --format html \
-  --title "Monthly Compliance Report"
+# Monthly review
+compliance_trend_get --target prod --days 30
+compliance_generate_report --format html --title "Monthly Report"
 ```
 
-### Workflow 4: Air-Gapped Environment Setup
-
+### Air-Gapped Setup
 ```bash
-# On internet-connected machine:
+# Internet zone
 vuln_db_sync --force
+# Transfer ~/.trivy/db/ to air-gapped
 
-# Transfer database files to air-gapped environment
-# (Database location: ~/.trivy/db/)
-
-# On air-gapped machine:
-vuln_db_status  # Verify database available
-
-trivy_scan_offline --image internal-app:latest
-```
-
----
-
-## Troubleshooting
-
-### Issue: "Vulnerability database not found"
-
-```bash
-# Solution: Sync the database
-vuln_db_sync --force
-```
-
-### Issue: "Policy evaluation failed"
-
-```bash
-# Solution: Validate policy syntax first
-opa_validate_policy --policy "<your_rego_code>"
-```
-
-### Issue: "Schedule not triggering"
-
-```bash
-# Solution: Check if scheduler is running
-scheduler_control --action start
-
-# Verify cron expression
-cron_validate --expression "0 2 * * *"
-```
-
-### Issue: "Compliance check shows no data"
-
-```bash
-# Solution: Ensure scan target is accessible
-check_platform_status
-
-# Verify image exists
-trivy_scan_image --image <your-image>
-```
-
-### Issue: "Offline scan returns stale results"
-
-```bash
-# Solution: Check database age
+# Air-gapped zone
 vuln_db_status
+trivy_scan_offline --image internal:latest
+```
 
-# Force database update if stale
-vuln_db_sync --force
+### Multi-Registry Scan
+```bash
+# Configure registries
+registry_configure --name ecr --type ecr --url xxx.dkr.ecr.us-east-1.amazonaws.com
+registry_configure --name acr --type acr --url myacr.azurecr.io
+
+# Scan all
+registry_scan_multiple --registries ecr,acr --severity CRITICAL
 ```
 
 ---
 
-## Quick Reference Table
+## 15. Quick Reference Table
 
 | Category | Tool | Purpose |
 |----------|------|---------|
+| **Trivy** | `trivy_scan_path` | Scan filesystem |
+| | `trivy_scan_image` | Scan container |
+| | `trivy_generate_sbom` | Generate SBOM (path) |
+| | `trivy_generate_sbom_image` | Generate SBOM (image) |
+| | `trivy_scan_iac` | Scan IaC files |
+| | `trivy_scan_secrets` | Find secrets (path) |
+| | `trivy_scan_secrets_image` | Find secrets (image) |
+| | `trivy_scan_licenses` | License scan (path) |
+| | `trivy_scan_licenses_image` | License scan (image) |
+| | `trivy_scan_image_full` | Full image scan |
+| | `trivy_scan_path_full` | Full path scan |
+| **SonarQube** | `sonar_list_projects` | List projects |
+| | `sonar_get_issues` | Get code issues |
+| | `sonar_get_security_hotspots` | Get hotspots |
+| | `sonar_get_metrics` | Get metrics |
+| **D-Track** | `dtrack_list_projects` | List projects |
+| | `dtrack_get_vulnerabilities` | Get vulns |
+| | `dtrack_get_findings` | Get findings |
+| | `dtrack_get_components` | Get components |
+| | `dtrack_upload_sbom` | Upload SBOM |
+| **Gitea** | `gitea_list_repos` | List repos |
+| | `gitea_get_repo` | Get repo |
+| | `gitea_get_branches` | List branches |
+| | `gitea_get_commits` | Get commits |
+| | `gitea_create_repo` | Create repo |
+| | `gitea_migrate_repo` | Migrate from GitHub |
+| **Drone** | `drone_list_repos` | List repos |
+| | `drone_get_builds` | Get builds |
+| | `drone_get_build` | Get build |
+| | `drone_get_build_logs` | Get logs |
+| | `drone_trigger_build` | Trigger build |
+| **Registry** | `registry_list_images` | List images |
+| | `registry_get_tags` | Get tags |
+| | `registry_scan` | Scan registry |
+| | `registry_detect_type` | Detect type |
+| | `registry_configure` | Configure auth |
+| | `registry_list_configs` | List configs |
+| | `registry_get_config` | Get config |
+| | `registry_remove_config` | Remove config |
+| | `registry_test_connection` | Test connection |
+| | `registry_scan_multiple` | Multi-registry scan |
+| **Dashboard** | `security_scan_all` | Full scan |
+| | `get_security_dashboard` | Unified dashboard |
+| **SARIF** | `sarif_generate` | Generate SARIF |
+| | `sarif_upload_github` | Upload to GitHub |
+| **Scheduler** | `schedule_create` | Create schedule |
+| | `schedule_list` | List schedules |
+| | `schedule_get` | Get schedule |
+| | `schedule_update` | Update schedule |
+| | `schedule_delete` | Delete schedule |
+| | `schedule_trigger` | Manual trigger |
+| | `schedule_history` | Get history |
+| | `cron_validate` | Validate cron |
+| | `scheduler_control` | Start/stop |
+| **Remediation** | `generate_remediations` | Generate fixes |
+| | `get_remediation_summary` | Text summary |
+| | `get_remediation_markdown` | Markdown report |
+| | `get_high_priority_fixes` | CRITICAL/HIGH |
+| | `get_safe_fixes` | Non-breaking only |
 | **Compliance** | `compliance_get_frameworks` | List frameworks |
-| | `compliance_get_controls` | Get control details |
+| | `compliance_get_controls` | Get controls |
 | | `compliance_check_status` | Check pass/fail |
-| | `compliance_generate_report` | Generate reports |
+| | `compliance_generate_report` | Generate report |
 | | `compliance_trend_record` | Record snapshot |
 | | `compliance_trend_get` | Get trends |
-| | `compliance_trend_list_targets` | List tracked targets |
-| **Policy** | `opa_list_policies` | List built-in policies |
-| | `opa_get_policy_info` | Get policy details |
-| | `opa_validate_policy` | Validate Rego syntax |
-| | `opa_evaluate_policy` | Evaluate against scan |
-| | `policy_evaluate_many` | Batch evaluation |
-| **Scheduler** | `scheduler_create_job` | Create schedule |
-| | `scheduler_list_jobs` | List all schedules |
-| | `scheduler_get_job` | Get schedule details |
-| | `scheduler_update_job` | Modify schedule |
-| | `scheduler_delete_job` | Remove schedule |
-| | `scheduler_trigger_job` | Manual trigger |
-| | `scheduler_get_history` | Execution history |
-| **VulnDB** | `vuln_db_sync` | Download/update DB |
-| | `vuln_db_status` | Database status |
+| | `compliance_trend_list_targets` | List targets |
+| **OPA/Rego** | `opa_list_policies` | List policies |
+| | `opa_get_policy_info` | Get policy info |
+| | `opa_validate_policy` | Validate Rego |
+| | `opa_evaluate_policy` | Evaluate policy |
+| **VulnDB** | `vuln_db_sync` | Sync database |
+| | `vuln_db_status` | Get status |
 | | `vuln_db_lookup` | Lookup CVE |
-| | `vuln_db_search` | Search vulnerabilities |
-| | `trivy_scan_offline` | Offline scanning |
-| | `vuln_db_annotate` | Mark false positives |
+| | `vuln_db_search` | Search vulns |
+| | `trivy_scan_offline` | Offline scan |
+| | `vuln_db_annotate` | Annotate vuln |
+
+---
+
+## Severity Levels
+
+| Level | Description |
+|-------|-------------|
+| `CRITICAL` | Immediate action required |
+| `HIGH` | Fix in current sprint |
+| `MEDIUM` | Plan for near term |
+| `LOW` | Technical debt |
+| `UNKNOWN` | Needs triage |
+
+## Cron Expressions
+
+| Expression | Description |
+|------------|-------------|
+| `0 * * * *` | Every hour |
+| `0 0 * * *` | Daily at midnight |
+| `0 2 * * *` | Daily at 2 AM |
+| `0 0 * * 0` | Weekly on Sunday |
+| `0 0 1 * *` | Monthly on 1st |
+| `@hourly` | Alias for hourly |
+| `@daily` | Alias for daily |
+| `@weekly` | Alias for weekly |
+| `@monthly` | Alias for monthly |
+
+---
+
+## Quick Links
+
+- [Features Documentation](./FEATURES.md)
+- [API Reference](./API.md)
+- [Configuration Guide](./CONFIGURATION.md)
+- [Troubleshooting](./TROUBLESHOOTING.md)
