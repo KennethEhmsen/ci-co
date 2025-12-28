@@ -1005,3 +1005,58 @@ export type {
   AuditAggregateOptions,
   AuditAggregateResult,
 } from "./types.js";
+
+// Executive Dashboard
+export {
+  // Database lifecycle
+  initDashboardDatabase,
+  closeDashboardDatabase,
+  isDashboardDbInitialized,
+  // Configuration
+  getDashboardConfig,
+  updateDashboardConfig,
+  // Asset criticality
+  setAssetCriticality,
+  getAssetCriticality,
+  listAssetCriticalities,
+  // Scan recording
+  recordScan,
+  getScanRecords,
+  // Remediation tracking
+  recordVulnerabilityDetected,
+  markVulnerabilityRemediated,
+  // Health score
+  calculateHealthScore,
+  getHealthScore,
+  // Dashboard data
+  getVulnerabilityCounts,
+  getScanCoverage,
+  getMTTRMetrics,
+  getTopRisks,
+  getComplianceStatus,
+  getDashboardSummary,
+  // Snapshots
+  saveDashboardSnapshot,
+  getDashboardSnapshots,
+  cleanupOldSnapshots,
+} from "./executive-dashboard.js";
+
+// Executive Dashboard Types re-export
+export type {
+  AssetCriticality,
+  TrendDirection,
+  DashboardTimeRange,
+  SeverityCounts,
+  TrendData,
+  ComplianceStatusSummary,
+  RiskSummary,
+  HealthScoreComponents,
+  HealthScore,
+  MTTRMetrics,
+  ScanCoverage,
+  DashboardSummary,
+  DashboardConfig,
+  DashboardSnapshot,
+  AssetCriticalityConfig,
+  DashboardDbInitResult,
+} from "./types.js";

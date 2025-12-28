@@ -178,6 +178,12 @@ import {
   searchAuditEvents,
   exportAuditLogs,
   getAuditStats,
+  // Executive Dashboard
+  initDashboardDatabase,
+  isDashboardDbInitialized,
+  getDashboardSummary,
+  getHealthScore,
+  getTopRisks,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
@@ -2025,6 +2031,43 @@ const toolHandlers: Record<string, ToolHandler> = {
     }
 
     return getAuditStats();
+  },
+
+  // Executive Dashboard handlers
+  dashboard_get_summary: async (input) => {
+    if (!isDashboardDbInitialized()) {
+      const result = initDashboardDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Dashboard database: ${result.error}` };
+      }
+    }
+
+    const timeRange = (input?.timeRange as "24h" | "7d" | "30d" | "90d") || "30d";
+    return getDashboardSummary(timeRange);
+  },
+
+  dashboard_get_health_score: async (input) => {
+    if (!isDashboardDbInitialized()) {
+      const result = initDashboardDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Dashboard database: ${result.error}` };
+      }
+    }
+
+    const timeRange = (input?.timeRange as "24h" | "7d" | "30d" | "90d") || "30d";
+    return getHealthScore(timeRange);
+  },
+
+  dashboard_get_top_risks: async (input) => {
+    if (!isDashboardDbInitialized()) {
+      const result = initDashboardDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Dashboard database: ${result.error}` };
+      }
+    }
+
+    const count = (input?.count as number) || 10;
+    return getTopRisks(count);
   },
 };
 
@@ -4529,6 +4572,53 @@ export const tools: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+  // =========================================================================
+  // Executive Dashboard Tools
+  // =========================================================================
+  {
+    name: "dashboard_get_summary",
+    description:
+      "Get executive dashboard summary with health score, vulnerability counts, compliance status, top risks, MTTR metrics, and scan coverage. Provides a comprehensive security posture overview.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        timeRange: {
+          type: "string",
+          enum: ["24h", "7d", "30d", "90d"],
+          description: "Time range for dashboard data (default: 30d)",
+        },
+      },
+    },
+  },
+  {
+    name: "dashboard_get_health_score",
+    description:
+      "Get overall security health score (0-100) with grade (A-F), component breakdown (vulnerability, compliance, coverage, remediation scores), and trend compared to previous period.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        timeRange: {
+          type: "string",
+          enum: ["24h", "7d", "30d", "90d"],
+          description: "Time range for health score calculation (default: 30d)",
+        },
+      },
+    },
+  },
+  {
+    name: "dashboard_get_top_risks",
+    description:
+      "Get top N riskiest projects/images based on vulnerability severity weighted by asset criticality. Returns risk scores, vulnerability counts, and days since last scan.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        count: {
+          type: "number",
+          description: "Number of top risks to return (default: 10)",
+        },
+      },
     },
   },
 ];

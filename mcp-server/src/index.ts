@@ -211,6 +211,12 @@ import {
   searchAuditEvents,
   exportAuditLogs,
   getAuditStats,
+  // Executive Dashboard
+  initDashboardDatabase,
+  isDashboardDbInitialized,
+  getDashboardSummary,
+  getHealthScore,
+  getTopRisks,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -3571,6 +3577,53 @@ export const toolDefinitions = [
       properties: {},
     },
   },
+  // =========================================================================
+  // Executive Dashboard Tools
+  // =========================================================================
+  {
+    name: "dashboard_get_summary",
+    description:
+      "Get executive dashboard summary with health score, vulnerability counts, compliance status, top risks, MTTR metrics, and scan coverage. Provides a comprehensive security posture overview.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeRange: {
+          type: "string",
+          enum: ["24h", "7d", "30d", "90d"],
+          description: "Time range for dashboard data (default: 30d)",
+        },
+      },
+    },
+  },
+  {
+    name: "dashboard_get_health_score",
+    description:
+      "Get overall security health score (0-100) with grade (A-F), component breakdown (vulnerability, compliance, coverage, remediation scores), and trend compared to previous period.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeRange: {
+          type: "string",
+          enum: ["24h", "7d", "30d", "90d"],
+          description: "Time range for health score calculation (default: 30d)",
+        },
+      },
+    },
+  },
+  {
+    name: "dashboard_get_top_risks",
+    description:
+      "Get top N riskiest projects/images based on vulnerability severity weighted by asset criticality. Returns risk scores, vulnerability counts, and days since last scan.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        count: {
+          type: "number",
+          description: "Number of top risks to return (default: 10)",
+        },
+      },
+    },
+  },
 ];
 
 // =============================================================================
@@ -6099,6 +6152,48 @@ const auditHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Executive Dashboard handlers
+const dashboardHandlers: Record<string, ToolHandler> = {
+  dashboard_get_summary: async (args) => {
+    // Initialize Dashboard database if not already done
+    if (!isDashboardDbInitialized()) {
+      const result = initDashboardDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Dashboard database: ${result.error}` };
+      }
+    }
+
+    const timeRange = (args?.timeRange as "24h" | "7d" | "30d" | "90d") || "30d";
+    return getDashboardSummary(timeRange);
+  },
+
+  dashboard_get_health_score: async (args) => {
+    // Initialize Dashboard database if not already done
+    if (!isDashboardDbInitialized()) {
+      const result = initDashboardDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Dashboard database: ${result.error}` };
+      }
+    }
+
+    const timeRange = (args?.timeRange as "24h" | "7d" | "30d" | "90d") || "30d";
+    return getHealthScore(timeRange);
+  },
+
+  dashboard_get_top_risks: async (args) => {
+    // Initialize Dashboard database if not already done
+    if (!isDashboardDbInitialized()) {
+      const result = initDashboardDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Dashboard database: ${result.error}` };
+      }
+    }
+
+    const count = (args?.count as number) || 10;
+    return getTopRisks(count);
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -6124,6 +6219,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...teamHandlers,
   ...sessionHandlers,
   ...auditHandlers,
+  ...dashboardHandlers,
 };
 
 export async function handleCallTool(

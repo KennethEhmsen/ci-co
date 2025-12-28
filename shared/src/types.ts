@@ -4535,3 +4535,249 @@ export interface AuditAggregateResult {
   /** Last event timestamp in group */
   lastEvent?: string;
 }
+
+// =============================================================================
+// Executive Dashboard Types
+// =============================================================================
+
+/**
+ * Asset criticality levels for business context
+ */
+export type AssetCriticality = "critical" | "high" | "medium" | "low";
+
+/**
+ * Trend direction indicator
+ */
+export type TrendDirection = "up" | "down" | "stable";
+
+/**
+ * Dashboard time range options
+ */
+export type DashboardTimeRange = "24h" | "7d" | "30d" | "90d";
+
+/**
+ * Vulnerability counts by severity
+ */
+export interface SeverityCounts {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  unknown?: number;
+}
+
+/**
+ * Trend data with direction indicator
+ */
+export interface TrendData {
+  /** Current count */
+  current: number;
+  /** Previous period count */
+  previous: number;
+  /** Change amount (current - previous) */
+  change: number;
+  /** Change percentage */
+  changePercent: number;
+  /** Trend direction */
+  direction: TrendDirection;
+}
+
+/**
+ * Compliance status for a framework
+ */
+export interface ComplianceStatusSummary {
+  /** Framework name */
+  framework: string;
+  /** Total controls */
+  totalControls: number;
+  /** Passing controls */
+  passingControls: number;
+  /** Failing controls */
+  failingControls: number;
+  /** Compliance percentage (0-100) */
+  compliancePercent: number;
+  /** Status indicator */
+  status: "compliant" | "non-compliant" | "partial";
+}
+
+/**
+ * Project/image risk summary
+ */
+export interface RiskSummary {
+  /** Target identifier (project name or image) */
+  target: string;
+  /** Target type */
+  targetType: "project" | "image" | "repository";
+  /** Risk score (0-100, higher = more risk) */
+  riskScore: number;
+  /** Vulnerability counts by severity */
+  vulnerabilities: SeverityCounts;
+  /** Total vulnerability count */
+  totalVulnerabilities: number;
+  /** Asset criticality */
+  criticality: AssetCriticality;
+  /** Last scan timestamp */
+  lastScan?: string;
+  /** Days since last scan */
+  daysSinceLastScan?: number;
+}
+
+/**
+ * Health score breakdown components
+ */
+export interface HealthScoreComponents {
+  /** Vulnerability score (0-100, higher = better) */
+  vulnerabilityScore: number;
+  /** Compliance score (0-100, higher = better) */
+  complianceScore: number;
+  /** Coverage score (0-100, higher = better) */
+  coverageScore: number;
+  /** Remediation velocity score (0-100, higher = better) */
+  remediationScore: number;
+}
+
+/**
+ * Overall security health score
+ */
+export interface HealthScore {
+  /** Overall score (0-100, higher = better) */
+  score: number;
+  /** Score grade (A-F) */
+  grade: "A" | "B" | "C" | "D" | "F";
+  /** Score components breakdown */
+  components: HealthScoreComponents;
+  /** Trend compared to previous period */
+  trend: TrendData;
+  /** Timestamp of calculation */
+  calculatedAt: string;
+}
+
+/**
+ * Mean Time to Remediation metrics
+ */
+export interface MTTRMetrics {
+  /** Overall MTTR in days */
+  overall: number;
+  /** MTTR by severity in days */
+  bySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  /** Trend compared to previous period */
+  trend: TrendData;
+}
+
+/**
+ * Scan coverage metrics
+ */
+export interface ScanCoverage {
+  /** Total known assets */
+  totalAssets: number;
+  /** Assets scanned in period */
+  scannedAssets: number;
+  /** Coverage percentage */
+  coveragePercent: number;
+  /** Assets never scanned */
+  neverScanned: number;
+  /** Assets with stale scans (>7 days) */
+  staleScans: number;
+}
+
+/**
+ * Executive dashboard summary
+ */
+export interface DashboardSummary {
+  /** Overall health score */
+  healthScore: HealthScore;
+  /** Vulnerability counts with trends */
+  vulnerabilities: {
+    counts: SeverityCounts;
+    total: number;
+    trend: TrendData;
+  };
+  /** Compliance status by framework */
+  compliance: ComplianceStatusSummary[];
+  /** Overall compliance percentage */
+  overallCompliance: number;
+  /** Top risks */
+  topRisks: RiskSummary[];
+  /** MTTR metrics */
+  mttr: MTTRMetrics;
+  /** Scan coverage */
+  coverage: ScanCoverage;
+  /** Dashboard generation timestamp */
+  generatedAt: string;
+  /** Time range used */
+  timeRange: DashboardTimeRange;
+}
+
+/**
+ * Dashboard configuration
+ */
+export interface DashboardConfig {
+  /** Default time range */
+  defaultTimeRange: DashboardTimeRange;
+  /** Number of top risks to show */
+  topRisksCount: number;
+  /** Health score weights */
+  weights: {
+    vulnerability: number;
+    compliance: number;
+    coverage: number;
+    remediation: number;
+  };
+  /** Cache TTL in seconds */
+  cacheTtlSeconds: number;
+  /** Stale scan threshold in days */
+  staleScanDays: number;
+}
+
+/**
+ * Dashboard snapshot for history
+ */
+export interface DashboardSnapshot {
+  /** Snapshot ID */
+  id: string;
+  /** Timestamp */
+  timestamp: string;
+  /** Health score at time of snapshot */
+  healthScore: number;
+  /** Vulnerability counts at time of snapshot */
+  vulnerabilities: SeverityCounts;
+  /** Compliance percentage at time of snapshot */
+  compliancePercent: number;
+}
+
+/**
+ * Asset criticality configuration
+ */
+export interface AssetCriticalityConfig {
+  /** Asset identifier (project/image name) */
+  asset: string;
+  /** Asset type */
+  assetType: "project" | "image" | "repository";
+  /** Criticality level */
+  criticality: AssetCriticality;
+  /** Optional notes */
+  notes?: string;
+  /** Who set this criticality */
+  setBy?: string;
+  /** When criticality was set */
+  setAt: string;
+}
+
+/**
+ * Dashboard database initialization result
+ */
+export interface DashboardDbInitResult {
+  /** Whether initialization was successful */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Timestamp */
+  created: string;
+  /** Error message if failed */
+  error?: string;
+}
