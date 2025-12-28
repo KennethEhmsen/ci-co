@@ -209,6 +209,84 @@ export function validatePolicySchema(policy: unknown): PolicyValidationResult {
   return { valid: errors.length === 0, errors, warnings };
 }
 
+// =============================================================================
+// Rule Validation Helpers
+// =============================================================================
+
+/**
+ * Validate a boolean field in a rule
+ */
+function validateRuleBooleanField(
+  obj: Record<string, unknown>,
+  field: string,
+  path: string
+): PolicyValidationError | null {
+  if (obj[field] !== undefined && typeof obj[field] !== "boolean") {
+    return { path: `${path}.${field}`, message: `${field} must be a boolean` };
+  }
+  return null;
+}
+
+/**
+ * Validate a string array field in a rule
+ */
+function validateRuleStringArrayField(
+  obj: Record<string, unknown>,
+  field: string,
+  path: string,
+  itemName: string
+): PolicyValidationError | null {
+  if (obj[field] === undefined) return null;
+  if (!Array.isArray(obj[field])) {
+    return { path: `${path}.${field}`, message: `${field} must be an array of strings` };
+  }
+  if (!obj[field].every((item: unknown) => typeof item === "string")) {
+    return { path: `${path}.${field}`, message: `All ${itemName} entries must be strings` };
+  }
+  return null;
+}
+
+/**
+ * Validate maxVulnerabilities field in a rule
+ */
+function validateMaxVulnerabilitiesField(
+  obj: Record<string, unknown>,
+  path: string
+): { errors: PolicyValidationError[]; warnings: PolicyValidationError[] } {
+  const errors: PolicyValidationError[] = [];
+  const warnings: PolicyValidationError[] = [];
+
+  if (obj.maxVulnerabilities === undefined) return { errors, warnings };
+
+  if (typeof obj.maxVulnerabilities !== "object" || obj.maxVulnerabilities === null) {
+    errors.push({
+      path: `${path}.maxVulnerabilities`,
+      message: "maxVulnerabilities must be an object",
+    });
+    return { errors, warnings };
+  }
+
+  const vulns = obj.maxVulnerabilities as Record<string, unknown>;
+  const validKeys = ["critical", "high", "medium", "low", "unknown"];
+
+  for (const [key, value] of Object.entries(vulns)) {
+    if (!validKeys.includes(key)) {
+      warnings.push({
+        path: `${path}.maxVulnerabilities.${key}`,
+        message: `Unknown severity level: ${key}`,
+        suggestion: `Valid severities: ${validKeys.join(", ")}`,
+      });
+    } else if (typeof value !== "number" || value < 0) {
+      errors.push({
+        path: `${path}.maxVulnerabilities.${key}`,
+        message: "Value must be a non-negative number",
+      });
+    }
+  }
+
+  return { errors, warnings };
+}
+
 /**
  * Validate a single policy rule
  */
@@ -220,10 +298,7 @@ function validateRule(
   const warnings: PolicyValidationError[] = [];
 
   if (!rule || typeof rule !== "object") {
-    errors.push({
-      path,
-      message: "Rule must be an object",
-    });
+    errors.push({ path, message: "Rule must be an object" });
     return { errors, warnings };
   }
 
@@ -231,94 +306,33 @@ function validateRule(
 
   // Required: name
   if (!obj.name || typeof obj.name !== "string") {
-    errors.push({
-      path: `${path}.name`,
-      message: "Rule name is required and must be a string",
-    });
+    errors.push({ path: `${path}.name`, message: "Rule name is required and must be a string" });
   }
 
-  // Optional: enabled
-  if (obj.enabled !== undefined && typeof obj.enabled !== "boolean") {
-    errors.push({
-      path: `${path}.enabled`,
-      message: "Enabled must be a boolean",
-    });
+  // Boolean fields
+  const booleanFields = ["enabled", "requireQualityGatePass", "blockOnSecrets"];
+  for (const field of booleanFields) {
+    const error = validateRuleBooleanField(obj, field, path);
+    if (error) errors.push(error);
   }
 
-  // Optional: maxVulnerabilities
-  if (obj.maxVulnerabilities !== undefined) {
-    if (typeof obj.maxVulnerabilities !== "object" || obj.maxVulnerabilities === null) {
-      errors.push({
-        path: `${path}.maxVulnerabilities`,
-        message: "maxVulnerabilities must be an object",
-      });
-    } else {
-      const vulns = obj.maxVulnerabilities as Record<string, unknown>;
-      const validKeys = ["critical", "high", "medium", "low", "unknown"];
+  // maxVulnerabilities
+  const vulnResult = validateMaxVulnerabilitiesField(obj, path);
+  errors.push(...vulnResult.errors);
+  warnings.push(...vulnResult.warnings);
 
-      for (const [key, value] of Object.entries(vulns)) {
-        if (!validKeys.includes(key)) {
-          warnings.push({
-            path: `${path}.maxVulnerabilities.${key}`,
-            message: `Unknown severity level: ${key}`,
-            suggestion: `Valid severities: ${validKeys.join(", ")}`,
-          });
-        } else if (typeof value !== "number" || value < 0) {
-          errors.push({
-            path: `${path}.maxVulnerabilities.${key}`,
-            message: "Value must be a non-negative number",
-          });
-        }
-      }
-    }
+  // String array fields
+  const stringArrayFields: [string, string][] = [
+    ["ignoreCves", "CVE"],
+    ["ignorePackages", "package"],
+    ["blockedLicenses", "license"],
+  ];
+  for (const [field, itemName] of stringArrayFields) {
+    const error = validateRuleStringArrayField(obj, field, path, itemName);
+    if (error) errors.push(error);
   }
 
-  // Optional: ignoreCves
-  if (obj.ignoreCves !== undefined) {
-    if (!Array.isArray(obj.ignoreCves)) {
-      errors.push({
-        path: `${path}.ignoreCves`,
-        message: "ignoreCves must be an array of strings",
-      });
-    } else if (!obj.ignoreCves.every((c) => typeof c === "string")) {
-      errors.push({
-        path: `${path}.ignoreCves`,
-        message: "All CVE entries must be strings",
-      });
-    }
-  }
-
-  // Optional: ignorePackages
-  if (obj.ignorePackages !== undefined) {
-    if (!Array.isArray(obj.ignorePackages)) {
-      errors.push({
-        path: `${path}.ignorePackages`,
-        message: "ignorePackages must be an array of strings",
-      });
-    } else if (!obj.ignorePackages.every((p) => typeof p === "string")) {
-      errors.push({
-        path: `${path}.ignorePackages`,
-        message: "All package entries must be strings",
-      });
-    }
-  }
-
-  // Optional: blockedLicenses
-  if (obj.blockedLicenses !== undefined) {
-    if (!Array.isArray(obj.blockedLicenses)) {
-      errors.push({
-        path: `${path}.blockedLicenses`,
-        message: "blockedLicenses must be an array of strings",
-      });
-    } else if (!obj.blockedLicenses.every((l) => typeof l === "string")) {
-      errors.push({
-        path: `${path}.blockedLicenses`,
-        message: "All license entries must be strings",
-      });
-    }
-  }
-
-  // Optional: minCodeCoverage
+  // minCodeCoverage (special case: number range)
   if (obj.minCodeCoverage !== undefined) {
     if (
       typeof obj.minCodeCoverage !== "number" ||
@@ -330,22 +344,6 @@ function validateRule(
         message: "minCodeCoverage must be a number between 0 and 100",
       });
     }
-  }
-
-  // Optional: requireQualityGatePass
-  if (obj.requireQualityGatePass !== undefined && typeof obj.requireQualityGatePass !== "boolean") {
-    errors.push({
-      path: `${path}.requireQualityGatePass`,
-      message: "requireQualityGatePass must be a boolean",
-    });
-  }
-
-  // Optional: blockOnSecrets
-  if (obj.blockOnSecrets !== undefined && typeof obj.blockOnSecrets !== "boolean") {
-    errors.push({
-      path: `${path}.blockOnSecrets`,
-      message: "blockOnSecrets must be a boolean",
-    });
   }
 
   return { errors, warnings };

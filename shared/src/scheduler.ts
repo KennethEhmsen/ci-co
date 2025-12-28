@@ -491,6 +491,136 @@ export function deleteSchedule(id: string): void {
 }
 
 // =============================================================================
+// Schedule Execution Helpers
+// =============================================================================
+
+/**
+ * Create empty vulnerability counts
+ */
+function createEmptyVulnCounts(): VulnerabilityCounts {
+  return { critical: 0, high: 0, medium: 0, low: 0, unknown: 0, total: 0 };
+}
+
+/**
+ * Add vulnerability counts together
+ */
+function addVulnCounts(target: VulnerabilityCounts, source: VulnerabilityCounts): void {
+  target.critical += source.critical;
+  target.high += source.high;
+  target.medium += source.medium;
+  target.low += source.low;
+  target.unknown += source.unknown;
+  target.total += source.total;
+}
+
+interface ScanExecutionResult {
+  scanResult?: TrivyScanResult;
+  vulnCounts: VulnerabilityCounts;
+}
+
+/**
+ * Execute a scan for a specific target type
+ */
+async function executeScanForTarget(
+  targetType: "image" | "path" | "registry",
+  target: string,
+  severity: string,
+  concurrency?: number
+): Promise<ScanExecutionResult> {
+  const vulnCounts = createEmptyVulnCounts();
+
+  switch (targetType) {
+    case "image": {
+      const result = (await trivyScanImage(target, severity)) as TrivyScanResult;
+      if (result && !("error" in result)) {
+        return { scanResult: result, vulnCounts: countVulnerabilities(result) };
+      }
+      return { vulnCounts };
+    }
+    case "path": {
+      const result = (await trivyScanPath(target, severity)) as TrivyScanResult;
+      if (result && !("error" in result)) {
+        return { scanResult: result, vulnCounts: countVulnerabilities(result) };
+      }
+      return { vulnCounts };
+    }
+    case "registry": {
+      const registryResult = await scanRegistry({ severity, concurrency });
+      for (const imgResult of registryResult.results) {
+        if (imgResult.success && imgResult.result) {
+          addVulnCounts(vulnCounts, countVulnerabilities(imgResult.result));
+        }
+      }
+      return { vulnCounts };
+    }
+  }
+}
+
+interface WebhookResult {
+  url: string;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Send notifications for a schedule execution
+ */
+async function sendScheduleNotifications(
+  schedule: ScanSchedule,
+  totalVulns: VulnerabilityCounts,
+  success: boolean
+): Promise<WebhookResult[]> {
+  const webhookResults: WebhookResult[] = [];
+
+  if (!schedule.notifications || schedule.notifications.length === 0) {
+    return webhookResults;
+  }
+
+  const hasVulnerabilities = totalVulns.total > 0;
+
+  for (const notification of schedule.notifications) {
+    const shouldNotify =
+      (success && notification.notifyOn?.includes("success")) ||
+      (!success && notification.notifyOn?.includes("failure")) ||
+      (hasVulnerabilities && notification.notifyOn?.includes("vulnerabilities")) ||
+      !notification.notifyOn ||
+      notification.notifyOn.length === 0;
+
+    if (!shouldNotify) continue;
+
+    try {
+      const summary = createScanSummary(
+        schedule.targets[0]?.target || "scheduled-scan",
+        "image",
+        totalVulns
+      );
+      const config: WebhookConfig = {
+        endpoints: [
+          {
+            id: randomUUID(),
+            name: "notification",
+            url: notification.url,
+            format: notification.format || "slack",
+            enabled: true,
+          },
+        ],
+      };
+
+      await sendWebhooks(config, summary);
+      webhookResults.push({ url: notification.url, success: true });
+    } catch (error) {
+      webhookResults.push({
+        url: notification.url,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return webhookResults;
+}
+
+// =============================================================================
 // Schedule Execution
 // =============================================================================
 
@@ -502,23 +632,15 @@ async function executeSchedule(schedule: ScanSchedule): Promise<ScheduleExecutio
   const executedAt = new Date().toISOString();
   const results: TargetScanResult[] = [];
 
-  const totalVulns: VulnerabilityCounts = {
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    unknown: 0,
-    total: 0,
-  };
-
+  const totalVulns = createEmptyVulnCounts();
   let targetsFailed = 0;
+  const severity = schedule.options?.severity || "HIGH,CRITICAL";
 
   for (const scanTarget of schedule.targets) {
     const targetStartTime = Date.now();
     const targetStartedAt = new Date().toISOString();
 
     // Convert ScheduledScanTarget to ScanTarget for results
-    // Only "image" and "path" are valid ScanTarget types
     const target: ScanTarget = {
       target: scanTarget.target,
       type: scanTarget.type === "registry" ? "image" : scanTarget.type,
@@ -526,63 +648,13 @@ async function executeSchedule(schedule: ScanSchedule): Promise<ScheduleExecutio
     };
 
     try {
-      const severity = schedule.options?.severity || "HIGH,CRITICAL";
-      let scanResult: TrivyScanResult | undefined;
-      let vulnCounts: VulnerabilityCounts = {
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        unknown: 0,
-        total: 0,
-      };
-
-      switch (scanTarget.type) {
-        case "image": {
-          const result = (await trivyScanImage(scanTarget.target, severity)) as TrivyScanResult;
-          if (result && !("error" in result)) {
-            scanResult = result;
-            vulnCounts = countVulnerabilities(result);
-          }
-          break;
-        }
-        case "path": {
-          const result = (await trivyScanPath(scanTarget.target, severity)) as TrivyScanResult;
-          if (result && !("error" in result)) {
-            scanResult = result;
-            vulnCounts = countVulnerabilities(result);
-          }
-          break;
-        }
-        case "registry": {
-          // Registry scans are handled specially - scan all images in registry
-          const registryResult = await scanRegistry({
-            severity,
-            concurrency: schedule.options?.concurrency,
-          });
-          // Aggregate vulnerabilities from all registry scan results
-          for (const imgResult of registryResult.results) {
-            if (imgResult.success && imgResult.result) {
-              const counts = countVulnerabilities(imgResult.result);
-              vulnCounts.critical += counts.critical;
-              vulnCounts.high += counts.high;
-              vulnCounts.medium += counts.medium;
-              vulnCounts.low += counts.low;
-              vulnCounts.unknown += counts.unknown;
-              vulnCounts.total += counts.total;
-            }
-          }
-          break;
-        }
-      }
-
-      // Add to totals
-      totalVulns.critical += vulnCounts.critical;
-      totalVulns.high += vulnCounts.high;
-      totalVulns.medium += vulnCounts.medium;
-      totalVulns.low += vulnCounts.low;
-      totalVulns.unknown += vulnCounts.unknown;
-      totalVulns.total += vulnCounts.total;
+      const { scanResult, vulnCounts } = await executeScanForTarget(
+        scanTarget.type,
+        scanTarget.target,
+        severity,
+        schedule.options?.concurrency
+      );
+      addVulnCounts(totalVulns, vulnCounts);
 
       results.push({
         target,
@@ -637,49 +709,7 @@ async function executeSchedule(schedule: ScanSchedule): Promise<ScheduleExecutio
   scheduleStore.set(schedule.id, updatedSchedule);
 
   // Send notifications
-  const webhookResults: Array<{ url: string; success: boolean; error?: string }> = [];
-  if (schedule.notifications && schedule.notifications.length > 0) {
-    const hasVulnerabilities = totalVulns.total > 0;
-
-    for (const notification of schedule.notifications) {
-      const shouldNotify =
-        (success && notification.notifyOn?.includes("success")) ||
-        (!success && notification.notifyOn?.includes("failure")) ||
-        (hasVulnerabilities && notification.notifyOn?.includes("vulnerabilities")) ||
-        !notification.notifyOn ||
-        notification.notifyOn.length === 0;
-
-      if (shouldNotify) {
-        try {
-          const summary = createScanSummary(
-            schedule.targets[0]?.target || "scheduled-scan",
-            "image",
-            totalVulns
-          );
-          const config: WebhookConfig = {
-            endpoints: [
-              {
-                id: randomUUID(),
-                name: "notification",
-                url: notification.url,
-                format: notification.format || "slack",
-                enabled: true,
-              },
-            ],
-          };
-
-          await sendWebhooks(config, summary);
-          webhookResults.push({ url: notification.url, success: true });
-        } catch (error) {
-          webhookResults.push({
-            url: notification.url,
-            success: false,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    }
-  }
+  const webhookResults = await sendScheduleNotifications(schedule, totalVulns, success);
 
   // Schedule next run
   scheduleNextRun(updatedSchedule);
