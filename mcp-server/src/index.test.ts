@@ -75,6 +75,168 @@ vi.mock("./handlers.js", async (importOriginal) => {
       trivy: { url: "http://localhost:4954" },
       registry: { url: "http://localhost:5000" },
     },
+    // Multi-registry mocks
+    detectRegistryType: vi.fn().mockReturnValue({ type: "docker-hub", confidence: 0.9 }),
+    configureRegistry: vi.fn(),
+    getRegistryConfig: vi.fn().mockReturnValue({
+      id: "test-reg",
+      name: "Test Registry",
+      url: "https://registry.test.com",
+      type: "generic",
+      enabled: true,
+    }),
+    listRegistryConfigs: vi
+      .fn()
+      .mockReturnValue([
+        {
+          id: "reg1",
+          name: "Registry 1",
+          url: "https://r1.test.com",
+          type: "generic",
+          enabled: true,
+        },
+      ]),
+    removeRegistryConfig: vi.fn().mockReturnValue(true),
+    scanMultipleRegistries: vi.fn().mockResolvedValue({
+      registries: [],
+      totalVulnerabilities: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+    }),
+    testRegistryConnection: vi.fn().mockResolvedValue({ success: true, latencyMs: 50 }),
+    scanRegistry: vi.fn().mockResolvedValue({
+      registry: "localhost:5000",
+      discovery: { repositoriesFound: 0, imagesFound: 0, imagesMatched: 0, imagesScanned: 0 },
+      vulnerabilities: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+      results: [],
+      failedImages: [],
+      skippedImages: [],
+    }),
+    // SARIF mocks
+    trivyToSarif: vi.fn().mockReturnValue({ $schema: "", version: "2.1.0", runs: [] }),
+    sonarToSarif: vi.fn().mockReturnValue({ $schema: "", version: "2.1.0", runs: [] }),
+    dtrackToSarif: vi.fn().mockReturnValue({ $schema: "", version: "2.1.0", runs: [] }),
+    mergeSarifLogs: vi.fn().mockReturnValue({ $schema: "", version: "2.1.0", runs: [] }),
+    getSarifSummary: vi.fn().mockReturnValue({ totalResults: 0, bySeverity: {} }),
+    uploadSarifToGitHub: vi.fn().mockResolvedValue({ id: "123", url: "https://github.com/..." }),
+    writeSarifFile: vi.fn().mockResolvedValue(undefined),
+    // Scheduler mocks
+    validateCronExpression: vi.fn().mockReturnValue({ valid: true, parsed: { minute: [0] } }),
+    describeCronExpression: vi.fn().mockReturnValue("Every day at midnight"),
+    getNextRunTimes: vi.fn().mockReturnValue([new Date()]),
+    createSchedule: vi.fn().mockReturnValue({
+      id: "sched-123",
+      name: "Test Schedule",
+      cron: "0 0 * * *",
+      targets: [],
+      enabled: true,
+    }),
+    getSchedule: vi.fn().mockReturnValue({
+      id: "sched-123",
+      name: "Test Schedule",
+      cron: "0 0 * * *",
+      targets: [],
+      enabled: true,
+    }),
+    listSchedules: vi.fn().mockReturnValue([]),
+    updateSchedule: vi.fn().mockReturnValue({
+      id: "sched-123",
+      name: "Updated Schedule",
+      cron: "0 0 * * *",
+      targets: [],
+      enabled: true,
+    }),
+    deleteSchedule: vi.fn(),
+    triggerSchedule: vi.fn().mockResolvedValue({
+      success: true,
+      scheduleId: "sched-123",
+      scheduleName: "Test Schedule",
+      targetsScanned: 0,
+      targetsFailed: 0,
+      vulnerabilities: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+    }),
+    getScheduleHistory: vi.fn().mockReturnValue([]),
+    startScheduler: vi.fn(),
+    stopScheduler: vi.fn(),
+    // Remediation mocks
+    generateRemediations: vi.fn().mockReturnValue([]),
+    getRemediationSummary: vi.fn().mockReturnValue({
+      total: 0,
+      byConfidence: {},
+      byPackageManager: {},
+    }),
+    formatRemediationAsMarkdown: vi.fn().mockReturnValue("# Remediation Plan"),
+    getHighPriorityRemediations: vi.fn().mockReturnValue([]),
+    getSafeRemediations: vi.fn().mockReturnValue([]),
+    // Compliance mocks
+    getComplianceFrameworks: vi.fn().mockReturnValue(["SOC2", "HIPAA", "PCI-DSS", "CIS"]),
+    getComplianceControls: vi
+      .fn()
+      .mockReturnValue([{ id: "CC6.1", name: "Logical Access Security", framework: "SOC2" }]),
+    generateComplianceReport: vi.fn().mockReturnValue({
+      generatedAt: new Date().toISOString(),
+      target: "test-image",
+      summary: { totalViolations: 0, byFramework: {}, passingControls: 0, totalControls: 1 },
+      frameworks: [],
+    }),
+    generateComplianceHtml: vi.fn().mockReturnValue("<html>Report</html>"),
+    recordComplianceTrend: vi.fn().mockReturnValue({
+      timestamp: new Date().toISOString(),
+      target: "test",
+      violations: 0,
+      passingControls: 1,
+    }),
+    getComplianceTrend: vi.fn().mockReturnValue({ target: "test", entries: [], trend: "stable" }),
+    checkComplianceStatus: vi.fn().mockReturnValue({
+      passed: true,
+      frameworks: [],
+      summary: { totalViolations: 0 },
+    }),
+    getSecurityDashboard: vi.fn().mockResolvedValue({
+      summary: { totalFindings: 0, bySeverity: {}, bySource: {} },
+      findings: [],
+    }),
+    // OPA mocks
+    listBuiltinPolicies: vi
+      .fn()
+      .mockReturnValue(["vulnerability-threshold", "license-compliance", "secrets-detection"]),
+    getBuiltinPolicyInfo: vi.fn().mockReturnValue({
+      name: "vulnerability-threshold",
+      description: "Check vulnerability counts",
+      defaultThresholds: { critical: 0, high: 5 },
+    }),
+    getBuiltinPolicy: vi.fn().mockReturnValue("package security\ndefault allow = false"),
+    validateRegoSyntax: vi.fn().mockReturnValue({ valid: true }),
+    evaluatePolicyWithScan: vi.fn().mockResolvedValue({
+      allowed: true,
+      violations: [],
+      summary: { critical: 0, high: 0, medium: 0, low: 0 },
+    }),
+    // Vulnerability Database mocks
+    initVulnDatabase: vi.fn().mockReturnValue({ success: true }),
+    isVulnDbInitialized: vi.fn().mockReturnValue(true),
+    lookupVulnerability: vi.fn().mockReturnValue({
+      id: "CVE-2024-1234",
+      severity: "HIGH",
+      title: "Test Vulnerability",
+    }),
+    searchVulnerabilities: vi.fn().mockReturnValue({ vulnerabilities: [], total: 0 }),
+    getVulnDbStats: vi.fn().mockReturnValue({
+      totalVulnerabilities: 100,
+      bySeverity: { HIGH: 50, CRITICAL: 10 },
+    }),
+    annotateVulnerability: vi.fn().mockReturnValue({ success: true }),
+    getTrivyDbStatus: vi
+      .fn()
+      .mockResolvedValue({ version: "2", updatedAt: new Date().toISOString() }),
+    syncVulnDatabase: vi.fn().mockResolvedValue({ success: true, imported: 100 }),
+    isOfflineScanAvailable: vi.fn().mockResolvedValue({ available: true }),
+    offlineScanImage: vi.fn().mockResolvedValue({ Results: [] }),
+    offlineScanPath: vi.fn().mockResolvedValue({ Results: [] }),
+    getOfflineScanCapabilities: vi.fn().mockResolvedValue({
+      available: true,
+      dbAge: "1 day",
+      canScanImages: true,
+      canScanFilesystems: true,
+    }),
   };
 });
 
@@ -736,5 +898,676 @@ describe("handleReadResource", () => {
 
   it("should throw error for unknown resource", async () => {
     await expect(handleReadResource("cicd://unknown")).rejects.toThrow("Unknown resource");
+  });
+});
+
+// =============================================================================
+// Multi-Registry Tools Tests
+// =============================================================================
+
+describe("handleCallTool - Multi-Registry tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle registry_detect_type", async () => {
+    const result = await handleCallTool("registry_detect_type", { url: "https://docker.io" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for registry_detect_type without url", async () => {
+    const result = await handleCallTool("registry_detect_type", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("url is required");
+  });
+
+  it("should handle registry_configure", async () => {
+    const result = await handleCallTool("registry_configure", {
+      id: "my-reg",
+      name: "My Registry",
+      url: "https://my-registry.com",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should return error for registry_configure without required fields", async () => {
+    const result = await handleCallTool("registry_configure", { id: "my-reg" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("required");
+  });
+
+  it("should handle registry_list_configs", async () => {
+    const result = await handleCallTool("registry_list_configs", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("registries");
+    expect(data).toHaveProperty("count");
+  });
+
+  it("should handle registry_get_config", async () => {
+    const result = await handleCallTool("registry_get_config", { id: "test-reg" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for registry_get_config without id", async () => {
+    const result = await handleCallTool("registry_get_config", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("id is required");
+  });
+
+  it("should handle registry_get_config not found", async () => {
+    const { getRegistryConfig } = await import("./handlers.js");
+    vi.mocked(getRegistryConfig).mockReturnValueOnce(undefined);
+    const result = await handleCallTool("registry_get_config", { id: "nonexistent" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("not found");
+  });
+
+  it("should handle registry_remove_config", async () => {
+    const result = await handleCallTool("registry_remove_config", { id: "test-reg" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should handle registry_test_connection", async () => {
+    const result = await handleCallTool("registry_test_connection", { id: "test-reg" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle registry_scan_multiple", async () => {
+    const result = await handleCallTool("registry_scan_multiple", {
+      registries: ["reg1", "reg2"],
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for registry_scan_multiple without registries", async () => {
+    const result = await handleCallTool("registry_scan_multiple", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("registries");
+  });
+
+  it("should handle registry_scan", async () => {
+    const result = await handleCallTool("registry_scan", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// SARIF Tools Tests
+// =============================================================================
+
+describe("handleCallTool - SARIF tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle sarif_generate with image", async () => {
+    const result = await handleCallTool("sarif_generate", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle sarif_generate with path", async () => {
+    const result = await handleCallTool("sarif_generate", { path: "/app" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle sarif_generate with sonarProject", async () => {
+    const result = await handleCallTool("sarif_generate", { sonarProject: "my-project" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle sarif_generate with dtrackProjectUuid", async () => {
+    const result = await handleCallTool("sarif_generate", { dtrackProjectUuid: "uuid-123" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle sarif_generate with outputFile", async () => {
+    const result = await handleCallTool("sarif_generate", {
+      image: "nginx:latest",
+      outputFile: "/tmp/output.sarif",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should handle sarif_upload_github", async () => {
+    const result = await handleCallTool("sarif_upload_github", {
+      image: "nginx:latest",
+      owner: "test-owner",
+      repo: "test-repo",
+      commitSha: "abc123",
+      ref: "refs/heads/main",
+      token: "ghp_token",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should return error for sarif_upload_github without sources", async () => {
+    const result = await handleCallTool("sarif_upload_github", {
+      owner: "test-owner",
+      repo: "test-repo",
+      commitSha: "abc123",
+      ref: "refs/heads/main",
+      token: "ghp_token",
+    });
+    expect(result.isError).toBe(true);
+  });
+});
+
+// =============================================================================
+// Scheduler Tools Tests
+// =============================================================================
+
+describe("handleCallTool - Scheduler tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle schedule_create", async () => {
+    const result = await handleCallTool("schedule_create", {
+      name: "Daily Scan",
+      cron: "0 0 * * *",
+      targets: [{ type: "image", value: "nginx:latest" }],
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+    expect(data.schedule).toBeDefined();
+  });
+
+  it("should handle schedule_list", async () => {
+    const result = await handleCallTool("schedule_list", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("schedules");
+    expect(data).toHaveProperty("count");
+  });
+
+  it("should handle schedule_get", async () => {
+    const result = await handleCallTool("schedule_get", { id: "sched-123" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle schedule_get not found", async () => {
+    const { getSchedule } = await import("./handlers.js");
+    vi.mocked(getSchedule).mockReturnValueOnce(undefined);
+    const result = await handleCallTool("schedule_get", { id: "nonexistent" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("not found");
+  });
+
+  it("should handle schedule_update", async () => {
+    const result = await handleCallTool("schedule_update", {
+      id: "sched-123",
+      name: "Updated Schedule",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should handle schedule_delete", async () => {
+    const result = await handleCallTool("schedule_delete", { id: "sched-123" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should handle schedule_delete not found", async () => {
+    const { getSchedule } = await import("./handlers.js");
+    vi.mocked(getSchedule).mockReturnValueOnce(undefined);
+    const result = await handleCallTool("schedule_delete", { id: "nonexistent" });
+    expect(result.isError).toBe(true);
+  });
+
+  it("should handle schedule_trigger", async () => {
+    const result = await handleCallTool("schedule_trigger", { id: "sched-123" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should handle schedule_history", async () => {
+    const result = await handleCallTool("schedule_history", { id: "sched-123" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("history");
+  });
+
+  it("should handle cron_validate valid expression", async () => {
+    const result = await handleCallTool("cron_validate", { expression: "0 0 * * *" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.valid).toBe(true);
+  });
+
+  it("should handle cron_validate invalid expression", async () => {
+    const { validateCronExpression } = await import("./handlers.js");
+    vi.mocked(validateCronExpression).mockReturnValueOnce({ valid: false, error: "Invalid" });
+    const result = await handleCallTool("cron_validate", { expression: "invalid" });
+    expect(result.content).toBeDefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.valid).toBe(false);
+  });
+
+  it("should handle scheduler_control start", async () => {
+    const result = await handleCallTool("scheduler_control", { action: "start" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.status).toBe("running");
+  });
+
+  it("should handle scheduler_control stop", async () => {
+    const result = await handleCallTool("scheduler_control", { action: "stop" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.status).toBe("stopped");
+  });
+
+  it("should handle scheduler_control status", async () => {
+    const result = await handleCallTool("scheduler_control", { action: "status" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("status");
+  });
+
+  it("should handle scheduler_control unknown action", async () => {
+    const result = await handleCallTool("scheduler_control", { action: "unknown" });
+    expect(result.isError).toBe(true);
+  });
+});
+
+// =============================================================================
+// Remediation Tools Tests
+// =============================================================================
+
+describe("handleCallTool - Remediation tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle generate_remediations with image", async () => {
+    const result = await handleCallTool("generate_remediations", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle generate_remediations with path", async () => {
+    const result = await handleCallTool("generate_remediations", { path: "/app" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for generate_remediations without source", async () => {
+    const result = await handleCallTool("generate_remediations", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("image or path is required");
+  });
+
+  it("should handle get_remediation_summary with image", async () => {
+    const result = await handleCallTool("get_remediation_summary", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle get_remediation_markdown with image", async () => {
+    const result = await handleCallTool("get_remediation_markdown", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle get_high_priority_fixes with image", async () => {
+    const result = await handleCallTool("get_high_priority_fixes", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle get_safe_fixes with image", async () => {
+    const result = await handleCallTool("get_safe_fixes", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// Compliance Tools Tests
+// =============================================================================
+
+describe("handleCallTool - Compliance tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle compliance_get_frameworks", async () => {
+    const result = await handleCallTool("compliance_get_frameworks", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("frameworks");
+  });
+
+  it("should handle compliance_get_controls", async () => {
+    const result = await handleCallTool("compliance_get_controls", { framework: "SOC2" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("controls");
+  });
+
+  it("should return error for compliance_get_controls without framework", async () => {
+    const result = await handleCallTool("compliance_get_controls", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("framework is required");
+  });
+
+  it("should handle compliance_check_status", async () => {
+    const result = await handleCallTool("compliance_check_status", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle compliance_generate_report JSON format", async () => {
+    const result = await handleCallTool("compliance_generate_report", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle compliance_generate_report HTML format", async () => {
+    const result = await handleCallTool("compliance_generate_report", {
+      image: "nginx:latest",
+      format: "html",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.format).toBe("html");
+    expect(data).toHaveProperty("html");
+  });
+
+  it("should handle compliance_trend_record", async () => {
+    const result = await handleCallTool("compliance_trend_record", {
+      target: "my-app",
+      image: "nginx:latest",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data.success).toBe(true);
+  });
+
+  it("should return error for compliance_trend_record without target", async () => {
+    const result = await handleCallTool("compliance_trend_record", { image: "nginx:latest" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("target is required");
+  });
+
+  it("should handle compliance_trend_get", async () => {
+    const result = await handleCallTool("compliance_trend_get", { target: "my-app" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for compliance_trend_get without target", async () => {
+    const result = await handleCallTool("compliance_trend_get", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("target is required");
+  });
+
+  it("should handle compliance_trend_list_targets", async () => {
+    const result = await handleCallTool("compliance_trend_list_targets", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// OPA/Rego Tools Tests
+// =============================================================================
+
+describe("handleCallTool - OPA tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle opa_list_policies", async () => {
+    const result = await handleCallTool("opa_list_policies", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("policies");
+    expect(data).toHaveProperty("count");
+  });
+
+  it("should handle opa_get_policy_info", async () => {
+    const result = await handleCallTool("opa_get_policy_info", { name: "vulnerability-threshold" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for opa_get_policy_info without name", async () => {
+    const result = await handleCallTool("opa_get_policy_info", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("name is required");
+  });
+
+  it("should handle opa_get_policy_info not found", async () => {
+    const { getBuiltinPolicyInfo } = await import("./handlers.js");
+    vi.mocked(getBuiltinPolicyInfo).mockReturnValueOnce(undefined);
+    const result = await handleCallTool("opa_get_policy_info", { name: "nonexistent" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("not found");
+  });
+
+  it("should handle opa_validate_policy", async () => {
+    const result = await handleCallTool("opa_validate_policy", {
+      policy: "package test\ndefault allow = false",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for opa_validate_policy without policy", async () => {
+    const result = await handleCallTool("opa_validate_policy", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("policy is required");
+  });
+
+  it("should handle opa_evaluate_policy", async () => {
+    const result = await handleCallTool("opa_evaluate_policy", {
+      policy: "vulnerability-threshold",
+      image: "nginx:latest",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for opa_evaluate_policy without policy", async () => {
+    const result = await handleCallTool("opa_evaluate_policy", { image: "nginx:latest" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("policy is required");
+  });
+});
+
+// =============================================================================
+// Vulnerability Database Tools Tests
+// =============================================================================
+
+describe("handleCallTool - Vulnerability Database tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle vuln_db_sync", async () => {
+    const result = await handleCallTool("vuln_db_sync", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle vuln_db_sync with options", async () => {
+    const result = await handleCallTool("vuln_db_sync", { force: true, skipIfRecent: 24 });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle vuln_db_sync when db not initialized", async () => {
+    const { isVulnDbInitialized, initVulnDatabase } = await import("./handlers.js");
+    vi.mocked(isVulnDbInitialized).mockReturnValueOnce(false);
+    vi.mocked(initVulnDatabase).mockReturnValueOnce({ success: true });
+    const result = await handleCallTool("vuln_db_sync", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle vuln_db_sync when init fails", async () => {
+    const { isVulnDbInitialized, initVulnDatabase } = await import("./handlers.js");
+    vi.mocked(isVulnDbInitialized).mockReturnValueOnce(false);
+    vi.mocked(initVulnDatabase).mockReturnValueOnce({ success: false, error: "Init failed" });
+    const result = await handleCallTool("vuln_db_sync", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("Failed to initialize");
+  });
+
+  it("should handle vuln_db_status", async () => {
+    const result = await handleCallTool("vuln_db_status", {});
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+    const data = JSON.parse(result.content[0].text);
+    expect(data).toHaveProperty("trivyDatabase");
+    expect(data).toHaveProperty("offlineScanAvailable");
+  });
+
+  it("should handle vuln_db_lookup", async () => {
+    const result = await handleCallTool("vuln_db_lookup", { id: "CVE-2024-1234" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for vuln_db_lookup without id", async () => {
+    const result = await handleCallTool("vuln_db_lookup", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("id is required");
+  });
+
+  it("should handle vuln_db_lookup not found", async () => {
+    const { lookupVulnerability } = await import("./handlers.js");
+    vi.mocked(lookupVulnerability).mockReturnValueOnce(undefined);
+    const result = await handleCallTool("vuln_db_lookup", { id: "CVE-9999-9999" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("not found");
+  });
+
+  it("should handle vuln_db_search", async () => {
+    const result = await handleCallTool("vuln_db_search", { packageName: "lodash" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle vuln_db_search with all options", async () => {
+    const result = await handleCallTool("vuln_db_search", {
+      packageName: "lodash",
+      ecosystem: "npm",
+      severity: ["HIGH", "CRITICAL"],
+      limit: 10,
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle trivy_scan_offline with image", async () => {
+    const result = await handleCallTool("trivy_scan_offline", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle trivy_scan_offline with path", async () => {
+    const result = await handleCallTool("trivy_scan_offline", { path: "/app" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for trivy_scan_offline without source", async () => {
+    const result = await handleCallTool("trivy_scan_offline", {});
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("image or path is required");
+  });
+
+  it("should handle vuln_db_annotate", async () => {
+    const result = await handleCallTool("vuln_db_annotate", {
+      vulnId: "CVE-2024-1234",
+      status: "acknowledged",
+      notes: "Reviewed by security team",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should return error for vuln_db_annotate without vulnId", async () => {
+    const result = await handleCallTool("vuln_db_annotate", { status: "acknowledged" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("vulnId is required");
+  });
+
+  it("should return error for vuln_db_annotate without status", async () => {
+    const result = await handleCallTool("vuln_db_annotate", { vulnId: "CVE-2024-1234" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain("status is required");
+  });
+});
+
+// =============================================================================
+// Additional Other Tools Tests
+// =============================================================================
+
+describe("handleCallTool - Additional tools", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should handle get_security_dashboard", async () => {
+    const result = await handleCallTool("get_security_dashboard", { image: "nginx:latest" });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
+  });
+
+  it("should handle get_security_dashboard with all options", async () => {
+    const result = await handleCallTool("get_security_dashboard", {
+      image: "nginx:latest",
+      sonarProject: "my-project",
+      dtrackProjectUuid: "uuid-123",
+    });
+    expect(result.content).toBeDefined();
+    expect(result.isError).toBeUndefined();
   });
 });
