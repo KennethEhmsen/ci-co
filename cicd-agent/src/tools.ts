@@ -98,6 +98,13 @@ import {
   getSuppressionAuditLog,
   getSuppressionDbStats,
   applyDbSuppressions,
+  // Prometheus Metrics
+  getMetrics,
+  getMetricsSnapshot,
+  pushToGateway,
+  deleteFromGateway,
+  recordScanMetrics,
+  resetMetrics,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
@@ -755,6 +762,146 @@ const toolHandlers: Record<string, ToolHandler> = {
         severity: v.severity,
         reason: v.suppression.reason,
       })),
+    };
+  },
+
+  // Prometheus Metrics
+  metrics_get: async (input) => {
+    const format = (input?.format as string) || "prometheus";
+
+    if (format === "json") {
+      const snapshot = getMetricsSnapshot();
+      return {
+        format: "json",
+        timestamp: snapshot.timestamp,
+        metrics: snapshot.metrics.map((m) => ({
+          name: m.definition.name,
+          type: m.definition.type,
+          help: m.definition.help,
+          values: m.values,
+        })),
+      };
+    }
+
+    const prometheusOutput = getMetrics();
+    return {
+      format: "prometheus",
+      contentType: "text/plain; version=0.0.4; charset=utf-8",
+      data: prometheusOutput,
+    };
+  },
+
+  metrics_record_scan: async (input) => {
+    const target = input?.target as string;
+    const type = input?.type as "image" | "path";
+    const durationSeconds = input?.durationSeconds as number;
+    const success = input?.success as boolean;
+
+    if (!target || !type || durationSeconds === undefined || success === undefined) {
+      return { error: "target, type, durationSeconds, and success are required" };
+    }
+
+    const vulns = input?.vulnerabilities as
+      | { critical?: number; high?: number; medium?: number; low?: number }
+      | undefined;
+
+    recordScanMetrics({
+      target,
+      type,
+      durationSeconds,
+      success,
+      vulnerabilities: vulns
+        ? {
+            critical: vulns.critical || 0,
+            high: vulns.high || 0,
+            medium: vulns.medium || 0,
+            low: vulns.low || 0,
+          }
+        : undefined,
+      error: input?.error as string | undefined,
+    });
+
+    return {
+      success: true,
+      message: `Recorded metrics for ${type} scan of ${target}`,
+      recorded: {
+        target,
+        type,
+        durationSeconds,
+        success,
+        vulnerabilities: vulns,
+      },
+    };
+  },
+
+  metrics_push: async (input) => {
+    const url = input?.url as string;
+    const job = input?.job as string;
+
+    if (!url || !job) {
+      return { error: "url and job are required" };
+    }
+
+    const result = await pushToGateway({
+      url,
+      job,
+      instance: input?.instance as string | undefined,
+      username: input?.username as string | undefined,
+      password: input?.password as string | undefined,
+      labels: input?.labels as Record<string, string> | undefined,
+    });
+
+    if (result.success) {
+      return {
+        success: true,
+        message: `Pushed metrics to ${url} for job ${job}`,
+        statusCode: result.statusCode,
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error,
+      statusCode: result.statusCode,
+    };
+  },
+
+  metrics_delete: async (input) => {
+    const url = input?.url as string;
+    const job = input?.job as string;
+
+    if (!url || !job) {
+      return { error: "url and job are required" };
+    }
+
+    const result = await deleteFromGateway({
+      url,
+      job,
+      instance: input?.instance as string | undefined,
+      username: input?.username as string | undefined,
+      password: input?.password as string | undefined,
+    });
+
+    if (result.success) {
+      return {
+        success: true,
+        message: `Deleted metrics from ${url} for job ${job}`,
+        statusCode: result.statusCode,
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error,
+      statusCode: result.statusCode,
+    };
+  },
+
+  metrics_reset: async () => {
+    resetMetrics();
+    return {
+      success: true,
+      message: "All metrics have been reset",
     };
   },
 };
@@ -2247,6 +2394,146 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["scanResult"],
+    },
+  },
+
+  // Prometheus Metrics Tools
+  {
+    name: "metrics_get",
+    description:
+      "Get current metrics in Prometheus exposition format. " +
+      "Returns scan metrics, vulnerability counts, cache stats, and circuit breaker states.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        format: {
+          type: "string",
+          enum: ["prometheus", "json"],
+          description:
+            "Output format: 'prometheus' for exposition format (default), 'json' for raw snapshot",
+        },
+      },
+    },
+  },
+  {
+    name: "metrics_record_scan",
+    description:
+      "Record metrics from a security scan. " +
+      "Call after each scan to track duration, success/failure rates, and vulnerability counts.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Scan target (image name or path)",
+        },
+        type: {
+          type: "string",
+          enum: ["image", "path"],
+          description: "Type of scan performed",
+        },
+        durationSeconds: {
+          type: "number",
+          description: "Scan duration in seconds",
+        },
+        success: {
+          type: "boolean",
+          description: "Whether the scan succeeded",
+        },
+        vulnerabilities: {
+          type: "object",
+          description: "Vulnerability counts by severity",
+          properties: {
+            critical: { type: "number" },
+            high: { type: "number" },
+            medium: { type: "number" },
+            low: { type: "number" },
+          },
+        },
+        error: {
+          type: "string",
+          description: "Error message if scan failed",
+        },
+      },
+      required: ["target", "type", "durationSeconds", "success"],
+    },
+  },
+  {
+    name: "metrics_push",
+    description:
+      "Push current metrics to a Prometheus Pushgateway. " +
+      "Use to send metrics to central monitoring in environments where Prometheus cannot scrape directly.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        url: {
+          type: "string",
+          description: "Pushgateway URL (e.g., http://pushgateway:9091)",
+        },
+        job: {
+          type: "string",
+          description: "Job name for grouping metrics",
+        },
+        instance: {
+          type: "string",
+          description: "Instance label for identifying the source",
+        },
+        username: {
+          type: "string",
+          description: "Basic auth username (if required)",
+        },
+        password: {
+          type: "string",
+          description: "Basic auth password (if required)",
+        },
+        labels: {
+          type: "object",
+          description: "Additional labels to add to all metrics",
+        },
+      },
+      required: ["url", "job"],
+    },
+  },
+  {
+    name: "metrics_delete",
+    description:
+      "Delete metrics from a Prometheus Pushgateway. " +
+      "Removes all metrics for a specific job/instance combination.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        url: {
+          type: "string",
+          description: "Pushgateway URL",
+        },
+        job: {
+          type: "string",
+          description: "Job name to delete",
+        },
+        instance: {
+          type: "string",
+          description: "Instance label to delete",
+        },
+        username: {
+          type: "string",
+          description: "Basic auth username (if required)",
+        },
+        password: {
+          type: "string",
+          description: "Basic auth password (if required)",
+        },
+      },
+      required: ["url", "job"],
+    },
+  },
+  {
+    name: "metrics_reset",
+    description:
+      "Reset all collected metrics. " +
+      "Clears all counters, gauges, and histograms. Useful for testing or restarting metric collection.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
     },
   },
 ];

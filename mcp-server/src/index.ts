@@ -131,6 +131,13 @@ import {
   getSuppressionAuditLog,
   getSuppressionDbStats,
   applyDbSuppressions,
+  // Prometheus Metrics
+  getMetrics,
+  getMetricsSnapshot,
+  pushToGateway,
+  deleteFromGateway,
+  recordScanMetrics,
+  resetMetrics,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -2199,6 +2206,142 @@ export const toolDefinitions = [
       required: ["scanResult"],
     },
   },
+
+  // Prometheus Metrics Tools
+  {
+    name: "metrics_get",
+    description:
+      "Get current metrics in Prometheus exposition format. Returns all collected scan metrics, vulnerability counts, cache stats, and circuit breaker states formatted for Prometheus scraping.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        format: {
+          type: "string",
+          enum: ["prometheus", "json"],
+          description:
+            "Output format: 'prometheus' for exposition format (default), 'json' for raw snapshot",
+        },
+      },
+    },
+  },
+  {
+    name: "metrics_record_scan",
+    description:
+      "Record metrics from a security scan. Call this after each scan to track scan duration, success/failure rates, and vulnerability counts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Scan target (image name or path)",
+        },
+        type: {
+          type: "string",
+          enum: ["image", "path"],
+          description: "Type of scan performed",
+        },
+        durationSeconds: {
+          type: "number",
+          description: "Scan duration in seconds",
+        },
+        success: {
+          type: "boolean",
+          description: "Whether the scan succeeded",
+        },
+        vulnerabilities: {
+          type: "object",
+          description: "Vulnerability counts by severity",
+          properties: {
+            critical: { type: "number" },
+            high: { type: "number" },
+            medium: { type: "number" },
+            low: { type: "number" },
+          },
+        },
+        error: {
+          type: "string",
+          description: "Error message if scan failed",
+        },
+      },
+      required: ["target", "type", "durationSeconds", "success"],
+    },
+  },
+  {
+    name: "metrics_push",
+    description:
+      "Push current metrics to a Prometheus Pushgateway. Use this to send metrics to a central monitoring system in environments where Prometheus cannot scrape directly.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Pushgateway URL (e.g., http://pushgateway:9091)",
+        },
+        job: {
+          type: "string",
+          description: "Job name for grouping metrics",
+        },
+        instance: {
+          type: "string",
+          description: "Instance label for identifying the source",
+        },
+        username: {
+          type: "string",
+          description: "Basic auth username (if required)",
+        },
+        password: {
+          type: "string",
+          description: "Basic auth password (if required)",
+        },
+        labels: {
+          type: "object",
+          description: "Additional labels to add to all metrics",
+          additionalProperties: { type: "string" },
+        },
+      },
+      required: ["url", "job"],
+    },
+  },
+  {
+    name: "metrics_delete",
+    description:
+      "Delete metrics from a Prometheus Pushgateway. Removes all metrics for a specific job/instance combination.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Pushgateway URL",
+        },
+        job: {
+          type: "string",
+          description: "Job name to delete",
+        },
+        instance: {
+          type: "string",
+          description: "Instance label to delete",
+        },
+        username: {
+          type: "string",
+          description: "Basic auth username (if required)",
+        },
+        password: {
+          type: "string",
+          description: "Basic auth password (if required)",
+        },
+      },
+      required: ["url", "job"],
+    },
+  },
+  {
+    name: "metrics_reset",
+    description:
+      "Reset all collected metrics. Clears all counters, gauges, and histograms. Useful for testing or when restarting metric collection.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 // =============================================================================
@@ -3425,6 +3568,149 @@ const suppressionHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Prometheus Metrics handlers
+const metricsHandlers: Record<string, ToolHandler> = {
+  metrics_get: async (args) => {
+    const format = (args?.format as string) || "prometheus";
+
+    if (format === "json") {
+      const snapshot = getMetricsSnapshot();
+      return {
+        format: "json",
+        timestamp: snapshot.timestamp,
+        metrics: snapshot.metrics.map((m) => ({
+          name: m.definition.name,
+          type: m.definition.type,
+          help: m.definition.help,
+          values: m.values,
+        })),
+      };
+    }
+
+    // Default: Prometheus exposition format
+    const prometheusOutput = getMetrics();
+    return {
+      format: "prometheus",
+      contentType: "text/plain; version=0.0.4; charset=utf-8",
+      data: prometheusOutput,
+    };
+  },
+
+  metrics_record_scan: async (args) => {
+    const target = args?.target as string;
+    const type = args?.type as "image" | "path";
+    const durationSeconds = args?.durationSeconds as number;
+    const success = args?.success as boolean;
+
+    if (!target || !type || durationSeconds === undefined || success === undefined) {
+      return { error: "target, type, durationSeconds, and success are required" };
+    }
+
+    const vulns = args?.vulnerabilities as
+      | { critical?: number; high?: number; medium?: number; low?: number }
+      | undefined;
+
+    recordScanMetrics({
+      target,
+      type,
+      durationSeconds,
+      success,
+      vulnerabilities: vulns
+        ? {
+            critical: vulns.critical || 0,
+            high: vulns.high || 0,
+            medium: vulns.medium || 0,
+            low: vulns.low || 0,
+          }
+        : undefined,
+      error: args?.error as string | undefined,
+    });
+
+    return {
+      success: true,
+      message: `Recorded metrics for ${type} scan of ${target}`,
+      recorded: {
+        target,
+        type,
+        durationSeconds,
+        success,
+        vulnerabilities: vulns,
+      },
+    };
+  },
+
+  metrics_push: async (args) => {
+    const url = args?.url as string;
+    const job = args?.job as string;
+
+    if (!url || !job) {
+      return { error: "url and job are required" };
+    }
+
+    const result = await pushToGateway({
+      url,
+      job,
+      instance: args?.instance as string | undefined,
+      username: args?.username as string | undefined,
+      password: args?.password as string | undefined,
+      labels: args?.labels as Record<string, string> | undefined,
+    });
+
+    if (result.success) {
+      return {
+        success: true,
+        message: `Pushed metrics to ${url} for job ${job}`,
+        statusCode: result.statusCode,
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error,
+      statusCode: result.statusCode,
+    };
+  },
+
+  metrics_delete: async (args) => {
+    const url = args?.url as string;
+    const job = args?.job as string;
+
+    if (!url || !job) {
+      return { error: "url and job are required" };
+    }
+
+    const result = await deleteFromGateway({
+      url,
+      job,
+      instance: args?.instance as string | undefined,
+      username: args?.username as string | undefined,
+      password: args?.password as string | undefined,
+    });
+
+    if (result.success) {
+      return {
+        success: true,
+        message: `Deleted metrics from ${url} for job ${job}`,
+        statusCode: result.statusCode,
+      };
+    }
+
+    return {
+      success: false,
+      error: result.error,
+      statusCode: result.statusCode,
+    };
+  },
+
+  metrics_reset: async () => {
+    resetMetrics();
+    return {
+      success: true,
+      message: "All metrics have been reset",
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -3442,6 +3728,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...vulnDbHandlers,
   ...cacheHandlers,
   ...suppressionHandlers,
+  ...metricsHandlers,
 };
 
 export async function handleCallTool(
