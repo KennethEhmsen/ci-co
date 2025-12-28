@@ -831,3 +831,65 @@ export type {
   ApiKeyListOptions,
   ApiKeyDbInitResult,
 } from "./types.js";
+
+// =============================================================================
+// Team Management
+// =============================================================================
+
+export {
+  initTeamDatabase,
+  closeTeamDatabase,
+  isTeamDbInitialized,
+  // Organization management
+  createOrganization,
+  getOrganization,
+  getOrganizationByName,
+  listOrganizations,
+  updateOrganization,
+  deleteOrganization,
+  // Team management
+  createTeam,
+  getTeam,
+  getTeamByName,
+  listTeams,
+  updateTeam,
+  deleteTeam,
+  // Member management
+  addTeamMember,
+  removeTeamMember,
+  updateTeamMemberRole,
+  getTeamMember,
+  listTeamMembers,
+  getUserTeamMemberships,
+  isTeamMember,
+  hasTeamRole,
+  // Audit
+  logTeamAudit,
+  getTeamAuditEvents,
+  // Maintenance
+  cleanupExpiredMemberships,
+  cleanupTeamAuditEvents,
+  getTeamStats,
+} from "./team-manager.js";
+
+// Team Management Types re-export
+export type {
+  TeamMemberRole,
+  TeamEventType,
+  Organization,
+  OrganizationSettings,
+  OrganizationWithStats,
+  Team,
+  TeamSettings,
+  TeamWithStats,
+  TeamMember,
+  TeamMembershipDetails,
+  CreateOrganizationOptions,
+  CreateTeamOptions,
+  AddTeamMemberOptions,
+  ListTeamsOptions,
+  ListTeamMembersOptions,
+  TeamAuditEvent,
+  TeamDbInitResult,
+  TeamStats,
+} from "./types.js";

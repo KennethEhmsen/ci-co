@@ -3608,3 +3608,301 @@ export interface ApiKeyDbInitResult {
   /** Error message if failed */
   error?: string;
 }
+
+// =============================================================================
+// Team Management Types (Issue #26)
+// =============================================================================
+
+/**
+ * Team member role within a team
+ */
+export type TeamMemberRole = "owner" | "admin" | "member" | "viewer";
+
+/**
+ * Team event types for audit logging
+ */
+export type TeamEventType =
+  | "ORG_CREATED"
+  | "ORG_UPDATED"
+  | "ORG_DELETED"
+  | "TEAM_CREATED"
+  | "TEAM_UPDATED"
+  | "TEAM_DELETED"
+  | "MEMBER_ADDED"
+  | "MEMBER_REMOVED"
+  | "MEMBER_ROLE_CHANGED"
+  | "TEAM_SETTING_CHANGED";
+
+/**
+ * Organization - top-level grouping for teams
+ */
+export interface Organization {
+  /** Organization ID */
+  id: string;
+  /** Organization name (unique) */
+  name: string;
+  /** Display name */
+  displayName?: string;
+  /** Organization description */
+  description?: string;
+  /** Owner user ID */
+  ownerId: string;
+  /** Settings JSON */
+  settings?: OrganizationSettings;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Last update timestamp */
+  updatedAt: string;
+}
+
+/**
+ * Organization settings
+ */
+export interface OrganizationSettings {
+  /** Default team visibility */
+  defaultTeamVisibility?: "public" | "private";
+  /** Allow external members */
+  allowExternalMembers?: boolean;
+  /** Require 2FA for members */
+  require2FA?: boolean;
+  /** Maximum teams per organization */
+  maxTeams?: number;
+  /** Maximum members per team */
+  maxMembersPerTeam?: number;
+}
+
+/**
+ * Team - belongs to an organization
+ */
+export interface Team {
+  /** Team ID */
+  id: string;
+  /** Organization ID this team belongs to */
+  organizationId: string;
+  /** Team name (unique within org) */
+  name: string;
+  /** Display name */
+  displayName?: string;
+  /** Team description */
+  description?: string;
+  /** Team visibility */
+  visibility: "public" | "private";
+  /** Settings JSON */
+  settings?: TeamSettings;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Last update timestamp */
+  updatedAt: string;
+}
+
+/**
+ * Team settings
+ */
+export interface TeamSettings {
+  /** Notification preferences */
+  notifications?: {
+    scanComplete?: boolean;
+    vulnerabilityFound?: boolean;
+    policyViolation?: boolean;
+  };
+  /** Default scan severity threshold */
+  defaultSeverityThreshold?: SeverityLevel;
+  /** Auto-assign new projects */
+  autoAssignProjects?: boolean;
+}
+
+/**
+ * Team membership - user belongs to team with role
+ */
+export interface TeamMember {
+  /** User ID */
+  userId: string;
+  /** Team ID */
+  teamId: string;
+  /** Member role in the team */
+  role: TeamMemberRole;
+  /** When the member joined */
+  joinedAt: string;
+  /** Who added this member */
+  addedBy?: string;
+  /** Optional expiration for temporary membership */
+  expiresAt?: string;
+}
+
+/**
+ * Team with member count and other metadata
+ */
+export interface TeamWithStats extends Team {
+  /** Number of members */
+  memberCount: number;
+  /** Organization name */
+  organizationName?: string;
+}
+
+/**
+ * Organization with team count
+ */
+export interface OrganizationWithStats extends Organization {
+  /** Number of teams */
+  teamCount: number;
+  /** Total members across all teams */
+  totalMembers: number;
+}
+
+/**
+ * Team membership with user and team details
+ */
+export interface TeamMembershipDetails {
+  /** User ID */
+  userId: string;
+  /** Team ID */
+  teamId: string;
+  /** Team name */
+  teamName: string;
+  /** Organization ID */
+  organizationId: string;
+  /** Organization name */
+  organizationName: string;
+  /** Member role */
+  role: TeamMemberRole;
+  /** When joined */
+  joinedAt: string;
+}
+
+/**
+ * Options for creating an organization
+ */
+export interface CreateOrganizationOptions {
+  /** Organization name (unique) */
+  name: string;
+  /** Display name */
+  displayName?: string;
+  /** Description */
+  description?: string;
+  /** Owner user ID */
+  ownerId: string;
+  /** Initial settings */
+  settings?: OrganizationSettings;
+}
+
+/**
+ * Options for creating a team
+ */
+export interface CreateTeamOptions {
+  /** Organization ID */
+  organizationId: string;
+  /** Team name (unique within org) */
+  name: string;
+  /** Display name */
+  displayName?: string;
+  /** Description */
+  description?: string;
+  /** Visibility (default: private) */
+  visibility?: "public" | "private";
+  /** Initial settings */
+  settings?: TeamSettings;
+  /** Actor creating the team */
+  createdBy?: string;
+}
+
+/**
+ * Options for adding a team member
+ */
+export interface AddTeamMemberOptions {
+  /** Team ID */
+  teamId: string;
+  /** User ID to add */
+  userId: string;
+  /** Role (default: member) */
+  role?: TeamMemberRole;
+  /** Who is adding the member */
+  addedBy?: string;
+  /** Optional expiration */
+  expiresAt?: string;
+}
+
+/**
+ * Options for listing teams
+ */
+export interface ListTeamsOptions {
+  /** Filter by organization */
+  organizationId?: string;
+  /** Filter by visibility */
+  visibility?: "public" | "private";
+  /** Filter by user membership */
+  userId?: string;
+  /** Search by team name */
+  search?: string;
+  /** Include member count */
+  includeStats?: boolean;
+  /** Limit results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * Options for listing team members
+ */
+export interface ListTeamMembersOptions {
+  /** Filter by role */
+  role?: TeamMemberRole;
+  /** Include expired members */
+  includeExpired?: boolean;
+  /** Limit results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * Team audit event
+ */
+export interface TeamAuditEvent {
+  /** Event ID */
+  id: string;
+  /** Event type */
+  eventType: TeamEventType;
+  /** Actor who triggered the event */
+  actorId?: string;
+  /** Target organization ID */
+  organizationId?: string;
+  /** Target team ID */
+  teamId?: string;
+  /** Target user ID */
+  targetUserId?: string;
+  /** Event status */
+  status: "SUCCESS" | "FAILURE";
+  /** Additional details */
+  details?: Record<string, unknown>;
+  /** Event timestamp */
+  timestamp: string;
+}
+
+/**
+ * Team database initialization result
+ */
+export interface TeamDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Whether database was created (vs opened) */
+  created: boolean;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Team statistics
+ */
+export interface TeamStats {
+  /** Total organizations */
+  totalOrganizations: number;
+  /** Total teams */
+  totalTeams: number;
+  /** Total memberships */
+  totalMemberships: number;
+  /** Members by role */
+  membersByRole: Record<TeamMemberRole, number>;
+}

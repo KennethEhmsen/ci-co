@@ -154,6 +154,16 @@ import {
   listApiKeys,
   revokeApiKey,
   rotateApiKey,
+  // Team Management
+  initTeamDatabase,
+  isTeamDbInitialized,
+  createOrganization,
+  createTeam,
+  addTeamMember,
+  listTeams,
+  isTeamMember,
+  hasTeamRole,
+  getTeamMember,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
@@ -1627,6 +1637,177 @@ const toolHandlers: Record<string, ToolHandler> = {
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
     }
+  },
+
+  // =========================================================================
+  // Team Management
+  // =========================================================================
+  team_create_org: async (input) => {
+    if (!isTeamDbInitialized()) {
+      const result = initTeamDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Team database: ${result.error}` };
+      }
+    }
+
+    const name = input?.name as string;
+    const ownerId = input?.ownerId as string;
+
+    if (!name || !ownerId) {
+      return { error: "name and ownerId are required" };
+    }
+
+    try {
+      const org = createOrganization({
+        name,
+        displayName: input?.displayName as string | undefined,
+        description: input?.description as string | undefined,
+        ownerId,
+        settings: {
+          maxTeams: (input?.maxTeams as number) || 100,
+          maxMembersPerTeam: (input?.maxMembersPerTeam as number) || 100,
+        },
+      });
+
+      return {
+        message: "Organization created successfully",
+        organization: org,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  team_create_team: async (input) => {
+    if (!isTeamDbInitialized()) {
+      const result = initTeamDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Team database: ${result.error}` };
+      }
+    }
+
+    const organizationId = input?.organizationId as string;
+    const name = input?.name as string;
+
+    if (!organizationId || !name) {
+      return { error: "organizationId and name are required" };
+    }
+
+    try {
+      const team = createTeam({
+        organizationId,
+        name,
+        displayName: input?.displayName as string | undefined,
+        description: input?.description as string | undefined,
+        visibility: (input?.visibility as "public" | "private") || "private",
+        createdBy: input?.createdBy as string | undefined,
+      });
+
+      return {
+        message: "Team created successfully",
+        team,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  team_add_member: async (input) => {
+    if (!isTeamDbInitialized()) {
+      const result = initTeamDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Team database: ${result.error}` };
+      }
+    }
+
+    const teamId = input?.teamId as string;
+    const userId = input?.userId as string;
+
+    if (!teamId || !userId) {
+      return { error: "teamId and userId are required" };
+    }
+
+    try {
+      const member = addTeamMember({
+        teamId,
+        userId,
+        role: (input?.role as "owner" | "admin" | "member" | "viewer") || "member",
+        addedBy: input?.addedBy as string | undefined,
+        expiresAt: input?.expiresAt as string | undefined,
+      });
+
+      return {
+        message: "Member added to team successfully",
+        member,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  team_list_teams: async (input) => {
+    if (!isTeamDbInitialized()) {
+      const result = initTeamDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Team database: ${result.error}` };
+      }
+    }
+
+    const teams = listTeams({
+      organizationId: input?.organizationId as string | undefined,
+      visibility: input?.visibility as "public" | "private" | undefined,
+      search: input?.search as string | undefined,
+      includeStats: input?.includeStats as boolean | undefined,
+      limit: input?.limit as number | undefined,
+      offset: input?.offset as number | undefined,
+    });
+
+    return {
+      count: teams.length,
+      teams,
+    };
+  },
+
+  team_check_membership: async (input) => {
+    if (!isTeamDbInitialized()) {
+      const result = initTeamDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Team database: ${result.error}` };
+      }
+    }
+
+    const teamId = input?.teamId as string;
+    const userId = input?.userId as string;
+
+    if (!teamId || !userId) {
+      return { error: "teamId and userId are required" };
+    }
+
+    const isMember = isTeamMember(teamId, userId);
+    const requiredRole = input?.requiredRole as "owner" | "admin" | "member" | "viewer" | undefined;
+
+    if (requiredRole) {
+      const hasRole = hasTeamRole(teamId, userId, requiredRole);
+      const member = getTeamMember(teamId, userId);
+      return {
+        isMember,
+        hasRequiredRole: hasRole,
+        requiredRole,
+        actualRole: member?.role || null,
+        userId,
+        teamId,
+      };
+    }
+
+    const member = getTeamMember(teamId, userId);
+    return {
+      isMember,
+      role: member?.role || null,
+      joinedAt: member?.joinedAt || null,
+      expiresAt: member?.expiresAt || null,
+      userId,
+      teamId,
+    };
   },
 };
 
@@ -3852,6 +4033,121 @@ export const tools: Anthropic.Tool[] = [
         actorId: { type: "string", description: "User ID performing the rotation (for audit)" },
       },
       required: ["keyId"],
+    },
+  },
+  // =========================================================================
+  // Team Management Tools
+  // =========================================================================
+  {
+    name: "team_create_org",
+    description:
+      "Create a new organization. Organizations contain teams and have settings like max teams and members per team.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: {
+          type: "string",
+          description: "Unique organization name (slug format, lowercase, no spaces)",
+        },
+        displayName: { type: "string", description: "Human-readable display name" },
+        description: { type: "string", description: "Organization description" },
+        ownerId: { type: "string", description: "User ID of the organization owner" },
+        maxTeams: { type: "number", description: "Maximum number of teams allowed (default: 100)" },
+        maxMembersPerTeam: {
+          type: "number",
+          description: "Maximum members per team (default: 100)",
+        },
+      },
+      required: ["name", "ownerId"],
+    },
+  },
+  {
+    name: "team_create_team",
+    description:
+      "Create a new team within an organization. Teams group users together for access control.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        organizationId: {
+          type: "string",
+          description: "ID of the organization to create the team in",
+        },
+        name: {
+          type: "string",
+          description: "Unique team name within the organization (slug format)",
+        },
+        displayName: { type: "string", description: "Human-readable display name" },
+        description: { type: "string", description: "Team description" },
+        visibility: {
+          type: "string",
+          enum: ["public", "private"],
+          description: "Team visibility (default: private)",
+        },
+        createdBy: { type: "string", description: "User ID of the creator (for audit)" },
+      },
+      required: ["organizationId", "name"],
+    },
+  },
+  {
+    name: "team_add_member",
+    description:
+      "Add a user as a member of a team with a specific role. Roles: owner, admin, member, viewer.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        teamId: { type: "string", description: "ID of the team" },
+        userId: { type: "string", description: "ID of the user to add" },
+        role: {
+          type: "string",
+          enum: ["owner", "admin", "member", "viewer"],
+          description: "Member role (default: member)",
+        },
+        addedBy: { type: "string", description: "User ID of who is adding the member (for audit)" },
+        expiresAt: { type: "string", description: "ISO date when membership expires (optional)" },
+      },
+      required: ["teamId", "userId"],
+    },
+  },
+  {
+    name: "team_list_teams",
+    description:
+      "List teams with optional filtering. Can filter by organization, visibility, or search by name.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        organizationId: { type: "string", description: "Filter by organization ID" },
+        visibility: {
+          type: "string",
+          enum: ["public", "private"],
+          description: "Filter by visibility",
+        },
+        search: { type: "string", description: "Search by team name" },
+        includeStats: {
+          type: "boolean",
+          description: "Include member count statistics (default: false)",
+        },
+        limit: { type: "number", description: "Maximum results to return" },
+        offset: { type: "number", description: "Results offset for pagination" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "team_check_membership",
+    description:
+      "Check if a user is a member of a team and optionally verify they have a specific role or higher.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        teamId: { type: "string", description: "ID of the team" },
+        userId: { type: "string", description: "ID of the user to check" },
+        requiredRole: {
+          type: "string",
+          enum: ["owner", "admin", "member", "viewer"],
+          description: "Minimum role required (checks if user has this role or higher)",
+        },
+      },
+      required: ["teamId", "userId"],
     },
   },
 ];
