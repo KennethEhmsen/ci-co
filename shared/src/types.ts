@@ -3268,3 +3268,132 @@ export interface SsoProviderSummary {
   /** Created timestamp */
   createdAt: string;
 }
+
+// =============================================================================
+// RBAC (Role-Based Access Control) Types
+// =============================================================================
+
+/** RBAC event types for audit logging */
+export type RbacEventType =
+  | "ROLE_CREATED"
+  | "ROLE_UPDATED"
+  | "ROLE_DELETED"
+  | "PERMISSION_GRANTED"
+  | "PERMISSION_REVOKED"
+  | "ROLE_ASSIGNED"
+  | "ROLE_UNASSIGNED"
+  | "PERMISSION_CHECK";
+
+/**
+ * RBAC role definition
+ */
+export interface RbacRole {
+  /** Unique role ID */
+  id: string;
+  /** Role name (unique) */
+  name: string;
+  /** Role description */
+  description?: string;
+  /** Whether this is a system role (cannot be deleted) */
+  isSystem: boolean;
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt: string;
+}
+
+/**
+ * RBAC permission definition
+ */
+export interface RbacPermission {
+  /** Unique permission ID */
+  id: string;
+  /** Permission name in resource:action format (e.g., "scan:execute") */
+  name: string;
+  /** Permission description */
+  description?: string;
+  /** Resource this permission applies to */
+  resource: string;
+  /** Action this permission allows */
+  action: string;
+  /** Created timestamp */
+  createdAt: string;
+}
+
+/**
+ * User-role assignment
+ */
+export interface RbacUserRole {
+  /** User ID */
+  userId: string;
+  /** Role ID */
+  roleId: string;
+  /** Role name (for convenience) */
+  roleName: string;
+  /** When the role was assigned */
+  assignedAt: string;
+  /** Who assigned the role */
+  assignedBy?: string;
+  /** Optional expiration */
+  expiresAt?: string;
+}
+
+/**
+ * Result of a permission check
+ */
+export interface RbacCheckResult {
+  /** Whether the permission is allowed */
+  allowed: boolean;
+  /** The permission that was checked */
+  permission: string;
+  /** The role that granted the permission (if allowed) */
+  matchedRole?: string;
+  /** Reason for denial (if not allowed) */
+  reason?: string;
+}
+
+/**
+ * RBAC audit event
+ */
+export interface RbacAuditEvent {
+  /** Event ID */
+  id: string;
+  /** Event type */
+  eventType: RbacEventType;
+  /** Who performed the action */
+  actorId?: string;
+  /** Target user (for role assignments) */
+  targetUserId?: string;
+  /** Role ID involved */
+  roleId?: string;
+  /** Permission ID involved */
+  permissionId?: string;
+  /** Event status */
+  status: "SUCCESS" | "FAILURE";
+  /** Additional details */
+  details?: Record<string, unknown>;
+  /** Event timestamp */
+  timestamp: string;
+}
+
+/**
+ * Role with its permissions
+ */
+export interface RbacRoleWithPermissions extends RbacRole {
+  /** Permissions granted to this role */
+  permissions: RbacPermission[];
+}
+
+/**
+ * RBAC database initialization result
+ */
+export interface RbacDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Whether database was created (vs opened) */
+  created: boolean;
+  /** Error message if failed */
+  error?: string;
+}

@@ -752,3 +752,45 @@ export type {
   SsoDbInitResult,
   SsoProviderSummary,
 } from "./types.js";
+
+// RBAC Configuration exports
+export {
+  initRbacDatabase,
+  closeRbacDatabase,
+  isRbacDbInitialized,
+  createRole,
+  getRole,
+  getRoleByName,
+  listRoles,
+  updateRole,
+  deleteRole,
+  getPermission,
+  getPermissionByName,
+  listPermissions,
+  grantPermissionToRole,
+  revokePermissionFromRole,
+  getRolePermissions,
+  assignRoleToUser,
+  unassignRoleFromUser,
+  getUserRoles,
+  getUsersWithRole,
+  checkPermission,
+  listUserPermissions,
+  isUserAdmin,
+  logRbacAudit,
+  getRbacAuditEvents,
+  cleanupOldRbacAuditEvents,
+  cleanupExpiredRoleAssignments,
+} from "./rbac-config.js";
+
+// RBAC Types re-export
+export type {
+  RbacEventType,
+  RbacRole,
+  RbacPermission,
+  RbacUserRole,
+  RbacCheckResult,
+  RbacAuditEvent,
+  RbacRoleWithPermissions,
+  RbacDbInitResult,
+} from "./types.js";

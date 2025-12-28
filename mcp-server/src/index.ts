@@ -168,6 +168,17 @@ import {
   validateOidcTokenByIssuer,
   refreshOidcToken,
   getOidcUserInfo,
+  // RBAC
+  initRbacDatabase,
+  isRbacDbInitialized,
+  createRole,
+  getRoleByName,
+  listRoles,
+  listPermissions,
+  assignRoleToUser,
+  getUserRoles,
+  checkPermission,
+  listUserPermissions,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -2936,6 +2947,104 @@ export const toolDefinitions = [
       },
     },
   },
+
+  // RBAC Tools
+  {
+    name: "rbac_create_role",
+    description:
+      "Create a custom RBAC role with specified permissions. Predefined roles (Admin, Auditor, Developer, Viewer) are created automatically on database initialization.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Unique name for the role",
+        },
+        description: {
+          type: "string",
+          description: "Description of the role's purpose",
+        },
+        permissions: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "List of permission names to grant (e.g., scan:read, scan:execute, report:generate). Use rbac_list_roles to see available permissions.",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "rbac_list_roles",
+    description:
+      "List all RBAC roles and available permissions. Returns predefined roles (Admin, Auditor, Developer, Viewer) plus any custom roles.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        includePermissions: {
+          type: "boolean",
+          description: "Include permissions for each role (default: true)",
+          default: true,
+        },
+      },
+    },
+  },
+  {
+    name: "rbac_assign_role",
+    description:
+      "Assign an RBAC role to a user. Optionally set an expiration date for temporary access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "User ID to assign the role to (e.g., SSO user ID or email)",
+        },
+        roleName: {
+          type: "string",
+          description: "Name of the role to assign (e.g., Admin, Developer, Viewer)",
+        },
+        expiresAt: {
+          type: "string",
+          description: "Optional ISO 8601 expiration date for temporary access",
+        },
+      },
+      required: ["userId", "roleName"],
+    },
+  },
+  {
+    name: "rbac_check_permission",
+    description:
+      "Check if a user has a specific permission. Returns whether allowed and which role granted it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "User ID to check",
+        },
+        permission: {
+          type: "string",
+          description: "Permission to check (e.g., scan:execute, report:read, system:admin)",
+        },
+      },
+      required: ["userId", "permission"],
+    },
+  },
+  {
+    name: "rbac_list_user_permissions",
+    description: "List all effective permissions for a user based on their assigned roles.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "User ID to get permissions for",
+        },
+      },
+      required: ["userId"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -4776,6 +4885,153 @@ const ssoHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// RBAC handlers
+const rbacHandlers: Record<string, ToolHandler> = {
+  rbac_create_role: async (args) => {
+    // Initialize RBAC database if not already done
+    if (!isRbacDbInitialized()) {
+      const result = initRbacDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize RBAC database: ${result.error}` };
+      }
+    }
+
+    const name = args?.name as string;
+    const description = args?.description as string | undefined;
+    const permissions = args?.permissions as string[] | undefined;
+
+    if (!name) {
+      return { error: "Role name is required" };
+    }
+
+    try {
+      const role = createRole(name, description, permissions);
+      return {
+        success: true,
+        role,
+        message: `Role '${name}' created successfully`,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  rbac_list_roles: async (args) => {
+    // Initialize RBAC database if not already done
+    if (!isRbacDbInitialized()) {
+      const result = initRbacDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize RBAC database: ${result.error}` };
+      }
+    }
+
+    const includePermissions = args?.includePermissions !== false;
+    const roles = listRoles(includePermissions);
+    const permissions = listPermissions();
+
+    return {
+      roles,
+      availablePermissions: permissions.map((p) => ({
+        name: p.name,
+        description: p.description,
+        resource: p.resource,
+        action: p.action,
+      })),
+    };
+  },
+
+  rbac_assign_role: async (args) => {
+    // Initialize RBAC database if not already done
+    if (!isRbacDbInitialized()) {
+      const result = initRbacDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize RBAC database: ${result.error}` };
+      }
+    }
+
+    const userId = args?.userId as string;
+    const roleName = args?.roleName as string;
+    const expiresAt = args?.expiresAt as string | undefined;
+
+    if (!userId || !roleName) {
+      return { error: "userId and roleName are required" };
+    }
+
+    // Look up role by name
+    const role = getRoleByName(roleName);
+    if (!role) {
+      return { error: `Role not found: ${roleName}` };
+    }
+
+    const success = assignRoleToUser(userId, role.id, undefined, expiresAt);
+    if (success) {
+      return {
+        success: true,
+        userId,
+        role: roleName,
+        expiresAt,
+        message: `Role '${roleName}' assigned to user '${userId}'`,
+      };
+    } else {
+      return { error: "Failed to assign role" };
+    }
+  },
+
+  rbac_check_permission: async (args) => {
+    // Initialize RBAC database if not already done
+    if (!isRbacDbInitialized()) {
+      const result = initRbacDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize RBAC database: ${result.error}` };
+      }
+    }
+
+    const userId = args?.userId as string;
+    const permission = args?.permission as string;
+
+    if (!userId || !permission) {
+      return { error: "userId and permission are required" };
+    }
+
+    const result = checkPermission(userId, permission);
+    return result;
+  },
+
+  rbac_list_user_permissions: async (args) => {
+    // Initialize RBAC database if not already done
+    if (!isRbacDbInitialized()) {
+      const result = initRbacDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize RBAC database: ${result.error}` };
+      }
+    }
+
+    const userId = args?.userId as string;
+
+    if (!userId) {
+      return { error: "userId is required" };
+    }
+
+    const roles = getUserRoles(userId);
+    const permissions = listUserPermissions(userId);
+
+    return {
+      userId,
+      roles: roles.map((r) => ({
+        name: r.roleName,
+        assignedAt: r.assignedAt,
+        expiresAt: r.expiresAt,
+      })),
+      permissions: permissions.map((p) => ({
+        name: p.name,
+        description: p.description,
+        resource: p.resource,
+        action: p.action,
+      })),
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -4796,6 +5052,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...metricsHandlers,
   ...scanCompareHandlers,
   ...ssoHandlers,
+  ...rbacHandlers,
 };
 
 export async function handleCallTool(
