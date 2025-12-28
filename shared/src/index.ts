@@ -1060,3 +1060,49 @@ export type {
   AssetCriticalityConfig,
   DashboardDbInitResult,
 } from "./types.js";
+
+// Report Templates
+export {
+  // Database lifecycle
+  initReportDatabase,
+  closeReportDatabase,
+  isReportDbInitialized,
+  // Template management
+  createTemplate,
+  getTemplate,
+  getTemplateByName,
+  listTemplates,
+  updateTemplate,
+  deleteTemplate,
+  // Report generation
+  generateReport,
+  // Report schedule management
+  createReportSchedule,
+  getReportSchedule,
+  listReportSchedules,
+  updateReportSchedule,
+  deleteReportSchedule,
+  // Report history
+  getReportHistory,
+  cleanupReportHistory,
+} from "./report-templates.js";
+
+// Report Templates Types re-export
+export type {
+  ReportFormat,
+  ReportScheduleFrequency,
+  BuiltinTemplateName,
+  ReportSectionType,
+  ReportSection,
+  ReportBranding,
+  ReportFilters,
+  ReportTemplate,
+  ReportGenerateOptions,
+  GeneratedReport,
+  ReportWebhook,
+  ReportSchedule,
+  ReportHistoryEntry,
+  CreateTemplateOptions,
+  CreateScheduleOptions,
+  ReportDbInitResult,
+} from "./types.js";

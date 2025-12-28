@@ -217,6 +217,12 @@ import {
   getDashboardSummary,
   getHealthScore,
   getTopRisks,
+  // Report Templates
+  initReportDatabase,
+  isReportDbInitialized,
+  listTemplates,
+  generateReport,
+  createReportSchedule,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -3624,6 +3630,156 @@ export const toolDefinitions = [
       },
     },
   },
+  // =========================================================================
+  // Report Templates Tools
+  // =========================================================================
+  {
+    name: "report_list_templates",
+    description:
+      "List available report templates including built-in templates (Executive Summary, Technical Detail, Compliance Audit, Trend Analysis, Vulnerability List) and custom templates.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        includeBuiltin: {
+          type: "boolean",
+          description: "Include built-in templates (default: true)",
+        },
+        format: {
+          type: "string",
+          enum: ["html", "markdown", "json"],
+          description: "Filter by output format",
+        },
+      },
+    },
+  },
+  {
+    name: "report_generate",
+    description:
+      "Generate a security report from a template. Supports HTML, Markdown, and JSON output formats. Reports include sections like health score, vulnerability summary, compliance status, and top risks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        templateId: {
+          type: "string",
+          description: "Template ID to use (e.g., 'builtin-executive-summary')",
+        },
+        title: {
+          type: "string",
+          description: "Custom report title (optional)",
+        },
+        timeRange: {
+          type: "string",
+          enum: ["24h", "7d", "30d", "90d"],
+          description: "Time range for report data",
+        },
+        includeToc: {
+          type: "boolean",
+          description: "Include table of contents",
+        },
+      },
+      required: ["templateId"],
+    },
+  },
+  {
+    name: "report_create_template",
+    description:
+      "Create a custom report template with configurable sections. Available sections: health-score, vulnerability-summary, vulnerability-list, compliance-status, top-risks, trend-chart, mttr-metrics, scan-coverage, remediation-status, custom-text.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Template name",
+        },
+        description: {
+          type: "string",
+          description: "Template description",
+        },
+        format: {
+          type: "string",
+          enum: ["html", "markdown", "json"],
+          description: "Output format (default: html)",
+        },
+        sections: {
+          type: "array",
+          description: "Sections to include in the report",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: [
+                  "health-score",
+                  "vulnerability-summary",
+                  "vulnerability-list",
+                  "compliance-status",
+                  "top-risks",
+                  "trend-chart",
+                  "mttr-metrics",
+                  "scan-coverage",
+                  "remediation-status",
+                  "custom-text",
+                ],
+              },
+              enabled: {
+                type: "boolean",
+                description: "Whether section is enabled",
+              },
+              title: {
+                type: "string",
+                description: "Custom section title",
+              },
+            },
+          },
+        },
+      },
+      required: ["name", "sections"],
+    },
+  },
+  {
+    name: "report_schedule",
+    description:
+      "Schedule recurring report generation. Supports daily, weekly, and monthly schedules with webhook delivery.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Schedule name",
+        },
+        templateId: {
+          type: "string",
+          description: "Template ID to use",
+        },
+        frequency: {
+          type: "string",
+          enum: ["once", "daily", "weekly", "monthly"],
+          description: "Schedule frequency",
+        },
+        dayOfWeek: {
+          type: "number",
+          description: "Day of week for weekly (0=Sunday, 1=Monday, etc.)",
+        },
+        dayOfMonth: {
+          type: "number",
+          description: "Day of month for monthly (1-31)",
+        },
+        hour: {
+          type: "number",
+          description: "Hour to run (0-23, default: 8)",
+        },
+        webhookUrl: {
+          type: "string",
+          description: "Webhook URL for report delivery",
+        },
+        enabled: {
+          type: "boolean",
+          description: "Whether schedule is enabled (default: true)",
+        },
+      },
+      required: ["name", "templateId", "frequency"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -6194,6 +6350,172 @@ const dashboardHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Report Templates handlers
+const reportHandlers: Record<string, ToolHandler> = {
+  report_list_templates: async (args) => {
+    // Initialize Report database if not already done
+    if (!isReportDbInitialized()) {
+      const result = initReportDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Report database: ${result.error}` };
+      }
+    }
+
+    const templates = listTemplates({
+      includeBuiltin: args?.includeBuiltin as boolean | undefined,
+      format: args?.format as "html" | "markdown" | "json" | undefined,
+    });
+
+    return {
+      count: templates.length,
+      templates: templates.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        format: t.format,
+        isBuiltin: t.isBuiltin,
+        sectionCount: t.sections.filter((s) => s.enabled).length,
+      })),
+    };
+  },
+
+  report_generate: async (args) => {
+    // Initialize Report database if not already done
+    if (!isReportDbInitialized()) {
+      const result = initReportDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Report database: ${result.error}` };
+      }
+    }
+
+    const templateId = args?.templateId as string;
+    if (!templateId) {
+      return { error: "templateId is required" };
+    }
+
+    try {
+      const report = generateReport({
+        templateId,
+        title: args?.title as string | undefined,
+        filters: {
+          timeRange: args?.timeRange as "24h" | "7d" | "30d" | "90d" | undefined,
+        },
+        includeToc: args?.includeToc as boolean | undefined,
+      });
+
+      return {
+        id: report.id,
+        templateName: report.templateName,
+        title: report.title,
+        format: report.format,
+        generatedAt: report.generatedAt,
+        durationMs: report.durationMs,
+        summary: report.summary,
+        contentLength: report.content.length,
+        content: report.content,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  report_create_template: async (args) => {
+    // Initialize Report database if not already done
+    if (!isReportDbInitialized()) {
+      const result = initReportDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Report database: ${result.error}` };
+      }
+    }
+
+    const name = args?.name as string;
+    const sections = args?.sections as Array<{ type: string; enabled?: boolean; title?: string }>;
+
+    if (!name) {
+      return { error: "name is required" };
+    }
+    if (!sections || !Array.isArray(sections) || sections.length === 0) {
+      return { error: "sections array is required and must not be empty" };
+    }
+
+    try {
+      // Import createTemplate from handlers
+      const { createTemplate } = await import("./handlers.js");
+
+      const template = createTemplate({
+        name,
+        description: args?.description as string | undefined,
+        format: (args?.format as "html" | "markdown" | "json") || "html",
+        sections: sections.map((s) => ({
+          type: s.type as Parameters<typeof createTemplate>[0]["sections"][0]["type"],
+          enabled: s.enabled !== false,
+          title: s.title,
+        })),
+      });
+
+      return {
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        format: template.format,
+        sectionCount: template.sections.filter((s) => s.enabled).length,
+        createdAt: template.createdAt,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  report_schedule: async (args) => {
+    // Initialize Report database if not already done
+    if (!isReportDbInitialized()) {
+      const result = initReportDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Report database: ${result.error}` };
+      }
+    }
+
+    const name = args?.name as string;
+    const templateId = args?.templateId as string;
+    const frequency = args?.frequency as "once" | "daily" | "weekly" | "monthly";
+
+    if (!name) {
+      return { error: "name is required" };
+    }
+    if (!templateId) {
+      return { error: "templateId is required" };
+    }
+    if (!frequency) {
+      return { error: "frequency is required" };
+    }
+
+    try {
+      const schedule = createReportSchedule({
+        name,
+        templateId,
+        frequency,
+        dayOfWeek: args?.dayOfWeek as number | undefined,
+        dayOfMonth: args?.dayOfMonth as number | undefined,
+        hour: args?.hour as number | undefined,
+        webhook: args?.webhookUrl ? { url: args.webhookUrl as string } : undefined,
+        enabled: args?.enabled !== false,
+      });
+
+      return {
+        id: schedule.id,
+        name: schedule.name,
+        templateId: schedule.templateId,
+        frequency: schedule.frequency,
+        enabled: schedule.enabled,
+        nextRunAt: schedule.nextRunAt,
+        createdAt: schedule.createdAt,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -6220,6 +6542,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...sessionHandlers,
   ...auditHandlers,
   ...dashboardHandlers,
+  ...reportHandlers,
 };
 
 export async function handleCallTool(

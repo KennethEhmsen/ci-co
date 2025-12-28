@@ -4781,3 +4781,348 @@ export interface DashboardDbInitResult {
   /** Error message if failed */
   error?: string;
 }
+
+// =============================================================================
+// Report Templates Types
+// =============================================================================
+
+/**
+ * Report output format
+ */
+export type ReportFormat = "html" | "markdown" | "json";
+
+/**
+ * Report schedule frequency
+ */
+export type ReportScheduleFrequency = "once" | "daily" | "weekly" | "monthly";
+
+/**
+ * Built-in template names
+ */
+export type BuiltinTemplateName =
+  | "executive-summary"
+  | "technical-detail"
+  | "compliance-audit"
+  | "trend-analysis"
+  | "vulnerability-list";
+
+/**
+ * Report section types
+ */
+export type ReportSectionType =
+  | "health-score"
+  | "vulnerability-summary"
+  | "vulnerability-list"
+  | "compliance-status"
+  | "top-risks"
+  | "trend-chart"
+  | "mttr-metrics"
+  | "scan-coverage"
+  | "remediation-status"
+  | "custom-text"
+  | "custom-table";
+
+/**
+ * Report section configuration
+ */
+export interface ReportSection {
+  /** Section type */
+  type: ReportSectionType;
+  /** Section title (optional, uses default if not provided) */
+  title?: string;
+  /** Whether to include this section */
+  enabled: boolean;
+  /** Section-specific options */
+  options?: {
+    /** Limit number of items (for lists) */
+    limit?: number;
+    /** Severity filter */
+    severities?: SeverityLevel[];
+    /** Time range for trends */
+    timeRange?: DashboardTimeRange;
+    /** Custom content for custom-text section */
+    content?: string;
+    /** Column configuration for custom-table */
+    columns?: string[];
+    /** Data source for custom-table */
+    dataSource?: string;
+  };
+}
+
+/**
+ * Report branding configuration
+ */
+export interface ReportBranding {
+  /** Company/organization name */
+  companyName?: string;
+  /** Logo URL or base64 data */
+  logo?: string;
+  /** Primary color (hex) */
+  primaryColor?: string;
+  /** Secondary color (hex) */
+  secondaryColor?: string;
+  /** Custom CSS for HTML reports */
+  customCss?: string;
+}
+
+/**
+ * Report filter configuration
+ */
+export interface ReportFilters {
+  /** Time range */
+  timeRange?: DashboardTimeRange;
+  /** Severity levels to include */
+  severities?: SeverityLevel[];
+  /** Specific projects/images to include */
+  targets?: string[];
+  /** Compliance frameworks to include */
+  frameworks?: ComplianceFramework[];
+  /** Only show items with status */
+  status?: "open" | "fixed" | "all";
+}
+
+/**
+ * Report template definition
+ */
+export interface ReportTemplate {
+  /** Unique template ID */
+  id: string;
+  /** Template name */
+  name: string;
+  /** Template description */
+  description: string;
+  /** Whether this is a built-in template */
+  isBuiltin: boolean;
+  /** Output format */
+  format: ReportFormat;
+  /** Sections to include */
+  sections: ReportSection[];
+  /** Default filters */
+  defaultFilters?: ReportFilters;
+  /** Branding configuration */
+  branding?: ReportBranding;
+  /** Header template (Handlebars) */
+  headerTemplate?: string;
+  /** Footer template (Handlebars) */
+  footerTemplate?: string;
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt: string;
+  /** Created by user ID */
+  createdBy?: string;
+}
+
+/**
+ * Report generation options
+ */
+export interface ReportGenerateOptions {
+  /** Template ID to use */
+  templateId: string;
+  /** Override filters */
+  filters?: ReportFilters;
+  /** Override branding */
+  branding?: ReportBranding;
+  /** Report title override */
+  title?: string;
+  /** Include table of contents */
+  includeToc?: boolean;
+  /** Include generation timestamp */
+  includeTimestamp?: boolean;
+}
+
+/**
+ * Generated report
+ */
+export interface GeneratedReport {
+  /** Report ID */
+  id: string;
+  /** Template used */
+  templateId: string;
+  /** Template name */
+  templateName: string;
+  /** Report title */
+  title: string;
+  /** Output format */
+  format: ReportFormat;
+  /** Report content */
+  content: string;
+  /** Generation timestamp */
+  generatedAt: string;
+  /** Filters applied */
+  filters: ReportFilters;
+  /** Generation duration in ms */
+  durationMs: number;
+  /** Summary statistics */
+  summary: {
+    totalVulnerabilities: number;
+    criticalCount: number;
+    highCount: number;
+    healthScore?: number;
+    compliancePercent?: number;
+  };
+}
+
+/**
+ * Webhook configuration for report delivery
+ */
+export interface ReportWebhook {
+  /** Webhook URL */
+  url: string;
+  /** HTTP method */
+  method?: "POST" | "PUT";
+  /** Custom headers */
+  headers?: Record<string, string>;
+  /** Include report content in payload */
+  includeContent?: boolean;
+}
+
+/**
+ * Report schedule configuration
+ */
+export interface ReportSchedule {
+  /** Schedule ID */
+  id: string;
+  /** Schedule name */
+  name: string;
+  /** Template to use */
+  templateId: string;
+  /** Schedule frequency */
+  frequency: ReportScheduleFrequency;
+  /** Cron expression (for custom schedules) */
+  cronExpression?: string;
+  /** Day of week for weekly (0-6, Sunday = 0) */
+  dayOfWeek?: number;
+  /** Day of month for monthly (1-31) */
+  dayOfMonth?: number;
+  /** Hour to run (0-23) */
+  hour: number;
+  /** Minute to run (0-59) */
+  minute: number;
+  /** Timezone */
+  timezone?: string;
+  /** Filters to apply */
+  filters?: ReportFilters;
+  /** Email recipients */
+  emailRecipients?: string[];
+  /** Webhook for delivery */
+  webhook?: ReportWebhook;
+  /** Whether schedule is enabled */
+  enabled: boolean;
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt: string;
+  /** Last run timestamp */
+  lastRunAt?: string;
+  /** Next run timestamp */
+  nextRunAt?: string;
+  /** Last run status */
+  lastRunStatus?: "success" | "failed";
+  /** Last run error */
+  lastRunError?: string;
+}
+
+/**
+ * Report history entry
+ */
+export interface ReportHistoryEntry {
+  /** Report ID */
+  id: string;
+  /** Schedule ID (if scheduled) */
+  scheduleId?: string;
+  /** Template ID */
+  templateId: string;
+  /** Report title */
+  title: string;
+  /** Output format */
+  format: ReportFormat;
+  /** Generation timestamp */
+  generatedAt: string;
+  /** Duration in ms */
+  durationMs: number;
+  /** Status */
+  status: "success" | "failed";
+  /** Error message if failed */
+  error?: string;
+  /** File path (if saved) */
+  filePath?: string;
+  /** Summary statistics */
+  summary?: {
+    totalVulnerabilities: number;
+    criticalCount: number;
+    highCount: number;
+  };
+}
+
+/**
+ * Report template creation options
+ */
+export interface CreateTemplateOptions {
+  /** Template name */
+  name: string;
+  /** Template description */
+  description?: string;
+  /** Output format */
+  format?: ReportFormat;
+  /** Sections to include */
+  sections: ReportSection[];
+  /** Default filters */
+  defaultFilters?: ReportFilters;
+  /** Branding configuration */
+  branding?: ReportBranding;
+  /** Header template */
+  headerTemplate?: string;
+  /** Footer template */
+  footerTemplate?: string;
+  /** Created by user ID */
+  createdBy?: string;
+}
+
+/**
+ * Report schedule creation options
+ */
+export interface CreateScheduleOptions {
+  /** Schedule name */
+  name: string;
+  /** Template ID */
+  templateId: string;
+  /** Frequency */
+  frequency: ReportScheduleFrequency;
+  /** Cron expression (optional) */
+  cronExpression?: string;
+  /** Day of week (0-6) */
+  dayOfWeek?: number;
+  /** Day of month (1-31) */
+  dayOfMonth?: number;
+  /** Hour (0-23) */
+  hour?: number;
+  /** Minute (0-59) */
+  minute?: number;
+  /** Timezone */
+  timezone?: string;
+  /** Filters */
+  filters?: ReportFilters;
+  /** Email recipients */
+  emailRecipients?: string[];
+  /** Webhook */
+  webhook?: ReportWebhook;
+  /** Whether enabled */
+  enabled?: boolean;
+}
+
+/**
+ * Report templates database initialization result
+ */
+export interface ReportDbInitResult {
+  /** Whether initialization was successful */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Timestamp */
+  created: string;
+  /** Number of built-in templates */
+  builtinTemplates: number;
+  /** Error message if failed */
+  error?: string;
+}
