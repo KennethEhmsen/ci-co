@@ -1,0 +1,83 @@
+# Example workflow using the CI/CD Security Scanner action
+name: Security Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Run daily at 6 AM UTC
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Security Scan
+        uses: ./.github/actions/security-scan
+        id: security-scan
+        with:
+          scan-type: path
+          path: '.'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          fail-on: 'CRITICAL'
+          upload-sarif: 'true'
+          comment-on-pr: 'true'
+          generate-badge: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-results
+          path: security-results.sarif
+
+      - name: Print scan summary
+        if: always()
+        run: |
+          echo "### Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Vulnerabilities | ${{ steps.security-scan.outputs.vulnerabilities-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | ${{ steps.security-scan.outputs.critical-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| High | ${{ steps.security-scan.outputs.high-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Medium | ${{ steps.security-scan.outputs.medium-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Low | ${{ steps.security-scan.outputs.low-count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed | ${{ steps.security-scan.outputs.scan-passed }} |" >> $GITHUB_STEP_SUMMARY
+
+  # Example: Container image scanning
+  container-scan:
+    name: Container Scan
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t myapp:${{ github.sha }} .
+
+      - name: Scan container image
+        uses: ./.github/actions/security-scan
+        with:
+          scan-type: image
+          image: 'myapp:${{ github.sha }}'
+          severity: 'CRITICAL,HIGH'
+          fail-on: 'HIGH'
+          upload-sarif: 'true'
+          sarif-category: 'container-scan'
+          github-token: ${{ secrets.GITHUB_TOKEN }}

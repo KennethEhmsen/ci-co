@@ -1,0 +1,153 @@
+name: 'CI/CD Security Scanner'
+description: 'Comprehensive security scanning for containers, code, and dependencies using Trivy, SonarQube, and Dependency-Track'
+author: 'CI/CD Security Platform'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  # Scan targets
+  scan-type:
+    description: 'Type of scan to perform: image, path, or both'
+    required: false
+    default: 'path'
+  image:
+    description: 'Docker image to scan (for image scans)'
+    required: false
+  path:
+    description: 'Path to scan (for path scans)'
+    required: false
+    default: '.'
+
+  # Severity configuration
+  severity:
+    description: 'Severity levels to report (comma-separated: CRITICAL,HIGH,MEDIUM,LOW)'
+    required: false
+    default: 'CRITICAL,HIGH'
+  fail-on:
+    description: 'Fail the action if vulnerabilities of this severity or higher are found'
+    required: false
+    default: 'CRITICAL'
+
+  # Output options
+  output-format:
+    description: 'Output format: json, sarif, table, or markdown'
+    required: false
+    default: 'sarif'
+  output-file:
+    description: 'File path to write scan results'
+    required: false
+    default: 'security-results.sarif'
+
+  # SARIF upload
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Code Scanning'
+    required: false
+    default: 'true'
+  sarif-category:
+    description: 'Category for SARIF upload (used to distinguish multiple scans)'
+    required: false
+    default: 'security-scan'
+
+  # PR comment
+  comment-on-pr:
+    description: 'Post scan summary as a PR comment'
+    required: false
+    default: 'true'
+  comment-title:
+    description: 'Title for PR comment'
+    required: false
+    default: 'Security Scan Results'
+
+  # Badge generation
+  generate-badge:
+    description: 'Generate a security status badge'
+    required: false
+    default: 'false'
+  badge-path:
+    description: 'Path to save the badge SVG'
+    required: false
+    default: '.github/badges/security.svg'
+
+  # Scan options
+  ignore-unfixed:
+    description: 'Ignore vulnerabilities without fixes'
+    required: false
+    default: 'false'
+  skip-dirs:
+    description: 'Directories to skip during scanning (comma-separated)'
+    required: false
+  skip-files:
+    description: 'Files to skip during scanning (comma-separated)'
+    required: false
+
+  # Advanced options
+  trivy-config:
+    description: 'Path to Trivy configuration file'
+    required: false
+  policy-file:
+    description: 'Path to security policy file (.security-policy.yml)'
+    required: false
+  suppression-file:
+    description: 'Path to suppression file (.security-suppressions.yml)'
+    required: false
+
+  # Authentication
+  github-token:
+    description: 'GitHub token for API access (PR comments, SARIF upload)'
+    required: false
+    default: ${{ github.token }}
+  registry-username:
+    description: 'Container registry username (for private images)'
+    required: false
+  registry-password:
+    description: 'Container registry password (for private images)'
+    required: false
+
+outputs:
+  vulnerabilities-count:
+    description: 'Total number of vulnerabilities found'
+  critical-count:
+    description: 'Number of CRITICAL vulnerabilities'
+  high-count:
+    description: 'Number of HIGH vulnerabilities'
+  medium-count:
+    description: 'Number of MEDIUM vulnerabilities'
+  low-count:
+    description: 'Number of LOW vulnerabilities'
+  sarif-file:
+    description: 'Path to the SARIF output file'
+  scan-passed:
+    description: 'Whether the scan passed based on fail-on threshold'
+  badge-url:
+    description: 'URL to the generated badge (if enabled)'
+  summary:
+    description: 'JSON summary of scan results'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    SCAN_TYPE: ${{ inputs.scan-type }}
+    SCAN_IMAGE: ${{ inputs.image }}
+    SCAN_PATH: ${{ inputs.path }}
+    SEVERITY: ${{ inputs.severity }}
+    FAIL_ON: ${{ inputs.fail-on }}
+    OUTPUT_FORMAT: ${{ inputs.output-format }}
+    OUTPUT_FILE: ${{ inputs.output-file }}
+    UPLOAD_SARIF: ${{ inputs.upload-sarif }}
+    SARIF_CATEGORY: ${{ inputs.sarif-category }}
+    COMMENT_ON_PR: ${{ inputs.comment-on-pr }}
+    COMMENT_TITLE: ${{ inputs.comment-title }}
+    GENERATE_BADGE: ${{ inputs.generate-badge }}
+    BADGE_PATH: ${{ inputs.badge-path }}
+    IGNORE_UNFIXED: ${{ inputs.ignore-unfixed }}
+    SKIP_DIRS: ${{ inputs.skip-dirs }}
+    SKIP_FILES: ${{ inputs.skip-files }}
+    TRIVY_CONFIG: ${{ inputs.trivy-config }}
+    POLICY_FILE: ${{ inputs.policy-file }}
+    SUPPRESSION_FILE: ${{ inputs.suppression-file }}
+    GITHUB_TOKEN: ${{ inputs.github-token }}
+    REGISTRY_USERNAME: ${{ inputs.registry-username }}
+    REGISTRY_PASSWORD: ${{ inputs.registry-password }}
