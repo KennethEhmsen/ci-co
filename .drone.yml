@@ -34,9 +34,6 @@ steps:
     image: node:20
     commands:
       - cd shared
-      - rm -rf node_modules package-lock.json
-      - npm install
-      - npm rebuild better-sqlite3
       - npm run test:coverage
     depends_on:
       - install-shared
@@ -61,9 +58,6 @@ steps:
     image: node:20
     commands:
       - cd mcp-server
-      - rm -rf node_modules package-lock.json
-      - npm install
-      - cd ../shared && npm rebuild better-sqlite3 && cd ../mcp-server
       - npm run test:coverage
     depends_on:
       - install-mcp-server
@@ -72,9 +66,6 @@ steps:
     image: node:20
     commands:
       - cd cicd-agent
-      - rm -rf node_modules package-lock.json
-      - npm install
-      - cd ../shared && npm rebuild better-sqlite3 && cd ../cicd-agent
       - npm run test:coverage
     depends_on:
       - install-cicd-agent
