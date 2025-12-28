@@ -138,6 +138,11 @@ import {
   deleteFromGateway,
   recordScanMetrics,
   resetMetrics,
+  // Scan Comparison
+  compareTrivyScans,
+  getScanHistory,
+  storeTrivyScan,
+  storeAndCompare,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -2342,6 +2347,138 @@ export const toolDefinitions = [
       properties: {},
     },
   },
+
+  // Scan Comparison Tools
+  {
+    name: "scan_compare",
+    description:
+      "Compare two Trivy scan results to identify new, fixed, and unchanged vulnerabilities. Uses fingerprinting to reliably track vulnerabilities across scans.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        current: {
+          type: "object",
+          description: "Current Trivy scan result object",
+        },
+        baseline: {
+          type: "object",
+          description: "Baseline Trivy scan result to compare against",
+        },
+        minSeverity: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+          description: "Minimum severity to include in comparison (default: all)",
+        },
+        includeUnchanged: {
+          type: "boolean",
+          description: "Include unchanged vulnerabilities in results (default: true)",
+        },
+      },
+      required: ["current", "baseline"],
+    },
+  },
+  {
+    name: "scan_store",
+    description:
+      "Store a Trivy scan result in history for later comparison. Scans are stored per-target and can be compared using scan_compare_with_previous.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scanResult: {
+          type: "object",
+          description: "Trivy scan result object to store",
+        },
+        identifier: {
+          type: "string",
+          description: "Optional identifier (e.g., git commit, version, branch)",
+        },
+      },
+      required: ["scanResult"],
+    },
+  },
+  {
+    name: "scan_compare_with_previous",
+    description:
+      "Compare a current scan with the most recent stored scan for the same target. Automatically stores the current scan after comparison.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scanResult: {
+          type: "object",
+          description: "Current Trivy scan result object",
+        },
+        identifier: {
+          type: "string",
+          description: "Optional identifier for this scan (e.g., git commit)",
+        },
+        minSeverity: {
+          type: "string",
+          enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+          description: "Minimum severity to include in comparison",
+        },
+        includeUnchanged: {
+          type: "boolean",
+          description: "Include unchanged vulnerabilities in results (default: true)",
+        },
+      },
+      required: ["scanResult"],
+    },
+  },
+  {
+    name: "scan_history_list",
+    description:
+      "List stored scan records for a target. Returns scan metadata and vulnerability summaries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Target name (image or path) to get history for",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of records to return (default: 10)",
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
+    name: "scan_history_get",
+    description:
+      "Get a specific stored scan record by ID. Returns full scan details including all fingerprinted vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Scan record ID to retrieve",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "scan_history_clear",
+    description: "Clear scan history. Can clear all history or just for a specific target.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Target to clear history for. If not provided, clears all history.",
+        },
+      },
+    },
+  },
+  {
+    name: "scan_history_targets",
+    description: "List all targets that have stored scan history.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 // =============================================================================
@@ -3711,6 +3848,189 @@ const metricsHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Scan Comparison handlers
+const scanCompareHandlers: Record<string, ToolHandler> = {
+  scan_compare: async (args) => {
+    const current = args?.current as Record<string, unknown>;
+    const baseline = args?.baseline as Record<string, unknown>;
+
+    if (!current || !baseline) {
+      return { error: "current and baseline scan results are required" };
+    }
+
+    const result = compareTrivyScans(
+      current as Parameters<typeof compareTrivyScans>[0],
+      baseline as Parameters<typeof compareTrivyScans>[1],
+      {
+        minSeverity: args?.minSeverity as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | undefined,
+        includeUnchanged: args?.includeUnchanged as boolean | undefined,
+      }
+    );
+
+    return {
+      timestamp: result.timestamp,
+      current: result.current,
+      baseline: result.baseline,
+      summary: result.summary,
+      newVulnerabilities: result.newVulnerabilities,
+      fixedVulnerabilities: result.fixedVulnerabilities,
+      unchangedCount: result.unchangedVulnerabilities.length,
+    };
+  },
+
+  scan_store: async (args) => {
+    const scanResult = args?.scanResult as Record<string, unknown>;
+    if (!scanResult) {
+      return { error: "scanResult is required" };
+    }
+
+    const record = storeTrivyScan(
+      scanResult as Parameters<typeof storeTrivyScan>[0],
+      args?.identifier as string | undefined
+    );
+
+    return {
+      success: true,
+      record: {
+        id: record.id,
+        target: record.target,
+        scannedAt: record.scannedAt,
+        identifier: record.identifier,
+        summary: record.summary,
+      },
+      message: `Stored scan for ${record.target} with ${record.summary.total} vulnerabilities`,
+    };
+  },
+
+  scan_compare_with_previous: async (args) => {
+    const scanResult = args?.scanResult as Record<string, unknown>;
+    if (!scanResult) {
+      return { error: "scanResult is required" };
+    }
+
+    const { record, diff } = storeAndCompare(
+      scanResult as Parameters<typeof storeAndCompare>[0],
+      args?.identifier as string | undefined,
+      {
+        minSeverity: args?.minSeverity as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | undefined,
+        includeUnchanged: args?.includeUnchanged as boolean | undefined,
+      }
+    );
+
+    if (!diff) {
+      return {
+        success: true,
+        isFirstScan: true,
+        record: {
+          id: record.id,
+          target: record.target,
+          scannedAt: record.scannedAt,
+          identifier: record.identifier,
+          summary: record.summary,
+        },
+        message: `First scan for ${record.target}. Stored for future comparison.`,
+      };
+    }
+
+    return {
+      success: true,
+      isFirstScan: false,
+      record: {
+        id: record.id,
+        target: record.target,
+        scannedAt: record.scannedAt,
+        identifier: record.identifier,
+        summary: record.summary,
+      },
+      diff: {
+        timestamp: diff.timestamp,
+        current: diff.current,
+        baseline: diff.baseline,
+        summary: diff.summary,
+        newVulnerabilities: diff.newVulnerabilities,
+        fixedVulnerabilities: diff.fixedVulnerabilities,
+        unchangedCount: diff.unchangedVulnerabilities.length,
+      },
+    };
+  },
+
+  scan_history_list: async (args) => {
+    const target = args?.target as string;
+    if (!target) {
+      return { error: "target is required" };
+    }
+
+    const limit = args?.limit as number | undefined;
+    const history = getScanHistory();
+    const records = history.getHistory(target, limit);
+
+    return {
+      target,
+      count: records.length,
+      records: records.map((r) => ({
+        id: r.id,
+        target: r.target,
+        scannedAt: r.scannedAt,
+        identifier: r.identifier,
+        summary: r.summary,
+      })),
+    };
+  },
+
+  scan_history_get: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+
+    const history = getScanHistory();
+    const record = history.getById(id);
+
+    if (!record) {
+      return { error: `Scan record not found: ${id}` };
+    }
+
+    return {
+      id: record.id,
+      target: record.target,
+      scannedAt: record.scannedAt,
+      identifier: record.identifier,
+      summary: record.summary,
+      vulnerabilityCount: record.vulnerabilities.length,
+      vulnerabilities: record.vulnerabilities,
+    };
+  },
+
+  scan_history_clear: async (args) => {
+    const target = args?.target as string | undefined;
+    const history = getScanHistory();
+
+    if (target) {
+      history.clearTarget(target);
+      return {
+        success: true,
+        message: `Cleared scan history for ${target}`,
+      };
+    }
+
+    history.clear();
+    return {
+      success: true,
+      message: "Cleared all scan history",
+    };
+  },
+
+  scan_history_targets: async () => {
+    const history = getScanHistory();
+    const targets = history.getTargets();
+
+    return {
+      count: targets.length,
+      targets,
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -3729,6 +4049,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...cacheHandlers,
   ...suppressionHandlers,
   ...metricsHandlers,
+  ...scanCompareHandlers,
 };
 
 export async function handleCallTool(

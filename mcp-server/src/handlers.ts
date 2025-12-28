@@ -199,4 +199,15 @@ export {
   type ScanMetrics,
   type PushgatewayConfig,
   type PushgatewayResult,
+  // Scan Comparison
+  extractTrivyVulnerabilities,
+  compareTrivyScans,
+  getScanHistory,
+  resetScanHistory,
+  storeTrivyScan,
+  compareWithPrevious,
+  storeAndCompare,
+  type ScanDiffResult,
+  type StoredScanRecord,
+  type ScanCompareOptions,
 } from "@cicd/shared";
