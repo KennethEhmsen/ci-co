@@ -58,9 +58,7 @@ import {
   getBuiltinPolicyInfo,
   getBuiltinPolicy,
   validateRegoSyntax,
-  evaluateOpaPolicy,
-  trivyResultToOpaInput,
-  createOpaInput,
+  evaluatePolicyWithScan,
   // Scheduler
   validateCronExpression,
   describeCronExpression,
@@ -329,76 +327,23 @@ const toolHandlers: Record<string, ToolHandler> = {
       return { error: "policy is required" };
     }
 
-    const severity = (input.severity as string) || "HIGH,CRITICAL";
-    let opaInput;
-
-    // If image or path specified, scan first
-    if (input.image || input.path) {
-      let scanResult;
-      if (input.image) {
-        scanResult = await trivyScanImage(input.image as string, severity);
-      } else {
-        scanResult = await trivyScanPath(input.path as string, severity);
-      }
-
-      if ("error" in scanResult) {
-        return scanResult;
-      }
-
-      // Convert Trivy result to OPA input
-      opaInput = trivyResultToOpaInput(
-        scanResult,
-        input.image as string | undefined,
-        input.path as string | undefined
-      );
-
-      // Add additional fields from input
-      if (input.licenses) {
-        opaInput.scan.licenses = input.licenses as string[];
-      }
-      if (input.secretsFound !== undefined) {
-        opaInput.scan.secretsFound = input.secretsFound as boolean;
-      }
-      if (input.codeCoverage !== undefined) {
-        opaInput.scan.codeCoverage = input.codeCoverage as number;
-      }
-      if (input.qualityGatePassed !== undefined) {
-        opaInput.scan.qualityGatePassed = input.qualityGatePassed as boolean;
-      }
-      if (input.thresholds) {
-        opaInput.thresholds = input.thresholds as {
-          critical?: number;
-          high?: number;
-          medium?: number;
-          low?: number;
-          coverage?: number;
-        };
-      }
-    } else {
-      // Create OPA input from provided input (no scan)
-      opaInput = createOpaInput({
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        licenses: input.licenses as string[] | undefined,
-        secretsFound: input.secretsFound as boolean | undefined,
-        codeCoverage: input.codeCoverage as number | undefined,
-        qualityGatePassed: input.qualityGatePassed as boolean | undefined,
-        image: input.image as string | undefined,
-        path: input.path as string | undefined,
-        thresholds: input.thresholds as {
-          critical?: number;
-          high?: number;
-          medium?: number;
-          low?: number;
-          coverage?: number;
-        },
-      });
-    }
-
-    // Evaluate the policy
-    return evaluateOpaPolicy(opaInput, { policy });
+    return evaluatePolicyWithScan({
+      policy,
+      severity: input.severity as string | undefined,
+      image: input.image as string | undefined,
+      path: input.path as string | undefined,
+      licenses: input.licenses as string[] | undefined,
+      secretsFound: input.secretsFound as boolean | undefined,
+      codeCoverage: input.codeCoverage as number | undefined,
+      qualityGatePassed: input.qualityGatePassed as boolean | undefined,
+      thresholds: input.thresholds as {
+        critical?: number;
+        high?: number;
+        medium?: number;
+        low?: number;
+        coverage?: number;
+      },
+    });
   },
   // Scheduler
   schedule_create: async (input) => {

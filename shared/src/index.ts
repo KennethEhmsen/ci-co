@@ -557,7 +557,9 @@ export {
   trivyResultToOpaInput,
   dashboardResultToOpaInput,
   createOpaInput,
+  evaluatePolicyWithScan,
 } from "./opa.js";
+export type { EvaluatePolicyInput } from "./opa.js";
 
 // OPA Compiler exports
 export {

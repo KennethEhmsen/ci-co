@@ -9,6 +9,7 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { CloudRegistryType, ComplianceFramework, RegistryAuth } from "@cicd/shared";
+import { evaluatePolicyWithScan } from "@cicd/shared";
 import {
   config,
   trivyScanPath,
@@ -96,9 +97,6 @@ import {
   getBuiltinPolicyInfo,
   getBuiltinPolicy,
   validateRegoSyntax,
-  evaluateOpaPolicy,
-  trivyResultToOpaInput,
-  createOpaInput,
   // Vulnerability Database
   initVulnDatabase,
   isVulnDbInitialized,
@@ -2756,77 +2754,23 @@ const opaHandlers: Record<string, ToolHandler> = {
       return { error: "policy is required" };
     }
 
-    const severity = (args?.severity as string) || "HIGH,CRITICAL";
-    let opaInput;
-
-    // If image or path specified, scan first
-    if (args?.image || args?.path) {
-      let scanResult;
-      if (args?.image) {
-        scanResult = await trivyScanImage(args.image as string, severity);
-      } else {
-        scanResult = await trivyScanPath(args.path as string, severity);
-      }
-
-      if ("error" in scanResult) {
-        return scanResult;
-      }
-
-      // Convert Trivy result to OPA input
-      opaInput = trivyResultToOpaInput(
-        scanResult,
-        args?.image as string | undefined,
-        args?.path as string | undefined
-      );
-
-      // Add additional fields from args
-      if (args?.licenses) {
-        opaInput.scan.licenses = args.licenses as string[];
-      }
-      if (args?.secretsFound !== undefined) {
-        opaInput.scan.secretsFound = args.secretsFound as boolean;
-      }
-      if (args?.codeCoverage !== undefined) {
-        opaInput.scan.codeCoverage = args.codeCoverage as number;
-      }
-      if (args?.qualityGatePassed !== undefined) {
-        opaInput.scan.qualityGatePassed = args.qualityGatePassed as boolean;
-      }
-      if (args?.thresholds) {
-        opaInput.thresholds = args.thresholds as {
-          critical?: number;
-          high?: number;
-          medium?: number;
-          low?: number;
-          coverage?: number;
-        };
-      }
-    } else {
-      // Create OPA input from provided args (no scan)
-      opaInput = createOpaInput({
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        licenses: args?.licenses as string[] | undefined,
-        secretsFound: args?.secretsFound as boolean | undefined,
-        codeCoverage: args?.codeCoverage as number | undefined,
-        qualityGatePassed: args?.qualityGatePassed as boolean | undefined,
-        image: args?.image as string | undefined,
-        path: args?.path as string | undefined,
-        thresholds: args?.thresholds as {
-          critical?: number;
-          high?: number;
-          medium?: number;
-          low?: number;
-          coverage?: number;
-        },
-      });
-    }
-
-    // Evaluate the policy
-    const result = await evaluateOpaPolicy(opaInput, { policy });
-    return result;
+    return evaluatePolicyWithScan({
+      policy,
+      severity: args?.severity as string | undefined,
+      image: args?.image as string | undefined,
+      path: args?.path as string | undefined,
+      licenses: args?.licenses as string[] | undefined,
+      secretsFound: args?.secretsFound as boolean | undefined,
+      codeCoverage: args?.codeCoverage as number | undefined,
+      qualityGatePassed: args?.qualityGatePassed as boolean | undefined,
+      thresholds: args?.thresholds as {
+        critical?: number;
+        high?: number;
+        medium?: number;
+        low?: number;
+        coverage?: number;
+      },
+    });
   },
 };
 

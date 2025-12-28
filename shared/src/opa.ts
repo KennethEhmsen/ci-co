@@ -18,6 +18,7 @@ import type {
 } from "./types.js";
 import type { ScanResults } from "./policy.js";
 import { createHash } from "node:crypto";
+import { trivyScanImage, trivyScanPath } from "./handlers.js";
 
 // =============================================================================
 // BUILT-IN REGO POLICIES (for reference and documentation)
@@ -884,4 +885,116 @@ export function createOpaInput(options: {
     thresholds: options.thresholds,
     metadata: options.metadata,
   };
+}
+
+// =============================================================================
+// HIGH-LEVEL POLICY EVALUATION WITH OPTIONAL SCANNING
+// =============================================================================
+
+/**
+ * Input options for evaluatePolicyWithScan
+ */
+export interface EvaluatePolicyInput {
+  policy: string;
+  severity?: string;
+  image?: string;
+  path?: string;
+  licenses?: string[];
+  secretsFound?: boolean;
+  codeCoverage?: number;
+  qualityGatePassed?: boolean;
+  thresholds?: {
+    critical?: number;
+    high?: number;
+    medium?: number;
+    low?: number;
+    coverage?: number;
+  };
+}
+
+/**
+ * Apply additional fields from input to OPA input
+ */
+function applyAdditionalFields(opaInput: OpaEvaluationInput, input: EvaluatePolicyInput): void {
+  if (input.licenses) {
+    opaInput.scan.licenses = input.licenses;
+  }
+  if (input.secretsFound !== undefined) {
+    opaInput.scan.secretsFound = input.secretsFound;
+  }
+  if (input.codeCoverage !== undefined) {
+    opaInput.scan.codeCoverage = input.codeCoverage;
+  }
+  if (input.qualityGatePassed !== undefined) {
+    opaInput.scan.qualityGatePassed = input.qualityGatePassed;
+  }
+  if (input.thresholds) {
+    opaInput.thresholds = input.thresholds;
+  }
+}
+
+/**
+ * Evaluate an OPA policy with optional Trivy scanning.
+ *
+ * If image or path is provided, performs a Trivy scan first and uses
+ * the results as input to the policy evaluation. Otherwise, uses the
+ * provided input fields directly.
+ *
+ * @example
+ * ```typescript
+ * // Scan an image and evaluate policy
+ * const result = await evaluatePolicyWithScan({
+ *   policy: 'package security...',
+ *   image: 'node:20-alpine',
+ *   severity: 'HIGH,CRITICAL',
+ * });
+ *
+ * // Evaluate policy with manual input (no scan)
+ * const result = await evaluatePolicyWithScan({
+ *   policy: 'package security...',
+ *   codeCoverage: 85,
+ *   qualityGatePassed: true,
+ * });
+ * ```
+ */
+export async function evaluatePolicyWithScan(
+  input: EvaluatePolicyInput
+): Promise<OpaEvaluationResult | { error: string }> {
+  const severity = input.severity || "HIGH,CRITICAL";
+  let opaInput: OpaEvaluationInput;
+
+  // If image or path specified, scan first
+  if (input.image || input.path) {
+    const scanResult = input.image
+      ? await trivyScanImage(input.image, severity)
+      : await trivyScanPath(input.path!, severity);
+
+    if ("error" in scanResult) {
+      return scanResult as { error: string };
+    }
+
+    // Convert Trivy result to OPA input
+    opaInput = trivyResultToOpaInput(scanResult, input.image, input.path);
+
+    // Add additional fields from input
+    applyAdditionalFields(opaInput, input);
+  } else {
+    // Create OPA input from provided input (no scan)
+    opaInput = createOpaInput({
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      licenses: input.licenses,
+      secretsFound: input.secretsFound,
+      codeCoverage: input.codeCoverage,
+      qualityGatePassed: input.qualityGatePassed,
+      image: input.image,
+      path: input.path,
+      thresholds: input.thresholds,
+    });
+  }
+
+  // Evaluate the policy
+  return evaluateOpaPolicy(opaInput, { policy: input.policy });
 }
