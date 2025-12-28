@@ -12,8 +12,8 @@
     "build": "npm run build -w shared && npm run build -w mcp-server && npm run build -w cicd-agent",
     "test": "npm run test --workspaces",
     "test:coverage": "npm run test:coverage --workspaces",
-    "lint": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src",
-    "lint:fix": "eslint --ext .ts shared/src mcp-server/src cicd-agent/src --fix",
+    "lint": "eslint shared/src mcp-server/src cicd-agent/src",
+    "lint:fix": "eslint shared/src mcp-server/src cicd-agent/src --fix",
     "format": "prettier --write \"**/src/**/*.ts\"",
     "format:check": "prettier --check \"**/src/**/*.ts\"",
     "clean": "rimraf shared/dist mcp-server/dist cicd-agent/dist",
@@ -28,17 +28,20 @@
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.2.0",
+    "@eslint/js": "^9.39.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^10.0.1",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.2.0",
     "rimraf": "^5.0.0",
-    "semantic-release": "^25.0.2"
+    "semantic-release": "^25.0.2",
+    "typescript-eslint": "^8.50.1"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -249,17 +249,19 @@ export async function loadWasmPolicy(wasmPath: string): Promise<{
 
   try {
     // Try to dynamically import opa-wasm
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const opaWasm = await (async () => {
-      try {
-        // Dynamic require to avoid compile-time dependency
-        return require("@open-policy-agent/opa-wasm");
-      } catch {
-        return null;
-      }
-    })();
+    // Using indirect dynamic import to avoid TypeScript compile-time resolution
+    const moduleName = "@open-policy-agent/opa-wasm";
+    let opaWasm: { loadPolicy?: (buffer: Buffer) => Promise<unknown> } | null = null;
+    try {
+      // Dynamic import to avoid compile-time dependency
+      opaWasm = await (Function("moduleName", "return import(moduleName)")(moduleName) as Promise<{
+        loadPolicy?: (buffer: Buffer) => Promise<unknown>;
+      }>);
+    } catch {
+      opaWasm = null;
+    }
 
-    if (!opaWasm) {
+    if (!opaWasm || typeof opaWasm.loadPolicy !== "function") {
       return {
         success: false,
         error: `@open-policy-agent/opa-wasm is not installed. Install it with: npm install @open-policy-agent/opa-wasm`,
