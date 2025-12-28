@@ -48,12 +48,28 @@ Official GitHub Action for CI/CD security scanning integration.
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## Dependency Upgrades
+
+| Package | Old | New |
+|---------|-----|-----|
+| `eslint` | 8.57.1 | 9.39.2 |
+| `@typescript-eslint/*` | 7.18.0 | 8.50.1 |
+| `better-sqlite3` | 11.10.0 | 12.5.0 |
+| `rimraf` | 5.0.10 | 6.1.2 |
+| `@types/node` | mixed | 20.19.27 (aligned) |
+
+**ESLint 9 Migration:**
+- Migrated from `.eslintrc.json` to `eslint.config.mjs` (flat config)
+- Added `typescript-eslint`, `globals`, `@eslint/js` packages
+
 ## Technical Highlights
 
 - **ioredis** integration with dynamic ESM import (optional dependency)
 - Graceful degradation: Automatic fallback when Redis unavailable
 - Docker-based GitHub Action with Node 20 runtime
 - Comprehensive test coverage: 18 new tests for redis-cache module
+- ESLint 9 flat config migration
+- Dockerfile runs as non-root user (security best practice)
 
 ## Platform Statistics
 
@@ -84,9 +100,16 @@ None - fully backward compatible.
 - [API Reference](./API.md) - Complete API documentation
 - [GitHub Action README](./.github/actions/security-scan/README.md) - Action usage guide
 
+## Security & Quality
+
+- **Trivy scan:** 0 vulnerabilities, 0 secrets, 0 misconfigs
+- **SonarQube:** 0 bugs, 0 vulnerabilities, 0 code smells
+- **Ratings:** All A (Reliability, Security, Maintainability)
+- **Code coverage:** 57.1%
+
 ## CI/CD
 
-- Build passing on Drone CI
+- Build passing on Drone CI (Build #276)
 - SonarQube analysis complete
 - Coverage thresholds met across all modules
 
