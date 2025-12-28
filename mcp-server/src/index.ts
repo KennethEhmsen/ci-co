@@ -197,6 +197,14 @@ import {
   isTeamMember,
   hasTeamRole,
   getTeamMember,
+  // Session Management
+  initSessionDatabase,
+  isSessionDbInitialized,
+  listSessions,
+  getSession,
+  revokeSession,
+  revokeAllUserSessions,
+  getSessionStats,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -3347,6 +3355,77 @@ export const toolDefinitions = [
       required: ["teamId", "userId"],
     },
   },
+  // =============================================================================
+  // Session Management Tools
+  // =============================================================================
+  {
+    name: "session_list",
+    description:
+      "List active sessions for a user or all users. Returns session details including device info, IP address, and last activity.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "Filter sessions by user ID (optional - lists all if not provided)",
+        },
+        activeOnly: {
+          type: "boolean",
+          description: "Only return active sessions (default: true)",
+        },
+        includeExpired: {
+          type: "boolean",
+          description: "Include expired sessions in results (default: false)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of sessions to return",
+        },
+        offset: {
+          type: "number",
+          description: "Results offset for pagination",
+        },
+      },
+    },
+  },
+  {
+    name: "session_revoke",
+    description:
+      "Revoke a specific session, immediately invalidating all associated tokens. The user will be forced to re-authenticate.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "ID of the session to revoke",
+        },
+        reason: {
+          type: "string",
+          description: "Reason for revoking the session (for audit logging)",
+        },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "session_revoke_all",
+    description:
+      "Revoke all sessions for a user, forcing them to re-authenticate on all devices. Useful for security incidents or password changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "ID of the user whose sessions should be revoked",
+        },
+        reason: {
+          type: "string",
+          description: "Reason for revoking all sessions (for audit logging)",
+        },
+      },
+      required: ["userId"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -5662,6 +5741,106 @@ const teamHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Session Management Handlers
+// =============================================================================
+
+const sessionHandlers: Record<string, ToolHandler> = {
+  session_list: async (args) => {
+    // Initialize Session database if not already done
+    if (!isSessionDbInitialized()) {
+      const result = initSessionDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Session database: ${result.error}` };
+      }
+    }
+
+    const sessions = listSessions({
+      userId: args?.userId as string | undefined,
+      activeOnly: args?.activeOnly !== false, // default true
+      includeExpired: args?.includeExpired as boolean | undefined,
+      limit: args?.limit as number | undefined,
+      offset: args?.offset as number | undefined,
+    });
+
+    const stats = getSessionStats(args?.userId as string | undefined);
+
+    return {
+      count: sessions.length,
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        userId: s.userId,
+        device: s.device,
+        ipAddress: s.ipAddress,
+        createdAt: s.createdAt,
+        lastActivity: s.lastActivity,
+        expiresAt: s.expiresAt,
+        isActive: s.isActive,
+      })),
+      stats,
+    };
+  },
+
+  session_revoke: async (args) => {
+    // Initialize Session database if not already done
+    if (!isSessionDbInitialized()) {
+      const result = initSessionDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Session database: ${result.error}` };
+      }
+    }
+
+    const sessionId = args?.sessionId as string;
+    if (!sessionId) {
+      return { error: "sessionId is required" };
+    }
+
+    const session = getSession(sessionId);
+    if (!session) {
+      return { error: `Session not found: ${sessionId}` };
+    }
+
+    const reason = args?.reason as string | undefined;
+    const revoked = revokeSession(sessionId, reason);
+
+    return {
+      success: revoked,
+      sessionId,
+      userId: session.userId,
+      reason: reason || "Session revoked",
+      message: revoked
+        ? "Session has been revoked"
+        : "Session could not be revoked (may already be inactive)",
+    };
+  },
+
+  session_revoke_all: async (args) => {
+    // Initialize Session database if not already done
+    if (!isSessionDbInitialized()) {
+      const result = initSessionDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Session database: ${result.error}` };
+      }
+    }
+
+    const userId = args?.userId as string;
+    if (!userId) {
+      return { error: "userId is required" };
+    }
+
+    const reason = args?.reason as string | undefined;
+    const revokedCount = revokeAllUserSessions(userId, reason);
+
+    return {
+      success: revokedCount > 0,
+      userId,
+      revokedCount,
+      reason: reason || "All sessions revoked",
+      message: `${revokedCount} session(s) have been revoked for user`,
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -5685,6 +5864,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...rbacHandlers,
   ...apiKeyHandlers,
   ...teamHandlers,
+  ...sessionHandlers,
 };
 
 export async function handleCallTool(

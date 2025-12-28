@@ -3906,3 +3906,273 @@ export interface TeamStats {
   /** Members by role */
   membersByRole: Record<TeamMemberRole, number>;
 }
+
+// =============================================================================
+// Session Management Types (Issue #27)
+// =============================================================================
+
+/**
+ * Session audit event types
+ */
+export type SessionEventType =
+  | "SESSION_CREATED"
+  | "SESSION_REFRESHED"
+  | "SESSION_REVOKED"
+  | "SESSION_EXPIRED"
+  | "TOKEN_BLACKLISTED"
+  | "CONCURRENT_LIMIT_EXCEEDED"
+  | "SUSPICIOUS_ACTIVITY";
+
+/**
+ * Device information for session tracking
+ */
+export interface SessionDevice {
+  /** User agent string */
+  userAgent?: string;
+  /** Browser name */
+  browser?: string;
+  /** Browser version */
+  browserVersion?: string;
+  /** Operating system */
+  os?: string;
+  /** Device type (desktop, mobile, tablet) */
+  deviceType?: string;
+  /** Device name if available */
+  deviceName?: string;
+}
+
+/**
+ * Session record
+ */
+export interface Session {
+  /** Unique session ID */
+  id: string;
+  /** User ID who owns the session */
+  userId: string;
+  /** Hash of the refresh token */
+  refreshTokenHash: string;
+  /** JWT ID of current access token */
+  accessTokenJti: string;
+  /** Device information */
+  device?: SessionDevice;
+  /** IP address of the client */
+  ipAddress?: string;
+  /** Session creation time */
+  createdAt: string;
+  /** Last activity timestamp */
+  lastActivity: string;
+  /** Session expiration time */
+  expiresAt: string;
+  /** Whether session is active */
+  isActive: boolean;
+}
+
+/**
+ * JWT token claims
+ */
+export interface TokenClaims {
+  /** Subject (user ID) */
+  sub: string;
+  /** User email */
+  email?: string;
+  /** User roles */
+  roles?: string[];
+  /** Team memberships */
+  teams?: string[];
+  /** Granted permissions */
+  permissions?: string[];
+  /** Session ID */
+  sid: string;
+  /** JWT ID for tracking */
+  jti: string;
+  /** Issued at timestamp */
+  iat: number;
+  /** Expiration timestamp */
+  exp: number;
+  /** Token type (access or refresh) */
+  type: "access" | "refresh";
+}
+
+/**
+ * Token pair (access + refresh)
+ */
+export interface TokenPair {
+  /** Access token (short-lived) */
+  accessToken: string;
+  /** Refresh token (long-lived) */
+  refreshToken: string;
+  /** Access token expiration (ISO date) */
+  accessExpiresAt: string;
+  /** Refresh token expiration (ISO date) */
+  refreshExpiresAt: string;
+  /** Token type (always "Bearer") */
+  tokenType: "Bearer";
+}
+
+/**
+ * Options for creating a session
+ */
+export interface CreateSessionOptions {
+  /** User ID */
+  userId: string;
+  /** User email (included in token claims) */
+  email?: string;
+  /** User roles (included in token claims) */
+  roles?: string[];
+  /** Team memberships (included in token claims) */
+  teams?: string[];
+  /** Permissions (included in token claims) */
+  permissions?: string[];
+  /** Device information */
+  device?: SessionDevice;
+  /** Client IP address */
+  ipAddress?: string;
+  /** Custom access token expiry (seconds) */
+  accessExpirySeconds?: number;
+  /** Custom refresh token expiry (seconds) */
+  refreshExpirySeconds?: number;
+}
+
+/**
+ * Result of session creation
+ */
+export interface CreateSessionResult {
+  /** Created session */
+  session: Session;
+  /** Token pair */
+  tokens: TokenPair;
+}
+
+/**
+ * Result of token validation
+ */
+export interface TokenValidationResult {
+  /** Whether token is valid */
+  valid: boolean;
+  /** Decoded claims if valid */
+  claims?: TokenClaims;
+  /** Session if valid */
+  session?: Session;
+  /** Error message if invalid */
+  error?: string;
+  /** Error code for programmatic handling */
+  errorCode?:
+    | "INVALID_TOKEN"
+    | "TOKEN_EXPIRED"
+    | "TOKEN_REVOKED"
+    | "SESSION_INACTIVE"
+    | "INVALID_TYPE"
+    | "UNKNOWN_ERROR";
+}
+
+/**
+ * Result of token refresh
+ */
+export interface RefreshTokenResult {
+  /** Whether refresh succeeded */
+  success: boolean;
+  /** New token pair if successful */
+  tokens?: TokenPair;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Options for listing sessions
+ */
+export interface SessionListOptions {
+  /** Filter by user ID */
+  userId?: string;
+  /** Include only active sessions */
+  activeOnly?: boolean;
+  /** Include expired sessions */
+  includeExpired?: boolean;
+  /** Limit results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * Session audit event
+ */
+export interface SessionAuditEvent {
+  /** Event ID */
+  id: string;
+  /** Event type */
+  eventType: SessionEventType;
+  /** Session ID */
+  sessionId?: string;
+  /** User ID */
+  userId?: string;
+  /** IP address */
+  ipAddress?: string;
+  /** Event status */
+  status: "SUCCESS" | "FAILURE";
+  /** Additional details */
+  details?: Record<string, unknown>;
+  /** Event timestamp */
+  timestamp: string;
+}
+
+/**
+ * Session database initialization result
+ */
+export interface SessionDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database file path */
+  path: string;
+  /** Whether database was created (vs opened) */
+  created: boolean;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Session statistics
+ */
+export interface SessionStats {
+  /** Total sessions */
+  totalSessions: number;
+  /** Active sessions */
+  activeSessions: number;
+  /** Expired sessions */
+  expiredSessions: number;
+  /** Revoked sessions */
+  revokedSessions: number;
+  /** Blacklisted tokens */
+  blacklistedTokens: number;
+  /** Audit events count */
+  auditEvents: number;
+}
+
+/**
+ * Blacklisted token record
+ */
+export interface BlacklistedToken {
+  /** JWT ID */
+  jti: string;
+  /** When blacklisted */
+  blacklistedAt: string;
+  /** Reason for blacklisting */
+  reason: string;
+  /** Token expiration (for cleanup) */
+  expiresAt: string;
+}
+
+/**
+ * Session configuration
+ */
+export interface SessionConfig {
+  /** JWT secret key */
+  jwtSecret: string;
+  /** Access token expiry in seconds (default: 900 = 15 min) */
+  accessExpirySeconds: number;
+  /** Refresh token expiry in seconds (default: 604800 = 7 days) */
+  refreshExpirySeconds: number;
+  /** Maximum concurrent sessions per user (default: 5) */
+  maxConcurrentSessions: number;
+  /** Whether to rotate refresh tokens on use (default: true) */
+  rotateRefreshTokens: boolean;
+}

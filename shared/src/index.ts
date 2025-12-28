@@ -893,3 +893,55 @@ export type {
   TeamDbInitResult,
   TeamStats,
 } from "./types.js";
+
+// =============================================================================
+// Session Management
+// =============================================================================
+
+export {
+  initSessionDatabase,
+  closeSessionDatabase,
+  isSessionDbInitialized,
+  getSessionConfig,
+  updateSessionConfig,
+  // Session operations
+  createSession,
+  getSession,
+  listSessions,
+  revokeSession,
+  revokeAllUserSessions,
+  // Token operations
+  validateAccessToken,
+  refreshTokens,
+  // Token blacklist
+  blacklistToken,
+  isTokenBlacklisted,
+  getBlacklistedTokens,
+  // Audit
+  logSessionAudit,
+  getSessionAuditEvents,
+  // Maintenance
+  cleanupExpiredSessions as cleanupExpiredSessionsMgmt,
+  cleanupExpiredBlacklistEntries,
+  cleanupSessionAuditEvents,
+  getSessionStats,
+} from "./session-manager.js";
+
+// Session Management Types re-export
+export type {
+  SessionEventType,
+  SessionDevice,
+  Session,
+  TokenClaims,
+  TokenPair,
+  CreateSessionOptions,
+  CreateSessionResult,
+  TokenValidationResult,
+  RefreshTokenResult,
+  SessionListOptions,
+  SessionAuditEvent,
+  SessionDbInitResult,
+  SessionStats,
+  BlacklistedToken,
+  SessionConfig,
+} from "./types.js";
