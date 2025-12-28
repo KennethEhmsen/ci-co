@@ -143,6 +143,31 @@ import {
   getScanHistory,
   storeTrivyScan,
   storeAndCompare,
+  // SSO Configuration
+  initSsoDatabase,
+  configureSamlProvider,
+  configureOidcProvider,
+  getSsoProvider,
+  listSsoProviders,
+  deleteSsoProvider,
+  setSsoProviderEnabled,
+  getSsoSession,
+  validateSsoSession,
+  terminateSsoSession,
+  terminateAllUserSessions,
+  listUserSessions,
+  listAllSessions,
+  cleanupExpiredSessions,
+  getSsoAuditEvents,
+  // SSO SAML
+  generateSpMetadata,
+  validateSamlAssertion,
+  generateSamlLogoutRequest,
+  // SSO OIDC
+  validateOidcToken,
+  validateOidcTokenByIssuer,
+  refreshOidcToken,
+  getOidcUserInfo,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -2479,6 +2504,438 @@ export const toolDefinitions = [
       properties: {},
     },
   },
+  // SSO Tools
+  {
+    name: "sso_init_database",
+    description:
+      "Initialize the SSO database for storing provider configurations and sessions. Call this before using other SSO tools.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dbPath: {
+          type: "string",
+          description:
+            "Optional path for the SQLite database file. Defaults to sso.db in current directory.",
+        },
+      },
+    },
+  },
+  {
+    name: "sso_configure_saml",
+    description:
+      "Configure a SAML 2.0 identity provider. Stores IDP certificate, SSO URL, and attribute mappings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Unique identifier for this provider",
+        },
+        name: {
+          type: "string",
+          description: "Display name for the provider (e.g., 'Corporate ADFS')",
+        },
+        idpCertificate: {
+          type: "string",
+          description: "X.509 certificate from the IdP for signature validation (PEM format)",
+        },
+        idpSsoUrl: {
+          type: "string",
+          description: "IdP Single Sign-On URL where SAML requests are sent",
+        },
+        idpSloUrl: {
+          type: "string",
+          description: "Optional IdP Single Logout URL",
+        },
+        spEntityId: {
+          type: "string",
+          description: "Service Provider Entity ID (your application identifier)",
+        },
+        spAcsUrl: {
+          type: "string",
+          description: "Assertion Consumer Service URL where SAML responses are received",
+        },
+        attributeMapping: {
+          type: "object",
+          description: "Mapping of SAML attributes to user properties",
+          properties: {
+            email: { type: "string", description: "Attribute name for email" },
+            name: { type: "string", description: "Attribute name for display name" },
+            groups: { type: "string", description: "Attribute name for group membership" },
+          },
+        },
+        wantAssertionsSigned: {
+          type: "boolean",
+          description: "Require signed assertions (default: true)",
+        },
+      },
+      required: ["id", "name", "idpCertificate", "idpSsoUrl", "spEntityId", "spAcsUrl"],
+    },
+  },
+  {
+    name: "sso_configure_oidc",
+    description:
+      "Configure an OpenID Connect identity provider. Stores client credentials and discovery settings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Unique identifier for this provider",
+        },
+        name: {
+          type: "string",
+          description: "Display name for the provider (e.g., 'Google Workspace')",
+        },
+        issuer: {
+          type: "string",
+          description: "OIDC issuer URL (e.g., https://accounts.google.com)",
+        },
+        clientId: {
+          type: "string",
+          description: "OAuth 2.0 client ID",
+        },
+        clientSecret: {
+          type: "string",
+          description: "OAuth 2.0 client secret",
+        },
+        redirectUri: {
+          type: "string",
+          description: "Callback URL for OAuth flow",
+        },
+        scopes: {
+          type: "array",
+          items: { type: "string" },
+          description: "OAuth scopes to request (default: openid, profile, email)",
+        },
+        discoveryUrl: {
+          type: "string",
+          description:
+            "Optional discovery URL (defaults to issuer/.well-known/openid-configuration)",
+        },
+        attributeMapping: {
+          type: "object",
+          description: "Mapping of OIDC claims to user properties",
+          properties: {
+            email: { type: "string" },
+            name: { type: "string" },
+            groups: { type: "string" },
+          },
+        },
+      },
+      required: ["id", "name", "issuer", "clientId", "clientSecret", "redirectUri"],
+    },
+  },
+  {
+    name: "sso_list_providers",
+    description: "List all configured SSO providers (SAML and OIDC).",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "sso_get_provider",
+    description: "Get detailed configuration for a specific SSO provider.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Provider ID to retrieve",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "sso_delete_provider",
+    description: "Delete an SSO provider configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Provider ID to delete",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "sso_set_provider_enabled",
+    description: "Enable or disable an SSO provider.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Provider ID",
+        },
+        enabled: {
+          type: "boolean",
+          description: "Whether to enable or disable the provider",
+        },
+      },
+      required: ["id", "enabled"],
+    },
+  },
+  {
+    name: "sso_get_metadata",
+    description:
+      "Generate SAML Service Provider metadata XML for configuring your IdP. Returns the SP entity ID and ACS URL.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        providerId: {
+          type: "string",
+          description: "SAML provider ID to generate metadata for",
+        },
+      },
+      required: ["providerId"],
+    },
+  },
+  {
+    name: "sso_validate_saml",
+    description:
+      "Validate a SAML assertion and create a session. The assertion should be the Base64-encoded SAMLResponse.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        providerId: {
+          type: "string",
+          description: "SAML provider ID",
+        },
+        samlResponse: {
+          type: "string",
+          description: "Base64-encoded SAML response from IdP",
+        },
+        ipAddress: {
+          type: "string",
+          description: "Optional IP address for audit logging",
+        },
+        userAgent: {
+          type: "string",
+          description: "Optional user agent for audit logging",
+        },
+      },
+      required: ["providerId", "samlResponse"],
+    },
+  },
+  {
+    name: "sso_validate_oidc",
+    description: "Validate an OIDC token (ID token or access token) and create a session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        providerId: {
+          type: "string",
+          description: "OIDC provider ID",
+        },
+        token: {
+          type: "string",
+          description: "JWT token to validate",
+        },
+        tokenType: {
+          type: "string",
+          enum: ["id_token", "access_token"],
+          description: "Type of token being validated (default: id_token)",
+        },
+        nonce: {
+          type: "string",
+          description: "Optional nonce to verify against token claims",
+        },
+        ipAddress: {
+          type: "string",
+          description: "Optional IP address for audit logging",
+        },
+        userAgent: {
+          type: "string",
+          description: "Optional user agent for audit logging",
+        },
+      },
+      required: ["providerId", "token"],
+    },
+  },
+  {
+    name: "sso_validate_token_by_issuer",
+    description:
+      "Validate an OIDC token by automatically detecting the provider from the issuer claim.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        token: {
+          type: "string",
+          description: "JWT token to validate",
+        },
+        tokenType: {
+          type: "string",
+          enum: ["id_token", "access_token"],
+          description: "Type of token being validated (default: id_token)",
+        },
+      },
+      required: ["token"],
+    },
+  },
+  {
+    name: "sso_refresh_token",
+    description: "Refresh an OIDC access token using a refresh token.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        providerId: {
+          type: "string",
+          description: "OIDC provider ID",
+        },
+        refreshToken: {
+          type: "string",
+          description: "Refresh token from previous authentication",
+        },
+      },
+      required: ["providerId", "refreshToken"],
+    },
+  },
+  {
+    name: "sso_get_user_info",
+    description: "Get user information from the OIDC userinfo endpoint.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        providerId: {
+          type: "string",
+          description: "OIDC provider ID",
+        },
+        accessToken: {
+          type: "string",
+          description: "Access token for the user",
+        },
+      },
+      required: ["providerId", "accessToken"],
+    },
+  },
+  {
+    name: "sso_get_session",
+    description: "Get details of an SSO session by ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "Session ID to retrieve",
+        },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "sso_validate_session",
+    description: "Check if an SSO session is still valid (not expired).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "Session ID to validate",
+        },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "sso_logout",
+    description: "Terminate an SSO session. For SAML, can generate a logout request.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "Session ID to terminate",
+        },
+        generateLogoutRequest: {
+          type: "boolean",
+          description: "For SAML sessions, generate an IdP logout request URL",
+        },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "sso_logout_user",
+    description: "Terminate all sessions for a specific user across all providers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "User ID to logout",
+        },
+      },
+      required: ["userId"],
+    },
+  },
+  {
+    name: "sso_list_sessions",
+    description: "List active SSO sessions. Can filter by user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "Optional user ID to filter by",
+        },
+        includeExpired: {
+          type: "boolean",
+          description: "Include expired sessions (default: false)",
+        },
+      },
+    },
+  },
+  {
+    name: "sso_cleanup_sessions",
+    description: "Remove expired SSO sessions from the database.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "sso_get_audit_log",
+    description: "Get SSO audit events for security monitoring.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        userId: {
+          type: "string",
+          description: "Filter by user ID",
+        },
+        providerId: {
+          type: "string",
+          description: "Filter by provider ID",
+        },
+        eventType: {
+          type: "string",
+          enum: [
+            "LOGIN",
+            "LOGOUT",
+            "TOKEN_REFRESH",
+            "TOKEN_VALIDATION",
+            "CONFIG_CHANGE",
+            "SESSION_EXPIRED",
+          ],
+          description: "Filter by event type",
+        },
+        status: {
+          type: "string",
+          enum: ["SUCCESS", "FAILURE"],
+          description: "Filter by status",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of events to return (default: 100)",
+        },
+      },
+    },
+  },
 ];
 
 // =============================================================================
@@ -4031,6 +4488,294 @@ const scanCompareHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// SSO handlers
+const ssoHandlers: Record<string, ToolHandler> = {
+  sso_init_database: async (args) => {
+    const result = initSsoDatabase(args?.dbPath as string | undefined);
+    return {
+      success: result.success,
+      path: result.path,
+      created: result.created,
+      error: result.error,
+    };
+  },
+
+  sso_configure_saml: async (args) => {
+    const inputMapping = args?.attributeMapping as
+      | { email?: string; name?: string; groups?: string }
+      | undefined;
+    const config = {
+      id: args?.id as string,
+      name: args?.name as string,
+      enabled: args?.enabled !== false, // Default to enabled
+      idpCertificate: args?.idpCertificate as string,
+      idpSsoUrl: args?.idpSsoUrl as string,
+      idpSloUrl: args?.idpSloUrl as string | undefined,
+      spEntityId: args?.spEntityId as string,
+      spAcsUrl: args?.spAcsUrl as string,
+      spSloUrl: args?.spSloUrl as string | undefined,
+      attributeMapping: {
+        email: inputMapping?.email || "email",
+        name: inputMapping?.name || "name",
+        groups: inputMapping?.groups,
+      },
+      wantAssertionsSigned: args?.wantAssertionsSigned as boolean | undefined,
+      wantResponseSigned: args?.wantResponseSigned as boolean | undefined,
+    };
+
+    const result = configureSamlProvider(config);
+    return result;
+  },
+
+  sso_configure_oidc: async (args) => {
+    const inputMapping = args?.attributeMapping as
+      | { email?: string; name?: string; groups?: string }
+      | undefined;
+    const config = {
+      id: args?.id as string,
+      name: args?.name as string,
+      enabled: args?.enabled !== false, // Default to enabled
+      issuer: args?.issuer as string,
+      clientId: args?.clientId as string,
+      clientSecret: args?.clientSecret as string,
+      redirectUri: args?.redirectUri as string,
+      scopes: (args?.scopes as string[]) || ["openid", "profile", "email"],
+      discoveryUrl: args?.discoveryUrl as string | undefined,
+      jwksUri: args?.jwksUri as string | undefined,
+      attributeMapping: {
+        email: inputMapping?.email || "email",
+        name: inputMapping?.name || "name",
+        groups: inputMapping?.groups,
+      },
+    };
+
+    const result = configureOidcProvider(config);
+    return result;
+  },
+
+  sso_list_providers: async () => {
+    return listSsoProviders();
+  },
+
+  sso_get_provider: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "Provider ID is required" };
+    }
+    const provider = getSsoProvider(id);
+    if (!provider) {
+      return { error: `Provider not found: ${id}` };
+    }
+    return provider;
+  },
+
+  sso_delete_provider: async (args) => {
+    const id = args?.id as string;
+    if (!id) {
+      return { error: "Provider ID is required" };
+    }
+    const success = deleteSsoProvider(id);
+    return { success, id };
+  },
+
+  sso_set_provider_enabled: async (args) => {
+    const id = args?.id as string;
+    const enabled = args?.enabled as boolean;
+    if (!id) {
+      return { error: "Provider ID is required" };
+    }
+    if (typeof enabled !== "boolean") {
+      return { error: "enabled must be a boolean" };
+    }
+    const success = setSsoProviderEnabled(id, enabled);
+    return { success, id, enabled };
+  },
+
+  sso_get_metadata: async (args) => {
+    const providerId = args?.providerId as string;
+    if (!providerId) {
+      return { error: "Provider ID is required" };
+    }
+    const metadata = generateSpMetadata(providerId);
+    if (!metadata) {
+      return { error: `Provider not found or not a SAML provider: ${providerId}` };
+    }
+    return metadata;
+  },
+
+  sso_validate_saml: async (args) => {
+    const providerId = args?.providerId as string;
+    const samlResponse = args?.samlResponse as string;
+    if (!providerId || !samlResponse) {
+      return { error: "providerId and samlResponse are required" };
+    }
+    const result = await validateSamlAssertion(providerId, samlResponse, {
+      ipAddress: args?.ipAddress as string | undefined,
+      userAgent: args?.userAgent as string | undefined,
+    });
+    return result;
+  },
+
+  sso_validate_oidc: async (args) => {
+    const providerId = args?.providerId as string;
+    const token = args?.token as string;
+    if (!providerId || !token) {
+      return { error: "providerId and token are required" };
+    }
+    const result = await validateOidcToken(providerId, token, {
+      tokenType: args?.tokenType as "id_token" | "access_token" | undefined,
+      nonce: args?.nonce as string | undefined,
+      ipAddress: args?.ipAddress as string | undefined,
+      userAgent: args?.userAgent as string | undefined,
+    });
+    return result;
+  },
+
+  sso_validate_token_by_issuer: async (args) => {
+    const token = args?.token as string;
+    if (!token) {
+      return { error: "token is required" };
+    }
+    const result = await validateOidcTokenByIssuer(token, {
+      tokenType: args?.tokenType as "id_token" | "access_token" | undefined,
+    });
+    return result;
+  },
+
+  sso_refresh_token: async (args) => {
+    const providerId = args?.providerId as string;
+    const refreshToken = args?.refreshToken as string;
+    if (!providerId || !refreshToken) {
+      return { error: "providerId and refreshToken are required" };
+    }
+    const result = await refreshOidcToken(providerId, refreshToken);
+    return result;
+  },
+
+  sso_get_user_info: async (args) => {
+    const providerId = args?.providerId as string;
+    const accessToken = args?.accessToken as string;
+    if (!providerId || !accessToken) {
+      return { error: "providerId and accessToken are required" };
+    }
+    const result = await getOidcUserInfo(providerId, accessToken);
+    return result;
+  },
+
+  sso_get_session: async (args) => {
+    const sessionId = args?.sessionId as string;
+    if (!sessionId) {
+      return { error: "Session ID is required" };
+    }
+    const session = getSsoSession(sessionId);
+    if (!session) {
+      return { error: `Session not found: ${sessionId}` };
+    }
+    return session;
+  },
+
+  sso_validate_session: async (args) => {
+    const sessionId = args?.sessionId as string;
+    if (!sessionId) {
+      return { error: "Session ID is required" };
+    }
+    const result = validateSsoSession(sessionId);
+    return result;
+  },
+
+  sso_logout: async (args) => {
+    const sessionId = args?.sessionId as string;
+    if (!sessionId) {
+      return { error: "Session ID is required" };
+    }
+
+    // Get session first if we need to generate logout request
+    const generateLogoutRequest = args?.generateLogoutRequest as boolean;
+    let logoutRequest = null;
+
+    if (generateLogoutRequest) {
+      const session = getSsoSession(sessionId);
+      if (session && session.providerType === "saml") {
+        logoutRequest = await generateSamlLogoutRequest(session.providerId, session);
+      }
+    }
+
+    const success = terminateSsoSession(sessionId);
+    return {
+      success,
+      sessionId,
+      logoutRequest,
+    };
+  },
+
+  sso_logout_user: async (args) => {
+    const userId = args?.userId as string;
+    if (!userId) {
+      return { error: "User ID is required" };
+    }
+    const count = terminateAllUserSessions(userId);
+    return {
+      success: true,
+      userId,
+      terminatedSessions: count,
+    };
+  },
+
+  sso_list_sessions: async (args) => {
+    const userId = args?.userId as string | undefined;
+    const includeExpired = args?.includeExpired as boolean | undefined;
+
+    if (userId) {
+      const sessions = listUserSessions(userId);
+      const filtered = includeExpired
+        ? sessions
+        : sessions.filter((s) => new Date(s.expiresAt) > new Date());
+      return {
+        count: filtered.length,
+        sessions: filtered,
+      };
+    } else {
+      const sessions = listAllSessions();
+      const filtered = includeExpired
+        ? sessions
+        : sessions.filter((s) => new Date(s.expiresAt) > new Date());
+      return {
+        count: filtered.length,
+        sessions: filtered,
+      };
+    }
+  },
+
+  sso_cleanup_sessions: async () => {
+    const count = cleanupExpiredSessions();
+    return {
+      success: true,
+      removedSessions: count,
+    };
+  },
+
+  sso_get_audit_log: async (args) => {
+    const events = getSsoAuditEvents({
+      userId: args?.userId as string | undefined,
+      providerId: args?.providerId as string | undefined,
+      eventType: args?.eventType as
+        | "LOGIN"
+        | "LOGOUT"
+        | "TOKEN_REFRESH"
+        | "TOKEN_VALIDATION"
+        | "CONFIG_CHANGE"
+        | "SESSION_EXPIRED"
+        | undefined,
+      status: args?.status as "SUCCESS" | "FAILURE" | undefined,
+      limit: args?.limit as number | undefined,
+    });
+    return {
+      count: events.length,
+      events,
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -4050,6 +4795,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...suppressionHandlers,
   ...metricsHandlers,
   ...scanCompareHandlers,
+  ...ssoHandlers,
 };
 
 export async function handleCallTool(

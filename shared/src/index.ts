@@ -685,3 +685,70 @@ export {
   type CacheTTLConfig,
   type CacheHealthStatus,
 } from "./redis-cache.js";
+
+// SSO Configuration exports
+export {
+  initSsoDatabase,
+  closeSsoDatabase,
+  isSsoDbInitialized,
+  configureSamlProvider,
+  configureOidcProvider,
+  getSsoProvider,
+  getSamlProvider,
+  getOidcProvider,
+  listSsoProviders,
+  deleteSsoProvider,
+  setSsoProviderEnabled,
+  getSsoProviderByIssuer,
+  createSsoSession,
+  getSsoSession,
+  validateSsoSession,
+  terminateSsoSession,
+  terminateAllUserSessions,
+  listUserSessions,
+  listAllSessions,
+  cleanupExpiredSessions,
+  updateSessionTokens,
+  logSsoAudit,
+  getSsoAuditEvents,
+  cleanupOldAuditEvents,
+} from "./sso-config.js";
+
+// SSO SAML exports
+export {
+  generateSpMetadata,
+  validateSamlAssertion,
+  generateSamlLogoutRequest,
+  validateSamlLogoutResponse,
+  generateSamlAuthRequest,
+  clearSamlInstanceCache,
+} from "./sso-saml.js";
+
+// SSO OIDC exports
+export {
+  discoverOidcProvider,
+  validateOidcToken,
+  validateOidcTokenByIssuer,
+  introspectOidcToken,
+  refreshOidcToken,
+  getOidcUserInfo,
+  clearJwksCache,
+  clearDiscoveryCache,
+} from "./sso-oidc.js";
+
+// SSO Types re-export
+export type {
+  SsoProviderType,
+  SsoEventType,
+  SsoErrorCode,
+  SsoAttributeMapping,
+  SamlProviderConfig,
+  OidcProviderConfig,
+  SsoProviderConfigUnion,
+  SsoSession,
+  SsoValidationResult,
+  SsoMetadataResult,
+  SsoAuditEvent,
+  SsoDbInitResult,
+  SsoProviderSummary,
+} from "./types.js";

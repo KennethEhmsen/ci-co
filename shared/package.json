@@ -20,8 +20,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@node-saml/node-saml": "^5.0.1",
     "better-sqlite3": "^12.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
     "minimatch": "^10.1.1",
+    "openid-client": "^5.7.1",
     "yaml": "^2.7.0"
   },
   "optionalDependencies": {
@@ -29,6 +33,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.19.27",
     "@vitest/coverage-v8": "^4.0.16",
     "ioredis": "^5.4.2",

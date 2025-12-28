@@ -3029,3 +3029,242 @@ export interface VulnDbConfig {
   /** Sync interval in hours */
   syncIntervalHours?: number;
 }
+
+// =============================================================================
+// SSO (Single Sign-On) Types
+// =============================================================================
+
+/** SSO provider types */
+export type SsoProviderType = "saml" | "oidc";
+
+/** SSO event types for audit logging */
+export type SsoEventType =
+  | "LOGIN"
+  | "LOGOUT"
+  | "TOKEN_REFRESH"
+  | "TOKEN_VALIDATION"
+  | "CONFIG_CHANGE"
+  | "SESSION_EXPIRED";
+
+/** SSO validation error codes */
+export type SsoErrorCode =
+  | "INVALID_TOKEN"
+  | "EXPIRED"
+  | "PROVIDER_NOT_FOUND"
+  | "PROVIDER_DISABLED"
+  | "INVALID_SIGNATURE"
+  | "INVALID_AUDIENCE"
+  | "INVALID_ISSUER";
+
+/**
+ * Attribute mapping for SSO providers
+ */
+export interface SsoAttributeMapping {
+  /** Attribute name for email */
+  email: string;
+  /** Attribute name for display name */
+  name: string;
+  /** Attribute name for groups (optional) */
+  groups?: string;
+  /** Attribute name for user ID (optional, defaults to sub/nameId) */
+  userId?: string;
+}
+
+/**
+ * SAML 2.0 provider configuration
+ */
+export interface SamlProviderConfig {
+  /** Unique provider ID */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Whether provider is enabled */
+  enabled: boolean;
+  /** IdP metadata URL (auto-fetch) */
+  idpMetadataUrl?: string;
+  /** IdP metadata XML (manual) */
+  idpMetadataXml?: string;
+  /** IdP X.509 certificate (PEM format) */
+  idpCertificate: string;
+  /** IdP SSO URL */
+  idpSsoUrl: string;
+  /** IdP SLO URL (optional) */
+  idpSloUrl?: string;
+  /** Service Provider entity ID */
+  spEntityId: string;
+  /** Assertion Consumer Service URL */
+  spAcsUrl: string;
+  /** Single Logout URL (optional) */
+  spSloUrl?: string;
+  /** Attribute mapping */
+  attributeMapping: SsoAttributeMapping;
+  /** Want assertions signed */
+  wantAssertionsSigned?: boolean;
+  /** Want response signed */
+  wantResponseSigned?: boolean;
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt: string;
+}
+
+/**
+ * OIDC provider configuration
+ */
+export interface OidcProviderConfig {
+  /** Unique provider ID */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Whether provider is enabled */
+  enabled: boolean;
+  /** Token issuer */
+  issuer: string;
+  /** OIDC discovery URL (/.well-known/openid-configuration) */
+  discoveryUrl?: string;
+  /** OAuth client ID */
+  clientId: string;
+  /** OAuth client secret */
+  clientSecret: string;
+  /** Redirect URI for callbacks */
+  redirectUri: string;
+  /** OAuth scopes */
+  scopes: string[];
+  /** JWKS URI for token validation */
+  jwksUri?: string;
+  /** Attribute mapping */
+  attributeMapping: SsoAttributeMapping;
+  /** Token endpoint auth method */
+  tokenEndpointAuthMethod?: "client_secret_basic" | "client_secret_post";
+  /** Created timestamp */
+  createdAt: string;
+  /** Updated timestamp */
+  updatedAt: string;
+}
+
+/**
+ * Union type for SSO provider configurations
+ */
+export type SsoProviderConfigUnion =
+  | { type: "saml"; config: SamlProviderConfig }
+  | { type: "oidc"; config: OidcProviderConfig };
+
+/**
+ * SSO session data
+ */
+export interface SsoSession {
+  /** Session ID */
+  id: string;
+  /** Provider ID that created this session */
+  providerId: string;
+  /** Provider type */
+  providerType: SsoProviderType;
+  /** User ID from IdP */
+  userId: string;
+  /** User email */
+  email: string;
+  /** User display name */
+  name: string;
+  /** User groups */
+  groups: string[];
+  /** Raw claims from token */
+  claims: Record<string, unknown>;
+  /** Access token (for OIDC) */
+  accessToken?: string;
+  /** Refresh token (for OIDC) */
+  refreshToken?: string;
+  /** Session expiration time */
+  expiresAt: string;
+  /** Session creation time */
+  createdAt: string;
+  /** Last activity time */
+  lastActivityAt: string;
+}
+
+/**
+ * Result of SSO token/assertion validation
+ */
+export interface SsoValidationResult {
+  /** Whether validation succeeded */
+  valid: boolean;
+  /** Session created from valid token */
+  session?: SsoSession;
+  /** Error message */
+  error?: string;
+  /** Error code */
+  errorCode?: SsoErrorCode;
+}
+
+/**
+ * Result of SAML SP metadata generation
+ */
+export interface SsoMetadataResult {
+  /** SP metadata XML */
+  xml: string;
+  /** Entity ID */
+  entityId: string;
+  /** ACS URL */
+  acsUrl: string;
+}
+
+/**
+ * SSO audit event
+ */
+export interface SsoAuditEvent {
+  /** Event ID */
+  id: string;
+  /** Event type */
+  eventType: SsoEventType;
+  /** Provider ID */
+  providerId?: string;
+  /** Session ID */
+  sessionId?: string;
+  /** User ID */
+  userId?: string;
+  /** User email */
+  email?: string;
+  /** Event status */
+  status: "SUCCESS" | "FAILURE";
+  /** Error message if failed */
+  errorMessage?: string;
+  /** IP address */
+  ipAddress?: string;
+  /** User agent */
+  userAgent?: string;
+  /** Additional details */
+  details?: Record<string, unknown>;
+  /** Event timestamp */
+  timestamp: string;
+}
+
+/**
+ * SSO database initialization result
+ */
+export interface SsoDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Whether database was created (vs opened) */
+  created: boolean;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * SSO provider list item (summary)
+ */
+export interface SsoProviderSummary {
+  /** Provider ID */
+  id: string;
+  /** Provider type */
+  type: SsoProviderType;
+  /** Display name */
+  name: string;
+  /** Whether enabled */
+  enabled: boolean;
+  /** Issuer (OIDC) or IdP entity ID (SAML) */
+  issuer: string;
+  /** Created timestamp */
+  createdAt: string;
+}
