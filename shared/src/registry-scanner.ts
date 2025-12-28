@@ -192,10 +192,8 @@ export async function discoverImages(
     limit?: number;
   } = {}
 ): Promise<{ images: RegistryImage[]; skipped: string[]; repositoriesFound: number }> {
-  const { repositories: repoPatterns, tagFilter, maxAge: _maxAge, allTags = true, limit } = options;
-  // Note: maxAge filtering is not yet implemented (requires manifest inspection)
-  // Reserved for future implementation - intentionally unused
-  void _maxAge;
+  // Note: maxAge is reserved for future implementation (requires manifest inspection)
+  const { repositories: repoPatterns, tagFilter, allTags = true, limit } = options;
 
   // Get catalog from registry
   const catalog = await registryGetCatalog();

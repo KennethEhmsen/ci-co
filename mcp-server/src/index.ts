@@ -2464,7 +2464,7 @@ const schedulerHandlers: Record<string, ToolHandler> = {
 
     return {
       valid: true,
-      description: describeCronExpression(result.parsed!),
+      description: result.parsed ? describeCronExpression(result.parsed) : "",
       nextRuns: nextRuns.map((d) => d.toISOString()),
     };
   },
