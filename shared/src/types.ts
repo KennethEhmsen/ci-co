@@ -4176,3 +4176,362 @@ export interface SessionConfig {
   /** Whether to rotate refresh tokens on use (default: true) */
   rotateRefreshTokens: boolean;
 }
+
+// =============================================================================
+// Audit Trail Types
+// =============================================================================
+
+/**
+ * Type of actor performing an audited action
+ */
+export type AuditActorType = "user" | "apikey" | "system";
+
+/**
+ * Audit action categories
+ */
+export type AuditActionCategory =
+  | "authentication"
+  | "authorization"
+  | "scan"
+  | "policy"
+  | "suppression"
+  | "admin"
+  | "data";
+
+/**
+ * Specific audit actions
+ */
+export type AuditAction =
+  // Authentication
+  | "auth.login"
+  | "auth.logout"
+  | "auth.login_failed"
+  | "auth.password_change"
+  | "auth.mfa_enabled"
+  | "auth.mfa_disabled"
+  | "auth.token_refresh"
+  | "auth.session_created"
+  | "auth.session_revoked"
+  // Authorization
+  | "authz.permission_denied"
+  | "authz.role_assigned"
+  | "authz.role_removed"
+  | "authz.apikey_used"
+  | "authz.apikey_created"
+  | "authz.apikey_revoked"
+  // Scans
+  | "scan.triggered"
+  | "scan.completed"
+  | "scan.failed"
+  | "scan.config_changed"
+  | "scan.scheduled"
+  | "scan.cancelled"
+  // Policies
+  | "policy.created"
+  | "policy.updated"
+  | "policy.deleted"
+  | "policy.evaluated"
+  | "policy.violation"
+  // Suppressions
+  | "suppression.created"
+  | "suppression.approved"
+  | "suppression.rejected"
+  | "suppression.expired"
+  | "suppression.deleted"
+  // Admin
+  | "admin.user_created"
+  | "admin.user_deleted"
+  | "admin.user_updated"
+  | "admin.settings_changed"
+  | "admin.role_created"
+  | "admin.role_deleted"
+  | "admin.team_created"
+  | "admin.team_deleted"
+  // Data
+  | "data.export"
+  | "data.download"
+  | "data.share"
+  | "data.delete";
+
+/**
+ * Type of resource being acted upon
+ */
+export type AuditResourceType =
+  | "user"
+  | "session"
+  | "apikey"
+  | "role"
+  | "permission"
+  | "team"
+  | "organization"
+  | "image"
+  | "path"
+  | "scan"
+  | "policy"
+  | "suppression"
+  | "report"
+  | "config"
+  | "schedule";
+
+/**
+ * Outcome of an audited action
+ */
+export type AuditOutcome = "success" | "failure";
+
+/**
+ * Actor information for audit entry
+ */
+export interface AuditActor {
+  /** Type of actor */
+  type: AuditActorType;
+  /** Actor ID (user ID, API key ID, or "system") */
+  id: string;
+  /** Actor email (for users) */
+  email?: string;
+  /** Actor display name */
+  name?: string;
+}
+
+/**
+ * Resource information for audit entry
+ */
+export interface AuditResource {
+  /** Type of resource */
+  type: AuditResourceType;
+  /** Resource identifier */
+  id: string;
+  /** Resource display name */
+  name?: string;
+}
+
+/**
+ * Context information for audit entry
+ */
+export interface AuditContext {
+  /** IP address of the request */
+  ipAddress?: string;
+  /** User agent string */
+  userAgent?: string;
+  /** Session ID if applicable */
+  sessionId?: string;
+  /** Request ID for tracing */
+  requestId?: string;
+  /** Additional context data */
+  [key: string]: unknown;
+}
+
+/**
+ * Audit event/entry
+ */
+export interface AuditEvent {
+  /** Unique event ID */
+  id: string;
+  /** Event timestamp */
+  timestamp: string;
+  /** Actor who performed the action */
+  actor: AuditActor;
+  /** Action performed */
+  action: AuditAction;
+  /** Resource acted upon */
+  resource: AuditResource;
+  /** Request context */
+  context: AuditContext;
+  /** Action outcome */
+  outcome: AuditOutcome;
+  /** Additional details */
+  details?: Record<string, unknown>;
+  /** Checksum for tamper detection */
+  checksum?: string;
+}
+
+/**
+ * Options for creating an audit event
+ */
+export interface CreateAuditEventOptions {
+  /** Actor who performed the action */
+  actor: AuditActor;
+  /** Action performed */
+  action: AuditAction;
+  /** Resource acted upon */
+  resource: AuditResource;
+  /** Action outcome */
+  outcome: AuditOutcome;
+  /** Request context */
+  context?: AuditContext;
+  /** Additional details */
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Search filters for audit events
+ */
+export interface AuditSearchOptions {
+  /** Filter by actor ID */
+  actorId?: string;
+  /** Filter by actor type */
+  actorType?: AuditActorType;
+  /** Filter by action */
+  action?: AuditAction;
+  /** Filter by action category */
+  actionCategory?: AuditActionCategory;
+  /** Filter by resource type */
+  resourceType?: AuditResourceType;
+  /** Filter by resource ID */
+  resourceId?: string;
+  /** Filter by outcome */
+  outcome?: AuditOutcome;
+  /** Filter by start time */
+  startTime?: string;
+  /** Filter by end time */
+  endTime?: string;
+  /** Full-text search query */
+  query?: string;
+  /** Maximum results to return */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+  /** Sort order */
+  sortOrder?: "asc" | "desc";
+}
+
+/**
+ * Export format for audit logs
+ */
+export type AuditExportFormat = "json" | "csv" | "ndjson";
+
+/**
+ * Options for exporting audit logs
+ */
+export interface AuditExportOptions {
+  /** Search filters to apply */
+  filters?: AuditSearchOptions;
+  /** Export format */
+  format?: AuditExportFormat;
+  /** Include checksum column */
+  includeChecksum?: boolean;
+  /** Output file path (optional) */
+  outputPath?: string;
+}
+
+/**
+ * Result of audit export
+ */
+export interface AuditExportResult {
+  /** Whether export succeeded */
+  success: boolean;
+  /** Number of events exported */
+  count: number;
+  /** Export format used */
+  format: AuditExportFormat;
+  /** Output file path if written */
+  path?: string;
+  /** Export data if not written to file */
+  data?: string;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * SIEM integration configuration
+ */
+export interface AuditSiemConfig {
+  /** SIEM endpoint URL */
+  endpoint: string;
+  /** Authentication token/key */
+  authToken?: string;
+  /** Custom headers */
+  headers?: Record<string, string>;
+  /** Batch size for sending */
+  batchSize?: number;
+  /** Retry attempts on failure */
+  retryAttempts?: number;
+  /** Whether SIEM integration is enabled */
+  enabled: boolean;
+}
+
+/**
+ * Audit trail configuration
+ */
+export interface AuditConfig {
+  /** Retention period in days (default: 90) */
+  retentionDays: number;
+  /** Enable tamper-proof checksums */
+  tamperProof: boolean;
+  /** SIEM integration config */
+  siem?: AuditSiemConfig;
+  /** Enable real-time streaming */
+  realTimeStreaming: boolean;
+}
+
+/**
+ * Audit database initialization result
+ */
+export interface AuditDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database file path */
+  path: string;
+  /** Whether database was created (vs opened) */
+  created: boolean;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Audit statistics
+ */
+export interface AuditStats {
+  /** Total events */
+  totalEvents: number;
+  /** Events by outcome */
+  byOutcome: {
+    success: number;
+    failure: number;
+  };
+  /** Events by action category */
+  byCategory: Record<AuditActionCategory, number>;
+  /** Events by actor type */
+  byActorType: Record<AuditActorType, number>;
+  /** Events in last 24 hours */
+  last24Hours: number;
+  /** Events in last 7 days */
+  last7Days: number;
+  /** Events in last 30 days */
+  last30Days: number;
+  /** Oldest event timestamp */
+  oldestEvent?: string;
+  /** Newest event timestamp */
+  newestEvent?: string;
+  /** Tamper detection status */
+  tamperDetected: boolean;
+  /** Number of tampered records (if any) */
+  tamperedCount: number;
+}
+
+/**
+ * Aggregation options for audit analytics
+ */
+export interface AuditAggregateOptions {
+  /** Group by field */
+  groupBy: "action" | "actorId" | "actorType" | "resourceType" | "outcome" | "hour" | "day";
+  /** Time range start */
+  startTime?: string;
+  /** Time range end */
+  endTime?: string;
+  /** Additional filters */
+  filters?: AuditSearchOptions;
+}
+
+/**
+ * Aggregation result
+ */
+export interface AuditAggregateResult {
+  /** Grouping key */
+  key: string;
+  /** Count of events */
+  count: number;
+  /** First event timestamp in group */
+  firstEvent?: string;
+  /** Last event timestamp in group */
+  lastEvent?: string;
+}

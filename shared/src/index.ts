@@ -945,3 +945,63 @@ export type {
   BlacklistedToken,
   SessionConfig,
 } from "./types.js";
+
+// =============================================================================
+// Audit Trail
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initAuditDatabase,
+  closeAuditDatabase,
+  isAuditDbInitialized,
+  getAuditConfig,
+  updateAuditConfig,
+  // Event operations
+  logAuditEvent,
+  getAuditEvent,
+  searchAuditEvents,
+  getActionCategory,
+  // Export
+  exportAuditLogs,
+  // Checksum/Tamper detection
+  verifyEventChecksum,
+  verifyAuditIntegrity,
+  // Event listeners (real-time streaming)
+  addAuditEventListener,
+  removeAuditEventListener,
+  // SIEM integration
+  configureSiem,
+  flushSiemQueue,
+  getSiemQueueStatus,
+  // Statistics
+  getAuditStats,
+  aggregateAuditEvents,
+  // Maintenance
+  cleanupExpiredAuditEvents,
+  cleanupFailedSiemQueue,
+} from "./audit-trail.js";
+
+// Audit Trail Types re-export
+export type {
+  AuditActorType,
+  AuditActionCategory,
+  AuditAction,
+  AuditResourceType,
+  AuditOutcome,
+  AuditActor,
+  AuditResource,
+  AuditContext,
+  AuditEvent,
+  CreateAuditEventOptions,
+  AuditSearchOptions,
+  AuditExportFormat,
+  AuditExportOptions,
+  AuditExportResult,
+  AuditSiemConfig,
+  AuditConfig,
+  AuditDbInitResult,
+  AuditStats,
+  AuditAggregateOptions,
+  AuditAggregateResult,
+} from "./types.js";

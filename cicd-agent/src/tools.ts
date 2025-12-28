@@ -172,6 +172,12 @@ import {
   revokeSession,
   revokeAllUserSessions,
   getSessionStats,
+  // Audit Trail
+  initAuditDatabase,
+  isAuditDbInitialized,
+  searchAuditEvents,
+  exportAuditLogs,
+  getAuditStats,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
@@ -1911,6 +1917,114 @@ const toolHandlers: Record<string, ToolHandler> = {
       reason: reason || "All sessions revoked",
       message: `${revokedCount} session(s) have been revoked for user`,
     };
+  },
+
+  // =============================================================================
+  // Audit Trail Handlers
+  // =============================================================================
+
+  audit_search: async (input) => {
+    if (!isAuditDbInitialized()) {
+      const result = initAuditDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Audit database: ${result.error}` };
+      }
+    }
+
+    const events = searchAuditEvents({
+      actorId: input?.actorId as string | undefined,
+      actorType: input?.actorType as "user" | "apikey" | "system" | undefined,
+      action: input?.action as
+        | "auth.login"
+        | "auth.logout"
+        | "auth.login_failed"
+        | "scan.triggered"
+        | "scan.completed"
+        | "scan.failed"
+        | undefined,
+      actionCategory: input?.actionCategory as
+        | "authentication"
+        | "authorization"
+        | "scan"
+        | "policy"
+        | "suppression"
+        | "admin"
+        | "data"
+        | undefined,
+      resourceType: input?.resourceType as
+        | "user"
+        | "session"
+        | "apikey"
+        | "role"
+        | "image"
+        | "scan"
+        | "policy"
+        | undefined,
+      resourceId: input?.resourceId as string | undefined,
+      outcome: input?.outcome as "success" | "failure" | undefined,
+      startTime: input?.startTime as string | undefined,
+      endTime: input?.endTime as string | undefined,
+      query: input?.query as string | undefined,
+      limit: input?.limit as number | undefined,
+      offset: input?.offset as number | undefined,
+    });
+
+    return {
+      count: events.length,
+      events: events.map((e) => ({
+        id: e.id,
+        timestamp: e.timestamp,
+        actor: e.actor,
+        action: e.action,
+        resource: e.resource,
+        outcome: e.outcome,
+        details: e.details,
+      })),
+    };
+  },
+
+  audit_export: async (input) => {
+    if (!isAuditDbInitialized()) {
+      const result = initAuditDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Audit database: ${result.error}` };
+      }
+    }
+
+    const result = exportAuditLogs({
+      format: input?.format as "json" | "csv" | "ndjson" | undefined,
+      filters: {
+        actorId: input?.actorId as string | undefined,
+        actorType: input?.actorType as "user" | "apikey" | "system" | undefined,
+        actionCategory: input?.actionCategory as
+          | "authentication"
+          | "authorization"
+          | "scan"
+          | "policy"
+          | "suppression"
+          | "admin"
+          | "data"
+          | undefined,
+        outcome: input?.outcome as "success" | "failure" | undefined,
+        startTime: input?.startTime as string | undefined,
+        endTime: input?.endTime as string | undefined,
+      },
+      includeChecksum: input?.includeChecksum as boolean | undefined,
+      outputPath: input?.outputPath as string | undefined,
+    });
+
+    return result;
+  },
+
+  audit_stats: async () => {
+    if (!isAuditDbInitialized()) {
+      const result = initAuditDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Audit database: ${result.error}` };
+      }
+    }
+
+    return getAuditStats();
   },
 };
 
@@ -4308,6 +4422,113 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["userId"],
+    },
+  },
+  // Audit Trail Tools
+  {
+    name: "audit_search",
+    description:
+      "Search audit logs with filters. Supports filtering by actor, action, resource, outcome, and time range. Returns matching audit events for compliance and forensics.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        actorId: {
+          type: "string",
+          description: "Filter by actor ID (user ID, API key ID, or 'system')",
+        },
+        actorType: {
+          type: "string",
+          enum: ["user", "apikey", "system"],
+          description: "Filter by actor type",
+        },
+        action: {
+          type: "string",
+          description: "Filter by specific action (e.g., 'auth.login', 'scan.triggered')",
+        },
+        actionCategory: {
+          type: "string",
+          enum: [
+            "authentication",
+            "authorization",
+            "scan",
+            "policy",
+            "suppression",
+            "admin",
+            "data",
+          ],
+          description: "Filter by action category",
+        },
+        resourceType: {
+          type: "string",
+          description: "Filter by resource type (e.g., 'user', 'image', 'scan')",
+        },
+        resourceId: { type: "string", description: "Filter by resource ID" },
+        outcome: {
+          type: "string",
+          enum: ["success", "failure"],
+          description: "Filter by outcome",
+        },
+        startTime: { type: "string", description: "Filter events after this ISO timestamp" },
+        endTime: { type: "string", description: "Filter events before this ISO timestamp" },
+        query: { type: "string", description: "Full-text search query across event fields" },
+        limit: { type: "number", description: "Maximum events to return (default: 100)" },
+        offset: { type: "number", description: "Offset for pagination" },
+      },
+    },
+  },
+  {
+    name: "audit_export",
+    description:
+      "Export audit logs to JSON, CSV, or NDJSON format. Supports the same filters as audit_search. Useful for compliance reporting and SIEM integration.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        format: {
+          type: "string",
+          enum: ["json", "csv", "ndjson"],
+          description: "Export format (default: json)",
+        },
+        actorId: { type: "string", description: "Filter by actor ID" },
+        actorType: {
+          type: "string",
+          enum: ["user", "apikey", "system"],
+          description: "Filter by actor type",
+        },
+        actionCategory: {
+          type: "string",
+          enum: [
+            "authentication",
+            "authorization",
+            "scan",
+            "policy",
+            "suppression",
+            "admin",
+            "data",
+          ],
+          description: "Filter by action category",
+        },
+        outcome: {
+          type: "string",
+          enum: ["success", "failure"],
+          description: "Filter by outcome",
+        },
+        startTime: { type: "string", description: "Filter events after this ISO timestamp" },
+        endTime: { type: "string", description: "Filter events before this ISO timestamp" },
+        includeChecksum: {
+          type: "boolean",
+          description: "Include tamper-detection checksum in export (default: false)",
+        },
+        outputPath: { type: "string", description: "Write to file path instead of returning data" },
+      },
+    },
+  },
+  {
+    name: "audit_stats",
+    description:
+      "Get audit log statistics including event counts by outcome, category, actor type, and time periods. Also reports tamper detection status.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
     },
   },
 ];
