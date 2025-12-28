@@ -85,15 +85,15 @@ const DEFAULT_TTL_CONFIG: CacheTTLConfig = {
 export function getRedisConfig(): RedisConfig {
   return {
     host: process.env.REDIS_HOST || DEFAULT_REDIS_CONFIG.host,
-    port: parseInt(process.env.REDIS_PORT || String(DEFAULT_REDIS_CONFIG.port), 10),
+    port: Number.parseInt(process.env.REDIS_PORT || String(DEFAULT_REDIS_CONFIG.port), 10),
     password: process.env.REDIS_PASSWORD || undefined,
-    db: parseInt(process.env.REDIS_DB || String(DEFAULT_REDIS_CONFIG.db), 10),
+    db: Number.parseInt(process.env.REDIS_DB || String(DEFAULT_REDIS_CONFIG.db), 10),
     keyPrefix: process.env.REDIS_KEY_PREFIX || DEFAULT_REDIS_CONFIG.keyPrefix,
-    connectTimeout: parseInt(
+    connectTimeout: Number.parseInt(
       process.env.REDIS_CONNECT_TIMEOUT || String(DEFAULT_REDIS_CONFIG.connectTimeout),
       10
     ),
-    maxRetriesPerRequest: parseInt(
+    maxRetriesPerRequest: Number.parseInt(
       process.env.REDIS_MAX_RETRIES || String(DEFAULT_REDIS_CONFIG.maxRetriesPerRequest),
       10
     ),
@@ -107,14 +107,20 @@ export function getRedisConfig(): RedisConfig {
  */
 export function getTTLConfig(): CacheTTLConfig {
   return {
-    trivy: parseInt(process.env.CACHE_TTL_TRIVY || String(DEFAULT_TTL_CONFIG.trivy), 10),
-    sonarqube: parseInt(
+    trivy: Number.parseInt(process.env.CACHE_TTL_TRIVY || String(DEFAULT_TTL_CONFIG.trivy), 10),
+    sonarqube: Number.parseInt(
       process.env.CACHE_TTL_SONARQUBE || String(DEFAULT_TTL_CONFIG.sonarqube),
       10
     ),
-    dtrack: parseInt(process.env.CACHE_TTL_DTRACK || String(DEFAULT_TTL_CONFIG.dtrack), 10),
-    registry: parseInt(process.env.CACHE_TTL_REGISTRY || String(DEFAULT_TTL_CONFIG.registry), 10),
-    default: parseInt(process.env.CACHE_TTL_DEFAULT || String(DEFAULT_TTL_CONFIG.default), 10),
+    dtrack: Number.parseInt(process.env.CACHE_TTL_DTRACK || String(DEFAULT_TTL_CONFIG.dtrack), 10),
+    registry: Number.parseInt(
+      process.env.CACHE_TTL_REGISTRY || String(DEFAULT_TTL_CONFIG.registry),
+      10
+    ),
+    default: Number.parseInt(
+      process.env.CACHE_TTL_DEFAULT || String(DEFAULT_TTL_CONFIG.default),
+      10
+    ),
   };
 }
 
@@ -218,9 +224,9 @@ export function getRedisClient(): RedisClient | null {
  * Distributed cache with Redis backend and in-memory fallback
  */
 export class DistributedCache<T> {
-  private memoryCache: ScanCache<T>;
-  private keyPrefix: string;
-  private ttlSeconds: number;
+  private readonly memoryCache: ScanCache<T>;
+  private readonly keyPrefix: string;
+  private readonly ttlSeconds: number;
   private stats = { hits: 0, misses: 0 };
 
   constructor(name: string, ttlSeconds: number = DEFAULT_TTL_CONFIG.default) {
@@ -471,9 +477,10 @@ export async function getAllCacheStats(): Promise<{
         connected: true,
         keys: dbsize,
         memoryUsage: memoryMatch?.[1] || "unknown",
-        uptime: uptimeMatch ? parseInt(uptimeMatch[1], 10) : undefined,
+        uptime: uptimeMatch ? Number.parseInt(uptimeMatch[1], 10) : undefined,
       };
-    } catch (error) {
+    } catch {
+      // Redis stats unavailable - mark as disconnected
       stats.redis = {
         type: "redis",
         connected: false,
@@ -570,9 +577,9 @@ export function createCacheKey(
   const parts = [scanType, target];
 
   if (options) {
-    // Sort options for consistent key generation
+    // Sort options for consistent key generation using localeCompare for reliable sorting
     const sortedOptions = Object.keys(options)
-      .sort()
+      .sort((a, b) => a.localeCompare(b))
       .map((k) => `${k}=${JSON.stringify(options[k])}`)
       .join(",");
     if (sortedOptions) {
@@ -586,7 +593,7 @@ export function createCacheKey(
   // Simple hash function for cache keys
   let hash = 0;
   for (let i = 0; i < keyString.length; i++) {
-    const char = keyString.charCodeAt(i);
+    const char = keyString.codePointAt(i) ?? 0;
     hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
