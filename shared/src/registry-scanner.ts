@@ -118,6 +118,64 @@ export function matchesTagFilter(tag: string, filter?: string): boolean {
 // =============================================================================
 
 /**
+ * Check if a tag should be skipped based on filter options.
+ */
+function shouldSkipTag(tag: string, tagFilter?: string, allTags: boolean = true): boolean {
+  // Apply tag filter
+  if (!matchesTagFilter(tag, tagFilter)) {
+    return true;
+  }
+  // If not allTags, only include 'latest' tag
+  if (!allTags && tag !== "latest") {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Process tags for a single repository.
+ */
+function processRepositoryTags(
+  repo: string,
+  tags: string[],
+  registryPrefix: string,
+  tagFilter: string | undefined,
+  allTags: boolean,
+  limit: number | undefined,
+  currentCount: number
+): { images: RegistryImage[]; skipped: string[] } {
+  const images: RegistryImage[] = [];
+  const skipped: string[] = [];
+
+  for (const tag of tags) {
+    if (shouldSkipTag(tag, tagFilter, allTags)) {
+      skipped.push(`${repo}:${tag}`);
+      continue;
+    }
+
+    images.push({
+      fullName: `${registryPrefix}/${repo}:${tag}`,
+      repository: repo,
+      tag,
+    });
+
+    // Check limit
+    if (limit && currentCount + images.length >= limit) {
+      break;
+    }
+  }
+
+  return { images, skipped };
+}
+
+/**
+ * Check if limit has been reached.
+ */
+function isLimitReached(currentCount: number, limit?: number): boolean {
+  return limit !== undefined && currentCount >= limit;
+}
+
+/**
  * Discover all images in a registry
  *
  * @param registryUrl - Registry base URL
@@ -136,10 +194,8 @@ export async function discoverImages(
 ): Promise<{ images: RegistryImage[]; skipped: string[]; repositoriesFound: number }> {
   const { repositories: repoPatterns, tagFilter, maxAge: _maxAge, allTags = true, limit } = options;
   // Note: maxAge filtering is not yet implemented (requires manifest inspection)
-  // Using _maxAge prefix to indicate intentionally unused parameter
-  if (_maxAge) {
-    // Reserved for future implementation
-  }
+  // Reserved for future implementation - intentionally unused
+  void _maxAge;
 
   // Get catalog from registry
   const catalog = await registryGetCatalog();
@@ -156,44 +212,24 @@ export async function discoverImages(
 
   // Get tags for each matched repository
   for (const repo of matchedRepos) {
+    if (isLimitReached(allImages.length, limit)) break;
+
     try {
       const tagsResult = await registryGetTags(repo);
       const tags = tagsResult.tags || [];
 
-      for (const tag of tags) {
-        // Apply tag filter
-        if (!matchesTagFilter(tag, tagFilter)) {
-          skippedImages.push(`${repo}:${tag}`);
-          continue;
-        }
+      const { images, skipped } = processRepositoryTags(
+        repo,
+        tags,
+        registryPrefix,
+        tagFilter,
+        allTags,
+        limit,
+        allImages.length
+      );
 
-        // If not allTags, only include 'latest' tag
-        if (!allTags && tag !== "latest") {
-          skippedImages.push(`${repo}:${tag}`);
-          continue;
-        }
-
-        const image: RegistryImage = {
-          fullName: `${registryPrefix}/${repo}:${tag}`,
-          repository: repo,
-          tag,
-        };
-
-        // Note: maxAge filtering would need manifest inspection
-        // For now, we include all matching images
-        // In a production implementation, we'd fetch manifest to get creation date
-
-        allImages.push(image);
-
-        // Check limit
-        if (limit && allImages.length >= limit) {
-          break;
-        }
-      }
-
-      if (limit && allImages.length >= limit) {
-        break;
-      }
+      allImages.push(...images);
+      skippedImages.push(...skipped);
     } catch (error) {
       // Log error but continue with other repos
       console.error(`Failed to get tags for ${repo}:`, error);

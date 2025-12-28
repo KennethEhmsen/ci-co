@@ -463,65 +463,58 @@ function createViolation(
 // =============================================================================
 
 /**
- * Generate a compliance report from security dashboard results.
+ * Collect all violations from dashboard findings.
  */
-export function generateComplianceReport(
-  dashboardResult: SecurityDashboardResult,
-  options: ComplianceReportOptions = {}
-): ComplianceReport {
-  const frameworks = options.frameworks || getComplianceFrameworks();
-  const detectedAt = new Date(dashboardResult.timestamp);
-  const allViolations: ComplianceViolation[] = [];
+function collectViolationsFromFindings(
+  findings: SecurityDashboardFinding[],
+  frameworks: ComplianceFramework[],
+  detectedAt: Date
+): ComplianceViolation[] {
+  const violations: ComplianceViolation[] = [];
 
-  // Track which controls have violations
-  const controlViolations = new Map<string, ComplianceViolation[]>();
-
-  // Process all findings from the dashboard
-  for (const finding of dashboardResult.topFindings) {
+  for (const finding of findings) {
     const matchingControls = mapFindingToControls(finding, frameworks);
-
     for (const control of matchingControls) {
-      const key = `${control.framework}:${control.id}`;
-      const violation = createViolation(finding, control, detectedAt);
-      allViolations.push(violation);
-
-      if (!controlViolations.has(key)) {
-        controlViolations.set(key, []);
-      }
-      controlViolations.get(key)!.push(violation);
+      violations.push(createViolation(finding, control, detectedAt));
     }
   }
 
-  // Build per-framework summaries
-  const byFramework: Partial<Record<ComplianceFramework, ComplianceFrameworkSummary>> = {};
+  return violations;
+}
 
-  for (const framework of frameworks) {
-    const controls = COMPLIANCE_CONTROLS[framework];
-    const frameworkViolations = allViolations.filter((v) => v.control.framework === framework);
+/**
+ * Build summary for a single framework.
+ */
+function buildFrameworkSummary(
+  framework: ComplianceFramework,
+  allViolations: ComplianceViolation[]
+): ComplianceFrameworkSummary {
+  const controls = COMPLIANCE_CONTROLS[framework];
+  const frameworkViolations = allViolations.filter((v) => v.control.framework === framework);
 
-    // Count unique failing controls
-    const failingControlIds = new Set<string>();
-    for (const violation of frameworkViolations) {
-      failingControlIds.add(violation.control.id);
-    }
+  const failingControlIds = new Set(frameworkViolations.map((v) => v.control.id));
+  const totalControls = controls.length;
+  const failingControls = failingControlIds.size;
+  const passingControls = totalControls - failingControls;
+  const compliancePercentage =
+    totalControls > 0 ? Math.round((passingControls / totalControls) * 100) : 100;
 
-    const totalControls = controls.length;
-    const failingControls = failingControlIds.size;
-    const passingControls = totalControls - failingControls;
-    const compliancePercentage =
-      totalControls > 0 ? Math.round((passingControls / totalControls) * 100) : 100;
+  return {
+    framework,
+    totalControls,
+    passingControls,
+    failingControls,
+    compliancePercentage,
+    violations: frameworkViolations,
+  };
+}
 
-    byFramework[framework] = {
-      framework,
-      totalControls,
-      passingControls,
-      failingControls,
-      compliancePercentage,
-      violations: frameworkViolations,
-    };
-  }
-
-  // Calculate overall summary
+/**
+ * Calculate overall summary from framework summaries.
+ */
+function calculateOverallSummary(
+  byFramework: Partial<Record<ComplianceFramework, ComplianceFrameworkSummary>>
+): { totalControls: number; totalPassing: number; totalFailing: number; percentage: number } {
   let totalControls = 0;
   let totalPassing = 0;
   let totalFailing = 0;
@@ -534,43 +527,89 @@ export function generateComplianceReport(
     }
   }
 
-  const overallPercentage =
-    totalControls > 0 ? Math.round((totalPassing / totalControls) * 100) : 100;
+  const percentage = totalControls > 0 ? Math.round((totalPassing / totalControls) * 100) : 100;
+  return { totalControls, totalPassing, totalFailing, percentage };
+}
 
-  // Count by severity
-  const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
-  for (const violation of allViolations) {
+/**
+ * Count violations by severity.
+ */
+function countViolationsBySeverity(violations: ComplianceViolation[]): {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+} {
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const violation of violations) {
     const sev = normalizeSeverity(violation.vulnerability.severity);
-    bySeverity[sev]++;
+    counts[sev]++;
   }
+  return counts;
+}
 
-  // Sort violations by severity for top list
+/**
+ * Sort violations by severity (critical first).
+ */
+function sortViolationsBySeverity(violations: ComplianceViolation[]): ComplianceViolation[] {
   const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-  const sortedViolations = [...allViolations].sort((a, b) => {
+  return [...violations].sort((a, b) => {
     const sevA = normalizeSeverity(a.vulnerability.severity);
     const sevB = normalizeSeverity(b.vulnerability.severity);
     return severityOrder[sevA] - severityOrder[sevB];
   });
+}
 
-  // Generate recommendations
-  const recommendations = generateRecommendations(byFramework, bySeverity);
-
-  // Determine scan target
-  const scanTarget =
+/**
+ * Determine scan target from dashboard result.
+ */
+function determineScanTarget(dashboardResult: SecurityDashboardResult): string {
+  return (
     dashboardResult.scanTargets.image ||
     dashboardResult.scanTargets.path ||
     dashboardResult.scanTargets.sonarProject ||
-    "Unknown";
+    "Unknown"
+  );
+}
+
+/**
+ * Generate a compliance report from security dashboard results.
+ */
+export function generateComplianceReport(
+  dashboardResult: SecurityDashboardResult,
+  options: ComplianceReportOptions = {}
+): ComplianceReport {
+  const frameworks = options.frameworks || getComplianceFrameworks();
+  const detectedAt = new Date(dashboardResult.timestamp);
+
+  // Collect all violations
+  const allViolations = collectViolationsFromFindings(
+    dashboardResult.topFindings,
+    frameworks,
+    detectedAt
+  );
+
+  // Build per-framework summaries
+  const byFramework: Partial<Record<ComplianceFramework, ComplianceFrameworkSummary>> = {};
+  for (const framework of frameworks) {
+    byFramework[framework] = buildFrameworkSummary(framework, allViolations);
+  }
+
+  // Calculate totals
+  const overall = calculateOverallSummary(byFramework);
+  const bySeverity = countViolationsBySeverity(allViolations);
+  const sortedViolations = sortViolationsBySeverity(allViolations);
+  const recommendations = generateRecommendations(byFramework, bySeverity);
 
   return {
     generatedAt: new Date().toISOString(),
-    scanTarget,
+    scanTarget: determineScanTarget(dashboardResult),
     frameworks,
     summary: {
-      totalControls,
-      passingControls: totalPassing,
-      failingControls: totalFailing,
-      compliancePercentage: overallPercentage,
+      totalControls: overall.totalControls,
+      passingControls: overall.totalPassing,
+      failingControls: overall.totalFailing,
+      compliancePercentage: overall.percentage,
     },
     byFramework,
     bySeverity,

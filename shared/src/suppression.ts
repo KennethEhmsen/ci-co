@@ -459,6 +459,81 @@ function canSuppressSeverity(
 }
 
 /**
+ * Find a matching suppression for a vulnerability
+ */
+function findMatchingSuppression(
+  vuln: TrivyVulnerability,
+  target: string,
+  suppressions: Suppression[]
+): Suppression | null {
+  for (const suppression of suppressions) {
+    const matches = matchesSuppression(suppression, {
+      id: vuln.VulnerabilityID,
+      package: vuln.PkgName,
+      version: vuln.InstalledVersion,
+      target,
+    });
+    if (matches) {
+      return suppression;
+    }
+  }
+  return null;
+}
+
+/**
+ * Record a suppression match with optional audit logging
+ */
+function recordSuppressionMatch(
+  vuln: TrivyVulnerability,
+  target: string,
+  suppression: Suppression,
+  options?: SuppressionApplyOptions
+): { match: SuppressionMatch; expired: boolean } {
+  const expired = isExpired(suppression);
+
+  if (options?.audit) {
+    auditSecurityEvent("vulnerability_suppressed", "suppression", {
+      target: vuln.VulnerabilityID,
+      reason: `Suppressed ${vuln.VulnerabilityID} in ${vuln.PkgName}: ${suppression.reason}`,
+      metadata: {
+        package: vuln.PkgName,
+        suppressionId: suppression.id,
+        suppressionType: suppression.type,
+      },
+    });
+  }
+
+  return {
+    match: {
+      suppression,
+      vulnerabilityId: vuln.VulnerabilityID,
+      package: vuln.PkgName,
+      path: target,
+      expired,
+    },
+    expired,
+  };
+}
+
+/**
+ * Create a suppressed vulnerability record
+ */
+function createSuppressedVulnerability(
+  vuln: TrivyVulnerability,
+  target: string,
+  suppression: Suppression
+): SuppressedVulnerability {
+  return {
+    id: vuln.VulnerabilityID,
+    package: vuln.PkgName,
+    version: vuln.InstalledVersion,
+    severity: vuln.Severity,
+    target,
+    suppression,
+  };
+}
+
+/**
  * Apply suppressions to Trivy vulnerabilities
  */
 export function applySuppressionsToVulnerabilities(
@@ -472,71 +547,22 @@ export function applySuppressionsToVulnerabilities(
   const appliedSuppressions: SuppressionMatch[] = [];
   let expiredCount = 0;
 
-  // Filter suppressions based on expiration
   const activeSuppressions = options?.includeExpired ? suppressions : filterExpired(suppressions);
 
   for (const vuln of vulnerabilities) {
-    let wasSuppressed = false;
-    let matchedSuppression: Suppression | null = null;
-
     // Check if severity can be suppressed
     if (!canSuppressSeverity(vuln.Severity, options?.maxSeverityToSuppress)) {
       remaining.push(vuln);
       continue;
     }
 
-    // Try to find a matching suppression
-    for (const suppression of activeSuppressions) {
-      const matches = matchesSuppression(suppression, {
-        id: vuln.VulnerabilityID,
-        package: vuln.PkgName,
-        version: vuln.InstalledVersion,
-        target,
-      });
+    const matchedSuppression = findMatchingSuppression(vuln, target, activeSuppressions);
 
-      if (matches) {
-        wasSuppressed = true;
-        matchedSuppression = suppression;
-
-        const expired = isExpired(suppression);
-        if (expired) {
-          expiredCount++;
-        }
-
-        appliedSuppressions.push({
-          suppression,
-          vulnerabilityId: vuln.VulnerabilityID,
-          package: vuln.PkgName,
-          path: target,
-          expired,
-        });
-
-        // Audit if requested
-        if (options?.audit) {
-          auditSecurityEvent("vulnerability_suppressed", "suppression", {
-            target: vuln.VulnerabilityID,
-            reason: `Suppressed ${vuln.VulnerabilityID} in ${vuln.PkgName}: ${suppression.reason}`,
-            metadata: {
-              package: vuln.PkgName,
-              suppressionId: suppression.id,
-              suppressionType: suppression.type,
-            },
-          });
-        }
-
-        break;
-      }
-    }
-
-    if (wasSuppressed && matchedSuppression) {
-      suppressed.push({
-        id: vuln.VulnerabilityID,
-        package: vuln.PkgName,
-        version: vuln.InstalledVersion,
-        severity: vuln.Severity,
-        target,
-        suppression: matchedSuppression,
-      });
+    if (matchedSuppression) {
+      const { match, expired } = recordSuppressionMatch(vuln, target, matchedSuppression, options);
+      appliedSuppressions.push(match);
+      if (expired) expiredCount++;
+      suppressed.push(createSuppressedVulnerability(vuln, target, matchedSuppression));
     } else {
       remaining.push(vuln);
     }
@@ -629,47 +655,69 @@ export function applySuppressions(
 // =============================================================================
 
 /**
- * Generate a suppression report
+ * Format a single suppression as markdown lines.
  */
-export function generateSuppressionReport(suppressions: Suppression[]): string {
-  const lines: string[] = [];
+function formatSuppressionItem(s: Suppression): string[] {
+  const expiredTag = isExpired(s) ? " [EXPIRED]" : "";
+  const expiresTag = s.expires ? ` (expires: ${s.expires})` : "";
 
-  lines.push(
-    "# Vulnerability Suppression Report",
-    `Generated: ${new Date().toISOString()}`,
-    `Total Suppressions: ${suppressions.length}`,
-    ""
-  );
+  const lines = [`- **${s.pattern}**${expiredTag}${expiresTag}`, `  - Reason: ${s.reason}`];
 
-  const active = filterExpired(suppressions);
-  const expired = getExpiredSuppressions(suppressions);
+  if (s.createdBy) {
+    lines.push(`  - Created by: ${s.createdBy}`);
+  }
+  if (s.notes) {
+    lines.push(`  - Notes: ${s.notes}`);
+  }
+  lines.push("");
 
-  lines.push(`Active: ${active.length}`, `Expired: ${expired.length}`, "");
+  return lines;
+}
 
-  // Group by type
-  const byType = {
+/**
+ * Group suppressions by type.
+ */
+function groupSuppressionsByType(suppressions: Suppression[]): Record<string, Suppression[]> {
+  return {
     cve: suppressions.filter((s) => s.type === "cve"),
     package: suppressions.filter((s) => s.type === "package"),
     path: suppressions.filter((s) => s.type === "path"),
   };
+}
 
+/**
+ * Format a suppression type section.
+ */
+function formatTypeSection(type: string, items: Suppression[]): string[] {
+  if (items.length === 0) return [];
+
+  const lines = [`## ${type.toUpperCase()} Suppressions (${items.length})`, ""];
+  for (const s of items) {
+    lines.push(...formatSuppressionItem(s));
+  }
+  return lines;
+}
+
+/**
+ * Generate a suppression report
+ */
+export function generateSuppressionReport(suppressions: Suppression[]): string {
+  const active = filterExpired(suppressions);
+  const expired = getExpiredSuppressions(suppressions);
+
+  const lines = [
+    "# Vulnerability Suppression Report",
+    `Generated: ${new Date().toISOString()}`,
+    `Total Suppressions: ${suppressions.length}`,
+    "",
+    `Active: ${active.length}`,
+    `Expired: ${expired.length}`,
+    "",
+  ];
+
+  const byType = groupSuppressionsByType(suppressions);
   for (const [type, items] of Object.entries(byType)) {
-    if (items.length === 0) continue;
-
-    lines.push(`## ${type.toUpperCase()} Suppressions (${items.length})`, "");
-
-    for (const s of items) {
-      const expiredTag = isExpired(s) ? " [EXPIRED]" : "";
-      const expiresTag = s.expires ? ` (expires: ${s.expires})` : "";
-      const itemLines = [
-        `- **${s.pattern}**${expiredTag}${expiresTag}`,
-        `  - Reason: ${s.reason}`,
-        ...(s.createdBy ? [`  - Created by: ${s.createdBy}`] : []),
-        ...(s.notes ? [`  - Notes: ${s.notes}`] : []),
-        "",
-      ];
-      lines.push(...itemLines);
-    }
+    lines.push(...formatTypeSection(type, items));
   }
 
   return lines.join("\n");
