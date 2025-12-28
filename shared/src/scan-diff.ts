@@ -486,9 +486,7 @@ let scanHistory: MemoryScanHistory | null = null;
  * Initialize or get the scan history store
  */
 export function getScanHistory(options?: ScanHistoryOptions): MemoryScanHistory {
-  if (!scanHistory) {
-    scanHistory = new MemoryScanHistory(options?.maxRecordsPerTarget ?? DEFAULT_MAX_RECORDS);
-  }
+  scanHistory ??= new MemoryScanHistory(options?.maxRecordsPerTarget ?? DEFAULT_MAX_RECORDS);
   return scanHistory;
 }
 

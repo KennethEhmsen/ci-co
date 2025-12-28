@@ -120,7 +120,7 @@ function validateExtendsField(obj: Record<string, unknown>): {
     };
   }
 
-  if (!["strict", "standard", "permissive"].includes((obj.extends as string).toLowerCase())) {
+  if (!["strict", "standard", "permissive"].includes(obj.extends.toLowerCase())) {
     return {
       warning: {
         path: "extends",
