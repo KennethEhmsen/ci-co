@@ -3753,6 +3753,33 @@ describe("Suppression", () => {
       expect(result.Results![0].Vulnerabilities?.length).toBe(1);
       expect(result.Results![0].Vulnerabilities?.[0].VulnerabilityID).toBe("CVE-2023-5678");
     });
+
+    it("should handle results with no vulnerabilities", () => {
+      const scanResult: SuppressionTrivyScanResult = {
+        ArtifactName: "alpine:latest",
+        Results: [
+          {
+            Target: "alpine:latest",
+            Class: "os-pkgs",
+            Type: "alpine",
+            // No Vulnerabilities field
+          },
+          {
+            Target: "app/package.json",
+            Class: "lang-pkgs",
+            Type: "node-pkg",
+            Vulnerabilities: [], // Empty array
+          },
+        ],
+      };
+
+      const suppressions = [suppressCve("CVE-2023-1234", "Test")];
+      const { result, suppressionResult } = applySuppressions(scanResult, suppressions);
+
+      expect(result.Results?.length).toBe(2);
+      expect(suppressionResult.summary.total).toBe(0);
+      expect(suppressionResult.summary.suppressed).toBe(0);
+    });
   });
 
   describe("generateSuppressionReport", () => {
@@ -3768,6 +3795,30 @@ describe("Suppression", () => {
       expect(report).toContain("CVE-2023-1234");
       expect(report).toContain("lodash");
       expect(report).toContain("False positive");
+    });
+
+    it("should include createdBy and notes when provided", () => {
+      const suppressions = [
+        {
+          ...suppressCve("CVE-2023-5678", "Known issue"),
+          createdBy: "security-team",
+          notes: "Reviewed and approved by CISO",
+        },
+      ];
+
+      const report = generateSuppressionReport(suppressions);
+
+      expect(report).toContain("Created by: security-team");
+      expect(report).toContain("Notes: Reviewed and approved by CISO");
+    });
+
+    it("should handle path type suppressions", () => {
+      const suppressions = [suppressPath("/vendor/*", "Third-party code")];
+
+      const report = generateSuppressionReport(suppressions);
+
+      expect(report).toContain("PATH Suppressions");
+      expect(report).toContain("/vendor/*");
     });
   });
 });
