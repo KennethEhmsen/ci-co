@@ -758,5 +758,43 @@ describe("Edge Cases", () => {
 
       expect(schedule.options?.severity).toBe("HIGH,CRITICAL");
     });
+
+    it("should handle schedule with concurrency option", () => {
+      const schedule = createSchedule({
+        name: "High Concurrency",
+        cron: "@daily",
+        targets: [{ type: "image", target: "nginx:latest" }],
+        options: { concurrency: 10 },
+      });
+
+      expect(schedule.options?.concurrency).toBe(10);
+    });
+  });
+
+  describe("startScheduler and stopScheduler", () => {
+    it("should start and stop scheduler without error", () => {
+      // Create an enabled schedule
+      createSchedule({
+        name: "StartStop Test",
+        cron: "0 0 * * *",
+        targets: [{ type: "image", target: "nginx:latest" }],
+        enabled: true,
+      });
+
+      expect(() => startScheduler()).not.toThrow();
+      expect(() => stopScheduler()).not.toThrow();
+    });
+
+    it("should handle starting scheduler with disabled schedules", () => {
+      createSchedule({
+        name: "Disabled Schedule",
+        cron: "0 0 * * *",
+        targets: [{ type: "image", target: "nginx:latest" }],
+        enabled: false,
+      });
+
+      expect(() => startScheduler()).not.toThrow();
+      stopScheduler();
+    });
   });
 });
