@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **76 MCP tools** across **13 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, and policy enforcement into a unified security automation framework.
+The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **82 MCP tools** across **14 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, policy enforcement, and distributed caching into a unified security automation framework.
 
-**Platform Version:** 1.21.0
+**Platform Version:** 1.22.0
 
 ### Key Capabilities
 
@@ -23,8 +23,9 @@ The CI/CD Security Scanning Platform is a comprehensive enterprise security solu
 | **Compliance** | 7 | SOC2, HIPAA, PCI-DSS, CIS frameworks |
 | **Policy Engine** | 4 | OPA/Rego declarative policies |
 | **Vulnerability Database** | 6 | Offline scanning and CVE management |
+| **Distributed Caching** | 6 | Redis/memory hybrid caching with TTL |
 
-**Total: 76 MCP Tools**
+**Total: 82 MCP Tools**
 
 ---
 
@@ -43,8 +44,9 @@ The CI/CD Security Scanning Platform is a comprehensive enterprise security solu
 11. [Compliance Reporting](#11-compliance-reporting)
 12. [OPA/Rego Policy Engine](#12-oparego-policy-engine)
 13. [Offline Vulnerability Database](#13-offline-vulnerability-database)
-14. [Architecture Overview](#14-architecture-overview)
-15. [Integration Patterns](#15-integration-patterns)
+14. [Distributed Caching](#14-distributed-caching)
+15. [Architecture Overview](#15-architecture-overview)
+16. [Integration Patterns](#16-integration-patterns)
 
 ---
 
@@ -610,7 +612,126 @@ Export DB  ====== Transfer ======>  Import
 
 ---
 
-## 14. Architecture Overview
+## 14. Distributed Caching
+
+### Overview
+
+Redis-backed distributed caching with automatic fallback to in-memory storage when Redis is unavailable. Configurable TTL per scan type enables optimal cache freshness for different data sources.
+
+### Tools (6 MCP Tools)
+
+| Tool | Description |
+|------|-------------|
+| `cache_init` | Initialize distributed caching with optional Redis backend |
+| `cache_status` | Get cache health and connection status |
+| `cache_stats` | Get hit/miss statistics by scan type |
+| `cache_clear` | Clear all cached data |
+| `cache_invalidate` | Invalidate cache entries by pattern |
+| `cache_config` | Get current cache configuration |
+
+### Cache Architecture
+
+```
++------------------+     +------------------+
+|   Cache Request  |     |   Redis Server   |
+|                  |---->|   (Optional)     |
++------------------+     +--------+---------+
+                                  |
+                         Connected?
+                                  |
+              +-------------------+-------------------+
+              |                                       |
+              v                                       v
+    +------------------+                   +------------------+
+    |  Redis Backend   |                   | Memory Backend   |
+    |  (Distributed)   |                   | (In-Process)     |
+    +------------------+                   +------------------+
+```
+
+### Default TTL Configuration
+
+| Scan Type | Default TTL | Description |
+|-----------|-------------|-------------|
+| `trivy` | 5 minutes | Container/dependency scans |
+| `sonarqube` | 10 minutes | Code quality analysis |
+| `dtrack` | 10 minutes | SCA findings |
+| `registry` | 30 minutes | Registry image lists |
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_HOST` | Redis server hostname | `localhost` |
+| `REDIS_PORT` | Redis server port | `6379` |
+| `REDIS_PASSWORD` | Redis authentication | - |
+| `REDIS_DB` | Redis database number | `0` |
+| `REDIS_KEY_PREFIX` | Key namespace prefix | `cicd:` |
+| `CACHE_TTL_TRIVY` | Trivy scan TTL (seconds) | `300` |
+| `CACHE_TTL_SONARQUBE` | SonarQube scan TTL | `600` |
+| `CACHE_TTL_DTRACK` | Dependency-Track TTL | `600` |
+| `CACHE_TTL_REGISTRY` | Registry scan TTL | `1800` |
+
+### Example: Initialize with Redis
+
+```json
+{
+  "tool": "cache_init",
+  "input": {
+    "useRedis": true,
+    "config": {
+      "host": "redis.example.com",
+      "port": 6379,
+      "password": "secret",
+      "keyPrefix": "prod:"
+    }
+  }
+}
+
+// Response
+{
+  "success": true,
+  "mode": "redis",
+  "connected": true
+}
+```
+
+### Example: Get Cache Statistics
+
+```json
+{
+  "tool": "cache_stats",
+  "input": {}
+}
+
+// Response
+{
+  "trivy": { "hits": 150, "misses": 25, "hitRate": 0.857 },
+  "sonarqube": { "hits": 80, "misses": 10, "hitRate": 0.889 },
+  "dtrack": { "hits": 45, "misses": 5, "hitRate": 0.900 },
+  "registry": { "hits": 200, "misses": 20, "hitRate": 0.909 }
+}
+```
+
+### Example: Invalidate by Pattern
+
+```json
+{
+  "tool": "cache_invalidate",
+  "input": {
+    "pattern": "trivy:production-*"
+  }
+}
+
+// Response
+{
+  "invalidated": 15,
+  "pattern": "trivy:production-*"
+}
+```
+
+---
+
+## 15. Architecture Overview
 
 ### System Component Diagram
 
@@ -621,7 +742,7 @@ Export DB  ====== Transfer ======>  Import
 |                                                                             |
 |  +----------------------------+       +----------------------------+        |
 |  |      MCP Server            |       |       CICD Agent           |        |
-|  |      (76 Tools)            |       |       (CLI)                |        |
+|  |      (82 Tools)            |       |       (CLI)                |        |
 |  |                            |       |                            |        |
 |  | - Model Context Protocol   |       | - Anthropic SDK            |        |
 |  | - Claude Code Integration  |       | - CLI Automation           |        |
@@ -653,16 +774,15 @@ Export DB  ====== Transfer ======>  Import
 |  | | (4 tools)      | | (6 tools)      | | (5 tools)      |             |   |
 |  | +----------------+ +----------------+ +----------------+             |   |
 |  |                                                                      |   |
-|  | +----------------+ +----------------+                                |   |
-|  | | SARIF          | | Core           |                                |   |
-|  | | Reporter       | | Utilities      |                                |   |
-|  | | (2 tools)      | | - Config       |                                |   |
-|  | |                | | - Caching      |                                |   |
-|  | +----------------+ | - Circuit      |                                |   |
-|  |                    |   Breaker      |                                |   |
-|  |                    | - Rate Limiter |                                |   |
-|  |                    | - Audit Logger |                                |   |
-|  |                    +----------------+                                |   |
+|  | +----------------+ +----------------+ +----------------+             |   |
+|  | | SARIF          | | Cache Manager  | | Core           |             |   |
+|  | | Reporter       | | (6 tools)      | | Utilities      |             |   |
+|  | | (2 tools)      | | - Redis        | | - Config       |             |   |
+|  | |                | | - Memory       | | - Circuit      |             |   |
+|  | +----------------+ | - Hybrid       | |   Breaker      |             |   |
+|  |                    +----------------+ | - Rate Limiter |             |   |
+|  |                                       | - Audit Logger |             |   |
+|  |                                       +----------------+             |   |
 |  +---------------------------------------------------------------------+   |
 |                                                                             |
 +============================================================================+
@@ -696,7 +816,7 @@ User Request --> Tool Router --> Handler --> Cache --> External API
 
 ---
 
-## 15. Integration Patterns
+## 16. Integration Patterns
 
 ### Pattern 1: CI/CD Pipeline Security Gate
 
@@ -788,7 +908,7 @@ vuln_db_sync    -----> USB/DVD ----->   vuln_db_status
 ## Benefits Summary
 
 ### For Security Teams
-- 76 tools for comprehensive security automation
+- 82 tools for comprehensive security automation
 - Unified view across all security sources
 - Policy-as-code for consistent enforcement
 - Historical trend analysis

@@ -1,8 +1,8 @@
 # CI/CD Security Platform - Cheat Sheet
 
-Quick reference for all **76 MCP/Agent tools** across 13 functional categories.
+Quick reference for all **82 MCP/Agent tools** across 14 functional categories.
 
-**Version:** 1.21.0
+**Version:** 1.22.0
 
 ---
 
@@ -21,8 +21,9 @@ Quick reference for all **76 MCP/Agent tools** across 13 functional categories.
 11. [Compliance (7 tools)](#11-compliance-7-tools)
 12. [OPA/Rego Policy (4 tools)](#12-oparego-policy-4-tools)
 13. [Vulnerability Database (6 tools)](#13-vulnerability-database-6-tools)
-14. [Common Workflows](#14-common-workflows)
-15. [Quick Reference Table](#15-quick-reference-table)
+14. [Cache (6 tools)](#14-cache-6-tools)
+15. [Common Workflows](#15-common-workflows)
+16. [Quick Reference Table](#16-quick-reference-table)
 
 ---
 
@@ -683,7 +684,62 @@ Annotate vulnerability status.
 
 ---
 
-## 14. Common Workflows
+## 14. Cache (6 tools)
+
+### cache_init
+Initialize distributed caching with optional Redis backend.
+```json
+{
+  "useRedis": true,
+  "config": {
+    "host": "redis.example.com",
+    "port": 6379,
+    "password": "secret"
+  }
+}
+// Falls back to in-memory cache if Redis unavailable
+```
+
+### cache_status
+Get cache health and connection status.
+```json
+{}
+// Returns: connected, mode (redis/memory), uptime, memory usage
+```
+
+### cache_stats
+Get cache hit/miss statistics by scan type.
+```json
+{}
+// Returns: trivy, sonarqube, dtrack, registry stats
+// Includes hit count, miss count, hit rate percentage
+```
+
+### cache_clear
+Clear all cached data.
+```json
+{}
+// Clears all scan type caches
+```
+
+### cache_invalidate
+Invalidate cache entries by pattern.
+```json
+{ "pattern": "trivy:*" }
+// Patterns: "trivy:*", "sonarqube:*", "dtrack:*", "registry:*"
+// Also supports: "*:myapp:*" for specific targets
+```
+
+### cache_config
+Get current cache configuration.
+```json
+{}
+// Returns: TTL settings, Redis config (if enabled)
+```
+
+---
+
+## 15. Common Workflows
 
 ### Full Security Pipeline
 ```bash
@@ -748,7 +804,7 @@ registry_scan_multiple --registries ecr,acr --severity CRITICAL
 
 ---
 
-## 15. Quick Reference Table
+## 16. Quick Reference Table
 
 | Category | Tool | Purpose |
 |----------|------|---------|
@@ -828,6 +884,12 @@ registry_scan_multiple --registries ecr,acr --severity CRITICAL
 | | `vuln_db_search` | Search vulns |
 | | `trivy_scan_offline` | Offline scan |
 | | `vuln_db_annotate` | Annotate vuln |
+| **Cache** | `cache_init` | Initialize caching |
+| | `cache_status` | Get connection status |
+| | `cache_stats` | Get hit/miss stats |
+| | `cache_clear` | Clear all caches |
+| | `cache_invalidate` | Invalidate by pattern |
+| | `cache_config` | Get configuration |
 
 ---
 

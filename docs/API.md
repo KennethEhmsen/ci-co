@@ -2,7 +2,7 @@
 
 This document provides a complete reference for all tools and handlers available in the CI/CD Security Platform.
 
-**Version:** 1.21.0 | **Total Tools:** 76
+**Version:** 1.22.0 | **Total Tools:** 82
 
 ## Table of Contents
 
@@ -21,6 +21,7 @@ This document provides a complete reference for all tools and handlers available
   - [Compliance Tools](#compliance-tools)
   - [OPA/Rego Policy Tools](#oparego-policy-tools)
   - [Vulnerability Database Tools](#vulnerability-database-tools)
+  - [Cache Tools](#cache-tools)
 - [MCP Resources](#mcp-resources)
 - [Handler Functions](#handler-functions)
 - [Configuration](#configuration)
@@ -30,7 +31,7 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides **76 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides **82 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration
@@ -54,7 +55,8 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 | **Compliance** | 7 | SOC2, HIPAA, PCI-DSS, CIS frameworks |
 | **OPA/Rego Policy** | 4 | Declarative policy enforcement |
 | **Vulnerability Database** | 6 | Offline scanning and CVE management |
-| **Total** | **76** | |
+| **Cache** | 6 | Redis/memory distributed caching |
+| **Total** | **82** | |
 
 ---
 
@@ -1925,6 +1927,175 @@ Annotate vulnerability status (false positive, acknowledged, etc.).
     "notes": { "type": "string" }
   },
   "required": ["vulnId", "status"]
+}
+```
+
+---
+
+### Cache Tools
+
+Distributed caching with Redis backend and automatic memory fallback for improved performance.
+
+#### `cache_init`
+
+Initialize distributed caching with optional Redis backend.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "useRedis": {
+      "type": "boolean",
+      "description": "Try to connect to Redis (default: true)",
+      "default": true
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "initialized": true,
+  "redis": { "connected": true, "attempted": true },
+  "memory": { "available": true },
+  "mode": "hybrid"
+}
+```
+
+---
+
+#### `cache_status`
+
+Get cache health and connection status.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+**Response:**
+```json
+{
+  "redis": { "connected": true, "latencyMs": 2 },
+  "memory": { "available": true, "cacheCount": 4 },
+  "mode": "hybrid"
+}
+```
+
+---
+
+#### `cache_stats`
+
+Get hit/miss statistics for all scan types.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+**Response:**
+```json
+{
+  "trivy": { "hits": 150, "misses": 23, "hitRate": 0.867 },
+  "sonarqube": { "hits": 45, "misses": 12, "hitRate": 0.789 },
+  "dtrack": { "hits": 30, "misses": 8, "hitRate": 0.789 },
+  "registry": { "hits": 200, "misses": 15, "hitRate": 0.930 },
+  "redis": { "type": "redis", "connected": true, "keys": 438 }
+}
+```
+
+---
+
+#### `cache_clear`
+
+Clear all cached data.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "confirm": {
+      "type": "boolean",
+      "description": "Must be true to confirm clearing"
+    }
+  },
+  "required": ["confirm"]
+}
+```
+
+---
+
+#### `cache_invalidate`
+
+Invalidate cache entries matching a pattern.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "Glob pattern (e.g., 'trivy:*', 'sonarqube:project-*')"
+    }
+  },
+  "required": ["pattern"]
+}
+```
+
+**Response:**
+```json
+{
+  "pattern": "trivy:*",
+  "deleted": 25,
+  "message": "Invalidated 25 cache entries matching pattern \"trivy:*\""
+}
+```
+
+---
+
+#### `cache_config`
+
+Get current cache configuration.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+**Response:**
+```json
+{
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "db": 0,
+    "keyPrefix": "cicd:",
+    "connected": true
+  },
+  "ttl": {
+    "trivy": "300s",
+    "sonarqube": "600s",
+    "dtrack": "600s",
+    "registry": "1800s",
+    "default": "300s"
+  },
+  "environmentVariables": {
+    "redis": ["REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "..."],
+    "ttl": ["CACHE_TTL_TRIVY", "CACHE_TTL_SONARQUBE", "..."]
+  }
 }
 ```
 
