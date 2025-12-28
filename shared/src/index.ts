@@ -432,19 +432,23 @@ export {
 
 // Suppression exports
 export {
+  // Suppression creation (in-memory)
   createSuppression,
   suppressCve,
   suppressPackage,
   suppressPath,
+  // Expiration helpers
   isExpired,
   getDaysUntilExpiration,
   filterExpired,
   getExpiredSuppressions,
+  // Pattern matching
   matchesCve,
   matchesPackage,
   matchesVersion,
   matchesPath,
   matchesSuppression,
+  // File-based operations
   findSuppressionFile,
   parseSuppressionFile,
   validateSuppression,
@@ -454,6 +458,33 @@ export {
   applySuppressions,
   generateSuppressionReport,
   writeSuppressions,
+  // Database operations
+  getDefaultSuppressionDbPath,
+  initSuppressionDatabase,
+  closeSuppressionDatabase,
+  getSuppressionDatabase,
+  isSuppressionDbInitialized,
+  createDbSuppression,
+  getDbSuppression,
+  listDbSuppressions,
+  updateDbSuppression,
+  deleteDbSuppression,
+  // Audit operations
+  logSuppressionApplication,
+  getSuppressionAuditLog,
+  getSuppressionDbStats,
+  // Database utilities
+  applyDbSuppressions,
+  importSuppressionsToDb,
+  exportSuppressionsFromDb,
+  markExpiredSuppressions,
+  getSuppressionDbPath,
+  // Types
+  type SuppressionStatus,
+  type SuppressionAuditAction,
+  type SuppressionAuditEntry,
+  type SuppressionListOptions,
+  type SuppressionDbStats,
 } from "./suppression.js";
 
 // SBOM upload exports

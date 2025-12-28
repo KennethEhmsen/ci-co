@@ -88,11 +88,22 @@ import {
   offlineScanImage,
   offlineScanPath,
   getOfflineScanCapabilities,
+  // Suppression Database
+  initSuppressionDatabase,
+  isSuppressionDbInitialized,
+  createDbSuppression,
+  getDbSuppression,
+  listDbSuppressions,
+  deleteDbSuppression,
+  getSuppressionAuditLog,
+  getSuppressionDbStats,
+  applyDbSuppressions,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
   type UpdateScheduleInput,
   type ListSchedulesOptions,
+  type SuppressionType,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -578,6 +589,173 @@ const toolHandlers: Record<string, ToolHandler> = {
 
     const result = annotateVulnerability(vulnId, status, notes);
     return result;
+  },
+
+  // Suppression Management
+  suppression_create: async (input) => {
+    if (!isSuppressionDbInitialized()) {
+      const initResult = initSuppressionDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize suppression database: ${initResult.error}` };
+      }
+    }
+
+    const type = input?.type as SuppressionType;
+    const pattern = input?.pattern as string;
+    const reason = input?.reason as string;
+
+    if (!type || !pattern || !reason) {
+      return { error: "type, pattern, and reason are required" };
+    }
+
+    const result = createDbSuppression(type, pattern, reason, {
+      expires: input?.expires as string | undefined,
+      createdBy: input?.createdBy as string | undefined,
+      notes: input?.notes as string | undefined,
+    });
+
+    if (!result.success) {
+      return { error: result.error };
+    }
+
+    return {
+      success: true,
+      suppression: result.suppression,
+      message: `Created ${type} suppression for pattern "${pattern}"`,
+    };
+  },
+
+  suppression_list: async (input) => {
+    if (!isSuppressionDbInitialized()) {
+      const initResult = initSuppressionDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize suppression database: ${initResult.error}` };
+      }
+    }
+
+    const result = listDbSuppressions({
+      type: input?.type as SuppressionType | undefined,
+      status: input?.status as "active" | "expired" | undefined,
+      pattern: input?.pattern as string | undefined,
+      createdBy: input?.createdBy as string | undefined,
+      includeExpired: input?.includeExpired as boolean | undefined,
+      limit: input?.limit as number | undefined,
+      offset: input?.offset as number | undefined,
+    });
+
+    const stats = getSuppressionDbStats();
+
+    return {
+      suppressions: result.suppressions,
+      total: result.total,
+      stats: {
+        active: stats.active,
+        expired: stats.expired,
+        byType: stats.byType,
+      },
+    };
+  },
+
+  suppression_delete: async (input) => {
+    if (!isSuppressionDbInitialized()) {
+      const initResult = initSuppressionDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize suppression database: ${initResult.error}` };
+      }
+    }
+
+    const id = input?.id as string;
+    if (!id) {
+      return { error: "id is required" };
+    }
+
+    const suppression = getDbSuppression(id);
+    if (!suppression) {
+      return { error: `Suppression not found: ${id}` };
+    }
+
+    const result = deleteDbSuppression(id, input?.deletedBy as string | undefined);
+
+    if (!result.success) {
+      return { error: result.error };
+    }
+
+    return {
+      success: true,
+      deleted: {
+        id: suppression.id,
+        type: suppression.type,
+        pattern: suppression.pattern,
+      },
+      message: `Deleted suppression for pattern "${suppression.pattern}"`,
+    };
+  },
+
+  suppression_audit: async (input) => {
+    if (!isSuppressionDbInitialized()) {
+      const initResult = initSuppressionDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize suppression database: ${initResult.error}` };
+      }
+    }
+
+    const result = getSuppressionAuditLog({
+      suppressionId: input?.suppressionId as string | undefined,
+      action: input?.action as
+        | "created"
+        | "updated"
+        | "deleted"
+        | "applied"
+        | "expired"
+        | undefined,
+      user: input?.user as string | undefined,
+      since: input?.since as string | undefined,
+      until: input?.until as string | undefined,
+      limit: input?.limit as number | undefined,
+    });
+
+    return {
+      entries: result.entries,
+      total: result.total,
+    };
+  },
+
+  suppression_apply: async (input) => {
+    if (!isSuppressionDbInitialized()) {
+      const initResult = initSuppressionDatabase();
+      if (!initResult.success) {
+        return { error: `Failed to initialize suppression database: ${initResult.error}` };
+      }
+    }
+
+    const scanResult = input?.scanResult as Record<string, unknown>;
+    if (!scanResult) {
+      return { error: "scanResult is required" };
+    }
+
+    const result = applyDbSuppressions(scanResult as Parameters<typeof applyDbSuppressions>[0], {
+      includeExpired: input?.includeExpired as boolean | undefined,
+      user: input?.user as string | undefined,
+      audit: input?.audit as boolean | undefined,
+    });
+
+    return {
+      result: result.result,
+      summary: result.suppressionResult.summary,
+      appliedSuppressions: result.suppressionResult.appliedSuppressions.map((s) => ({
+        suppressionId: s.suppression.id,
+        type: s.suppression.type,
+        pattern: s.suppression.pattern,
+        vulnerabilityId: s.vulnerabilityId,
+        package: s.package,
+      })),
+      suppressed: result.suppressionResult.suppressed.map((v) => ({
+        id: v.id,
+        package: v.package,
+        severity: v.severity,
+        reason: v.suppression.reason,
+      })),
+    };
   },
 };
 
@@ -1903,6 +2081,172 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["vulnId", "status"],
+    },
+  },
+
+  // Suppression Management Tools
+  {
+    name: "suppression_create",
+    description:
+      "Create a new vulnerability suppression rule. Suppressions can target specific CVEs, packages, or file paths. " +
+      "Use to mark false positives or accepted risks with audit trail.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        type: {
+          type: "string",
+          enum: ["cve", "package", "path"],
+          description:
+            "Type of suppression: 'cve' for specific CVE IDs, 'package' for package names, 'path' for file path patterns",
+        },
+        pattern: {
+          type: "string",
+          description:
+            "Pattern to match. For CVE: 'CVE-2024-1234' or 'CVE-2024-*'. For package: 'lodash' or 'lodash@<4.17.21'. For path: 'src/legacy/*'",
+        },
+        reason: {
+          type: "string",
+          description: "Required justification for the suppression",
+        },
+        expires: {
+          type: "string",
+          description: "Optional ISO 8601 expiration date (e.g., '2025-03-01')",
+        },
+        createdBy: {
+          type: "string",
+          description: "User or team creating the suppression",
+        },
+        notes: {
+          type: "string",
+          description: "Additional notes or context",
+        },
+      },
+      required: ["type", "pattern", "reason"],
+    },
+  },
+  {
+    name: "suppression_list",
+    description:
+      "List all active vulnerability suppressions with optional filters. " +
+      "Returns suppressions from the database with their status and metadata.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        type: {
+          type: "string",
+          enum: ["cve", "package", "path"],
+          description: "Filter by suppression type",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "expired"],
+          description: "Filter by status (default: active)",
+        },
+        pattern: {
+          type: "string",
+          description: "Filter by pattern (partial match)",
+        },
+        createdBy: {
+          type: "string",
+          description: "Filter by creator",
+        },
+        includeExpired: {
+          type: "boolean",
+          description: "Include expired suppressions (default: false)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum results to return (default: 100)",
+        },
+        offset: {
+          type: "number",
+          description: "Offset for pagination",
+        },
+      },
+    },
+  },
+  {
+    name: "suppression_delete",
+    description:
+      "Delete (soft-delete) a suppression rule by ID. " +
+      "The suppression is marked as deleted and remains in the audit trail.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        id: {
+          type: "string",
+          description: "Suppression ID to delete",
+        },
+        deletedBy: {
+          type: "string",
+          description: "User performing the deletion",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "suppression_audit",
+    description:
+      "Get the audit log for suppressions. Shows history of all suppression actions " +
+      "including creation, application, and deletion.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        suppressionId: {
+          type: "string",
+          description: "Filter by specific suppression ID",
+        },
+        action: {
+          type: "string",
+          enum: ["created", "updated", "deleted", "applied", "expired"],
+          description: "Filter by action type",
+        },
+        user: {
+          type: "string",
+          description: "Filter by user",
+        },
+        since: {
+          type: "string",
+          description: "Show entries since this ISO 8601 date",
+        },
+        until: {
+          type: "string",
+          description: "Show entries until this ISO 8601 date",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum entries to return (default: 100)",
+        },
+      },
+    },
+  },
+  {
+    name: "suppression_apply",
+    description:
+      "Apply all active suppressions to a Trivy scan result. " +
+      "Returns filtered results with suppressed vulnerabilities removed and a summary.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        scanResult: {
+          type: "object",
+          description: "Trivy scan result object to filter",
+        },
+        includeExpired: {
+          type: "boolean",
+          description: "Include expired suppressions (default: false)",
+        },
+        user: {
+          type: "string",
+          description: "User applying suppressions (for audit)",
+        },
+        audit: {
+          type: "boolean",
+          description: "Log suppression applications to audit trail (default: true)",
+        },
+      },
+      required: ["scanResult"],
     },
   },
 ];
