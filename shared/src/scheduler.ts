@@ -223,73 +223,79 @@ export function validateCronExpression(
   }
 }
 
+const DAY_DISPLAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const MONTH_DISPLAY_NAMES = [
+  "",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/**
+ * Describe the time portion of a cron expression
+ */
+function describeTime(minute: CronField, hour: CronField): string {
+  const allMinutes = minute.values.length === 60;
+  const allHours = hour.values.length === 24;
+
+  if (allMinutes && allHours) {
+    return "Every minute";
+  }
+
+  if (allMinutes) {
+    const plural = hour.values.length > 1 ? "s" : "";
+    return `Every minute during hour${plural} ${hour.values.join(", ")}`;
+  }
+
+  if (allHours) {
+    const plural = minute.values.length > 1 ? "s" : "";
+    return `At minute${plural} ${minute.values.join(", ")} of every hour`;
+  }
+
+  const times = hour.values.flatMap((h) =>
+    minute.values.map((m) => `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`)
+  );
+  const suffix = times.length > 3 ? "..." : "";
+  return `At ${times.slice(0, 3).join(", ")}${suffix}`;
+}
+
 /**
  * Generate human-readable description of cron expression
  */
 export function describeCronExpression(parsed: ParsedCronExpression): string {
   const { minute, hour, dayOfMonth, month, dayOfWeek } = parsed;
-  const parts: string[] = [];
+  const parts: string[] = [describeTime(minute, hour)];
 
-  // Time
-  if (minute.values.length === 60 && hour.values.length === 24) {
-    parts.push("Every minute");
-  } else if (minute.values.length === 60) {
-    parts.push(
-      "Every minute during hour" +
-        (hour.values.length > 1 ? "s" : "") +
-        " " +
-        hour.values.join(", ")
-    );
-  } else if (hour.values.length === 24) {
-    parts.push(
-      "At minute" +
-        (minute.values.length > 1 ? "s" : "") +
-        " " +
-        minute.values.join(", ") +
-        " of every hour"
-    );
-  } else {
-    const times = hour.values.flatMap((h) =>
-      minute.values.map((m) => h.toString().padStart(2, "0") + ":" + m.toString().padStart(2, "0"))
-    );
-    parts.push("At " + times.slice(0, 3).join(", ") + (times.length > 3 ? "..." : ""));
+  if (dayOfWeek.values.length < 7) {
+    const days = dayOfWeek.values.map((d) => DAY_DISPLAY_NAMES[d]);
+    parts.push(`on ${days.join(", ")}`);
   }
 
-  // Day restrictions
-  const hasDayOfMonthRestriction = dayOfMonth.values.length < 31;
-  const hasDayOfWeekRestriction = dayOfWeek.values.length < 7;
-  const hasMonthRestriction = month.values.length < 12;
-
-  if (hasDayOfWeekRestriction) {
-    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const days = dayOfWeek.values.map((d) => dayNames[d]);
-    parts.push("on " + days.join(", "));
+  if (dayOfMonth.values.length < 31) {
+    const plural = dayOfMonth.values.length > 1 ? "s" : "";
+    parts.push(`on day${plural} ${dayOfMonth.values.join(", ")}`);
   }
 
-  if (hasDayOfMonthRestriction) {
-    parts.push(
-      "on day" + (dayOfMonth.values.length > 1 ? "s" : "") + " " + dayOfMonth.values.join(", ")
-    );
-  }
-
-  if (hasMonthRestriction) {
-    const monthNames = [
-      "",
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    const months = month.values.map((m) => monthNames[m]);
-    parts.push("in " + months.join(", "));
+  if (month.values.length < 12) {
+    const months = month.values.map((m) => MONTH_DISPLAY_NAMES[m]);
+    parts.push(`in ${months.join(", ")}`);
   }
 
   return parts.join(" ");

@@ -210,6 +210,46 @@ function trivySecretToSarifResult(
 }
 
 /**
+ * Process vulnerabilities from a Trivy result into SARIF format
+ */
+function processVulnerabilities(
+  vulns: TrivyVulnerability[] | undefined,
+  target: string,
+  options: SarifConversionOptions | undefined,
+  run: SarifRun,
+  rulesMap: Map<string, SarifReportingDescriptor>
+): void {
+  if (!vulns) return;
+  for (const vuln of vulns) {
+    const { result: sarifResult, rule } = trivyVulnToSarifResult(vuln, target, options);
+    run.results.push(sarifResult);
+    if (!rulesMap.has(rule.id)) {
+      rulesMap.set(rule.id, rule);
+    }
+  }
+}
+
+/**
+ * Process secrets from a Trivy result into SARIF format
+ */
+function processSecrets(
+  secrets: TrivySecret[] | undefined,
+  target: string,
+  options: SarifConversionOptions | undefined,
+  run: SarifRun,
+  rulesMap: Map<string, SarifReportingDescriptor>
+): void {
+  if (!secrets) return;
+  for (const secret of secrets) {
+    const { result: sarifResult, rule } = trivySecretToSarifResult(secret, target, options);
+    run.results.push(sarifResult);
+    if (!rulesMap.has(rule.id)) {
+      rulesMap.set(rule.id, rule);
+    }
+  }
+}
+
+/**
  * Convert Trivy scan results to SARIF format
  */
 export function trivyToSarif(
@@ -227,35 +267,8 @@ export function trivyToSarif(
 
   if (scanResult.Results) {
     for (const result of scanResult.Results) {
-      // Process vulnerabilities
-      if (result.Vulnerabilities) {
-        for (const vuln of result.Vulnerabilities) {
-          const { result: sarifResult, rule } = trivyVulnToSarifResult(
-            vuln,
-            result.Target,
-            options
-          );
-          run.results.push(sarifResult);
-          if (!rulesMap.has(rule.id)) {
-            rulesMap.set(rule.id, rule);
-          }
-        }
-      }
-
-      // Process secrets
-      if (result.Secrets) {
-        for (const secret of result.Secrets) {
-          const { result: sarifResult, rule } = trivySecretToSarifResult(
-            secret,
-            result.Target,
-            options
-          );
-          run.results.push(sarifResult);
-          if (!rulesMap.has(rule.id)) {
-            rulesMap.set(rule.id, rule);
-          }
-        }
-      }
+      processVulnerabilities(result.Vulnerabilities, result.Target, options, run, rulesMap);
+      processSecrets(result.Secrets, result.Target, options, run, rulesMap);
     }
   }
 

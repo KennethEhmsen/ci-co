@@ -73,6 +73,67 @@ export function readPolicyFile(filePath: string): PolicyFileSchema {
 }
 
 // =============================================================================
+// Schema Validation Helpers
+// =============================================================================
+
+function validateRequiredStringField(
+  obj: Record<string, unknown>,
+  field: string,
+  suggestion: string
+): PolicyValidationError | null {
+  if (!obj[field] || typeof obj[field] !== "string") {
+    return {
+      path: field,
+      message: `Policy ${field} is required and must be a string`,
+      suggestion,
+    };
+  }
+  return null;
+}
+
+function validateOptionalStringField(
+  obj: Record<string, unknown>,
+  field: string
+): PolicyValidationError | null {
+  if (obj[field] !== undefined && typeof obj[field] !== "string") {
+    return {
+      path: field,
+      message: `${field.charAt(0).toUpperCase() + field.slice(1)} must be a string`,
+    };
+  }
+  return null;
+}
+
+function validateExtendsField(obj: Record<string, unknown>): {
+  error?: PolicyValidationError;
+  warning?: PolicyValidationError;
+} {
+  if (obj.extends === undefined) return {};
+
+  if (typeof obj.extends !== "string") {
+    return {
+      error: {
+        path: "extends",
+        message: "Extends must be a string",
+        suggestion: 'Use one of: "strict", "standard", "permissive"',
+      },
+    };
+  }
+
+  if (!["strict", "standard", "permissive"].includes((obj.extends as string).toLowerCase())) {
+    return {
+      warning: {
+        path: "extends",
+        message: `Unknown base policy: ${obj.extends}`,
+        suggestion: 'Use one of: "strict", "standard", "permissive"',
+      },
+    };
+  }
+
+  return {};
+}
+
+// =============================================================================
 // Schema Validation
 // =============================================================================
 
@@ -95,50 +156,27 @@ export function validatePolicySchema(policy: unknown): PolicyValidationResult {
 
   const obj = policy as Record<string, unknown>;
 
-  // Required: name
-  if (!obj.name || typeof obj.name !== "string") {
-    errors.push({
-      path: "name",
-      message: "Policy name is required and must be a string",
-      suggestion: 'Add a name field: name: "my-policy"',
-    });
-  }
+  // Required fields
+  const nameError = validateRequiredStringField(obj, "name", 'Add a name field: name: "my-policy"');
+  if (nameError) errors.push(nameError);
 
-  // Required: version
-  if (!obj.version || typeof obj.version !== "string") {
-    errors.push({
-      path: "version",
-      message: "Policy version is required and must be a string",
-      suggestion: 'Add a version field: version: "1.0.0"',
-    });
-  }
+  const versionError = validateRequiredStringField(
+    obj,
+    "version",
+    'Add a version field: version: "1.0.0"'
+  );
+  if (versionError) errors.push(versionError);
 
-  // Optional: description
-  if (obj.description !== undefined && typeof obj.description !== "string") {
-    errors.push({
-      path: "description",
-      message: "Description must be a string",
-    });
-  }
+  // Optional string field
+  const descError = validateOptionalStringField(obj, "description");
+  if (descError) errors.push(descError);
 
-  // Optional: extends (must be known policy name)
-  if (obj.extends !== undefined) {
-    if (typeof obj.extends !== "string") {
-      errors.push({
-        path: "extends",
-        message: "Extends must be a string",
-        suggestion: 'Use one of: "strict", "standard", "permissive"',
-      });
-    } else if (!["strict", "standard", "permissive"].includes(obj.extends.toLowerCase())) {
-      warnings.push({
-        path: "extends",
-        message: `Unknown base policy: ${obj.extends}`,
-        suggestion: 'Use one of: "strict", "standard", "permissive"',
-      });
-    }
-  }
+  // Extends field
+  const extendsResult = validateExtendsField(obj);
+  if (extendsResult.error) errors.push(extendsResult.error);
+  if (extendsResult.warning) warnings.push(extendsResult.warning);
 
-  // Optional: mode (must be "all" or "any")
+  // Mode field
   if (obj.mode !== undefined && obj.mode !== "all" && obj.mode !== "any") {
     errors.push({
       path: "mode",
@@ -148,35 +186,27 @@ export function validatePolicySchema(policy: unknown): PolicyValidationResult {
     });
   }
 
-  // Optional: rules (must be array)
+  // Rules field
   if (obj.rules !== undefined) {
     if (Array.isArray(obj.rules)) {
-      // Validate each rule
       obj.rules.forEach((rule, index) => {
         const ruleErrors = validateRule(rule, `rules[${index}]`);
         errors.push(...ruleErrors.errors);
         warnings.push(...ruleErrors.warnings);
       });
     } else {
-      errors.push({
-        path: "rules",
-        message: "Rules must be an array",
-      });
+      errors.push({ path: "rules", message: "Rules must be an array" });
     }
   }
 
-  // Optional: settings
+  // Settings field
   if (obj.settings !== undefined) {
     const settingsResult = validateSettings(obj.settings);
     errors.push(...settingsResult.errors);
     warnings.push(...settingsResult.warnings);
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-  };
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 /**
