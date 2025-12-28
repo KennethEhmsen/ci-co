@@ -3397,3 +3397,214 @@ export interface RbacDbInitResult {
   /** Error message if failed */
   error?: string;
 }
+
+// =============================================================================
+// API Key Management Types
+// =============================================================================
+
+/**
+ * Available API key scopes
+ */
+export type ApiKeyScope =
+  | "scan:read"
+  | "scan:write"
+  | "policy:read"
+  | "policy:write"
+  | "suppression:read"
+  | "suppression:write"
+  | "report:read"
+  | "report:write"
+  | "admin:*";
+
+/**
+ * API key audit event types
+ */
+export type ApiKeyEventType =
+  | "KEY_CREATED"
+  | "KEY_ROTATED"
+  | "KEY_REVOKED"
+  | "KEY_USED"
+  | "KEY_EXPIRED"
+  | "KEY_RATE_LIMITED";
+
+/**
+ * API key status
+ */
+export type ApiKeyStatus = "active" | "revoked" | "expired";
+
+/**
+ * API key record (stored in database)
+ */
+export interface ApiKey {
+  /** Unique key ID (UUID) */
+  id: string;
+  /** Human-readable name */
+  name: string;
+  /** Optional description */
+  description?: string;
+  /** Prefix for identification (first 8 chars, e.g., "ci-co_abc12345") */
+  keyPrefix: string;
+  /** bcrypt hash of the full key */
+  keyHash: string;
+  /** Granted scopes */
+  scopes: ApiKeyScope[];
+  /** Key status */
+  status: ApiKeyStatus;
+  /** Expiration timestamp (ISO 8601) */
+  expiresAt?: string;
+  /** Last used timestamp */
+  lastUsedAt?: string;
+  /** User who created the key */
+  createdBy: string;
+  /** Creation timestamp */
+  createdAt: string;
+  /** IP allowlist (optional) */
+  ipAllowlist?: string[];
+  /** Rate limit (requests per minute) */
+  rateLimit: number;
+  /** Current request count in rate window */
+  requestCount?: number;
+  /** Rate window start timestamp */
+  rateWindowStart?: string;
+}
+
+/**
+ * API key creation options
+ */
+export interface ApiKeyCreateOptions {
+  /** Human-readable name for the key */
+  name: string;
+  /** Optional description */
+  description?: string;
+  /** Scopes to grant */
+  scopes: ApiKeyScope[];
+  /** Expiration in days (default: 90) */
+  expiresInDays?: number;
+  /** Custom expiration date */
+  expiresAt?: string;
+  /** User creating the key */
+  createdBy: string;
+  /** IP allowlist (optional) */
+  ipAllowlist?: string[];
+  /** Rate limit in requests per minute (default: 100) */
+  rateLimit?: number;
+}
+
+/**
+ * Result of creating an API key
+ * Note: The full key is only shown once at creation time
+ */
+export interface ApiKeyCreateResult {
+  /** The created key record (without full key) */
+  key: ApiKey;
+  /** The full API key - ONLY shown once at creation */
+  fullKey: string;
+}
+
+/**
+ * API key for display (masked)
+ */
+export interface ApiKeyDisplay {
+  /** Key ID */
+  id: string;
+  /** Human-readable name */
+  name: string;
+  /** Description */
+  description?: string;
+  /** Key prefix for identification */
+  keyPrefix: string;
+  /** Granted scopes */
+  scopes: ApiKeyScope[];
+  /** Status */
+  status: ApiKeyStatus;
+  /** Expiration */
+  expiresAt?: string;
+  /** Last used */
+  lastUsedAt?: string;
+  /** Created by */
+  createdBy: string;
+  /** Created at */
+  createdAt: string;
+  /** Days until expiration (negative if expired) */
+  daysUntilExpiration?: number;
+}
+
+/**
+ * API key validation result
+ */
+export interface ApiKeyValidationResult {
+  /** Whether the key is valid */
+  valid: boolean;
+  /** The key record if valid */
+  key?: ApiKey;
+  /** Reason for invalidity */
+  reason?: string;
+  /** Whether rate limited */
+  rateLimited?: boolean;
+}
+
+/**
+ * API key rotation result
+ */
+export interface ApiKeyRotateResult {
+  /** The updated key record */
+  key: ApiKey;
+  /** The new full API key - ONLY shown once */
+  newFullKey: string;
+  /** Previous key prefix (for reference) */
+  previousKeyPrefix: string;
+}
+
+/**
+ * API key audit event
+ */
+export interface ApiKeyAuditEvent {
+  /** Event ID */
+  id: string;
+  /** Event type */
+  eventType: ApiKeyEventType;
+  /** Key ID */
+  keyId: string;
+  /** Key name (for reference) */
+  keyName: string;
+  /** Actor who triggered the event */
+  actorId?: string;
+  /** Client IP address */
+  clientIp?: string;
+  /** Event status */
+  status: "SUCCESS" | "FAILURE";
+  /** Additional details */
+  details?: Record<string, unknown>;
+  /** Event timestamp */
+  timestamp: string;
+}
+
+/**
+ * API key list options
+ */
+export interface ApiKeyListOptions {
+  /** Filter by status */
+  status?: ApiKeyStatus;
+  /** Filter by creator */
+  createdBy?: string;
+  /** Include expired keys */
+  includeExpired?: boolean;
+  /** Limit results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * API key database initialization result
+ */
+export interface ApiKeyDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Whether database was created (vs opened) */
+  created: boolean;
+  /** Error message if failed */
+  error?: string;
+}

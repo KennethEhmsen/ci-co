@@ -794,3 +794,40 @@ export type {
   RbacRoleWithPermissions,
   RbacDbInitResult,
 } from "./types.js";
+
+// =============================================================================
+// API Key Management
+// =============================================================================
+
+export {
+  VALID_SCOPES,
+  initApiKeyDatabase,
+  closeApiKeyDatabase,
+  isApiKeyDbInitialized,
+  createApiKey,
+  getApiKey,
+  listApiKeys,
+  revokeApiKey,
+  rotateApiKey,
+  validateApiKey,
+  getApiKeyAuditEvents,
+  markExpiredApiKeys,
+  getApiKeyStats,
+  cleanupApiKeyAuditLogs,
+} from "./apikey-manager.js";
+
+// API Key Types re-export
+export type {
+  ApiKeyScope,
+  ApiKeyEventType,
+  ApiKeyStatus,
+  ApiKey,
+  ApiKeyCreateOptions,
+  ApiKeyCreateResult,
+  ApiKeyDisplay,
+  ApiKeyValidationResult,
+  ApiKeyRotateResult,
+  ApiKeyAuditEvent,
+  ApiKeyListOptions,
+  ApiKeyDbInitResult,
+} from "./types.js";

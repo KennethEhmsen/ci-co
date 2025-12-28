@@ -179,6 +179,14 @@ import {
   getUserRoles,
   checkPermission,
   listUserPermissions,
+  // API Key Management
+  VALID_SCOPES,
+  initApiKeyDatabase,
+  isApiKeyDbInitialized,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
+  rotateApiKey,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -3045,6 +3053,125 @@ export const toolDefinitions = [
       required: ["userId"],
     },
   },
+
+  // =========================================================================
+  // API Key Management Tools
+  // =========================================================================
+  {
+    name: "apikey_create",
+    description:
+      "Create a new API key with specified scopes and expiration. Returns the full key only once at creation time.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Human-readable name for the API key",
+        },
+        description: {
+          type: "string",
+          description: "Optional description of the key's purpose",
+        },
+        scopes: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "scan:read",
+              "scan:write",
+              "policy:read",
+              "policy:write",
+              "suppression:read",
+              "suppression:write",
+              "report:read",
+              "report:write",
+              "admin:*",
+            ],
+          },
+          description: "Scopes to grant to the key",
+        },
+        expiresInDays: {
+          type: "number",
+          description: "Days until expiration (default: 90)",
+        },
+        createdBy: {
+          type: "string",
+          description: "User ID creating the key",
+        },
+        rateLimit: {
+          type: "number",
+          description: "Rate limit in requests per minute (default: 100)",
+        },
+        ipAllowlist: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of allowed IP addresses",
+        },
+      },
+      required: ["name", "scopes", "createdBy"],
+    },
+  },
+  {
+    name: "apikey_list",
+    description:
+      "List all API keys (masked for security). Shows key prefix, scopes, status, and expiration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["active", "revoked", "expired"],
+          description: "Filter by status",
+        },
+        createdBy: {
+          type: "string",
+          description: "Filter by creator",
+        },
+        includeExpired: {
+          type: "boolean",
+          description: "Include expired keys (default: false)",
+        },
+      },
+    },
+  },
+  {
+    name: "apikey_revoke",
+    description:
+      "Revoke an API key immediately. The key will no longer be valid for authentication.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        keyId: {
+          type: "string",
+          description: "ID of the API key to revoke",
+        },
+        actorId: {
+          type: "string",
+          description: "User ID performing the revocation (for audit)",
+        },
+      },
+      required: ["keyId"],
+    },
+  },
+  {
+    name: "apikey_rotate",
+    description:
+      "Rotate an API key, generating a new key while preserving the ID and settings. Returns the new key only once.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        keyId: {
+          type: "string",
+          description: "ID of the API key to rotate",
+        },
+        actorId: {
+          type: "string",
+          description: "User ID performing the rotation (for audit)",
+        },
+      },
+      required: ["keyId"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -5032,6 +5159,158 @@ const rbacHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// API Key handlers
+const apiKeyHandlers: Record<string, ToolHandler> = {
+  apikey_create: async (args) => {
+    // Initialize API key database if not already done
+    if (!isApiKeyDbInitialized()) {
+      const result = initApiKeyDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize API key database: ${result.error}` };
+      }
+    }
+
+    const name = args?.name as string;
+    const scopes = args?.scopes as string[];
+    const createdBy = args?.createdBy as string;
+
+    if (!name || !scopes || !createdBy) {
+      return { error: "name, scopes, and createdBy are required" };
+    }
+
+    // Validate scopes
+    for (const scope of scopes) {
+      if (!VALID_SCOPES.includes(scope as any)) {
+        return { error: `Invalid scope: ${scope}. Valid scopes: ${VALID_SCOPES.join(", ")}` };
+      }
+    }
+
+    try {
+      const result = createApiKey({
+        name,
+        description: args?.description as string | undefined,
+        scopes: scopes as any,
+        expiresInDays: args?.expiresInDays as number | undefined,
+        createdBy,
+        rateLimit: args?.rateLimit as number | undefined,
+        ipAllowlist: args?.ipAllowlist as string[] | undefined,
+      });
+
+      return {
+        message:
+          "API key created successfully. IMPORTANT: Save the fullKey now - it will not be shown again!",
+        key: {
+          id: result.key.id,
+          name: result.key.name,
+          keyPrefix: result.key.keyPrefix,
+          scopes: result.key.scopes,
+          expiresAt: result.key.expiresAt,
+          rateLimit: result.key.rateLimit,
+        },
+        fullKey: result.fullKey,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  apikey_list: async (args) => {
+    // Initialize API key database if not already done
+    if (!isApiKeyDbInitialized()) {
+      const result = initApiKeyDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize API key database: ${result.error}` };
+      }
+    }
+
+    const keys = listApiKeys({
+      status: args?.status as "active" | "revoked" | "expired" | undefined,
+      createdBy: args?.createdBy as string | undefined,
+      includeExpired: args?.includeExpired as boolean | undefined,
+    });
+
+    return {
+      count: keys.length,
+      keys: keys.map((k) => ({
+        id: k.id,
+        name: k.name,
+        keyPrefix: k.keyPrefix,
+        scopes: k.scopes,
+        status: k.status,
+        expiresAt: k.expiresAt,
+        lastUsedAt: k.lastUsedAt,
+        daysUntilExpiration: k.daysUntilExpiration,
+        createdBy: k.createdBy,
+        createdAt: k.createdAt,
+      })),
+    };
+  },
+
+  apikey_revoke: async (args) => {
+    // Initialize API key database if not already done
+    if (!isApiKeyDbInitialized()) {
+      const result = initApiKeyDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize API key database: ${result.error}` };
+      }
+    }
+
+    const keyId = args?.keyId as string;
+
+    if (!keyId) {
+      return { error: "keyId is required" };
+    }
+
+    const revoked = revokeApiKey(keyId, args?.actorId as string | undefined);
+
+    if (revoked) {
+      return { success: true, message: "API key revoked successfully" };
+    } else {
+      return { error: "Failed to revoke API key. It may not exist or is already revoked." };
+    }
+  },
+
+  apikey_rotate: async (args) => {
+    // Initialize API key database if not already done
+    if (!isApiKeyDbInitialized()) {
+      const result = initApiKeyDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize API key database: ${result.error}` };
+      }
+    }
+
+    const keyId = args?.keyId as string;
+
+    if (!keyId) {
+      return { error: "keyId is required" };
+    }
+
+    try {
+      const result = rotateApiKey(keyId, args?.actorId as string | undefined);
+
+      if (!result) {
+        return { error: "API key not found" };
+      }
+
+      return {
+        message:
+          "API key rotated successfully. IMPORTANT: Save the new key now - it will not be shown again!",
+        previousKeyPrefix: result.previousKeyPrefix,
+        key: {
+          id: result.key.id,
+          name: result.key.name,
+          keyPrefix: result.key.keyPrefix,
+          scopes: result.key.scopes,
+          expiresAt: result.key.expiresAt,
+        },
+        newFullKey: result.newFullKey,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -5053,6 +5332,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...scanCompareHandlers,
   ...ssoHandlers,
   ...rbacHandlers,
+  ...apiKeyHandlers,
 };
 
 export async function handleCallTool(
