@@ -112,6 +112,15 @@ import {
   offlineScanImage,
   offlineScanPath,
   getOfflineScanCapabilities,
+  // Redis Cache
+  getRedisConfig,
+  getTTLConfig,
+  isRedisConnected,
+  initDistributedCaches,
+  getAllCacheStats,
+  clearAllCaches,
+  invalidateCacheByPattern,
+  getCacheHealth,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -1940,6 +1949,83 @@ export const toolDefinitions = [
       required: ["vulnId", "status"],
     },
   },
+
+  // Redis Cache Tools
+  {
+    name: "cache_init",
+    description:
+      "Initialize distributed caching with optional Redis backend. " +
+      "Falls back to in-memory cache if Redis is unavailable.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        useRedis: {
+          type: "boolean",
+          description: "Try to connect to Redis (default: true)",
+          default: true,
+        },
+      },
+    },
+  },
+  {
+    name: "cache_status",
+    description:
+      "Get cache health and connection status. " +
+      "Shows Redis connection state, latency, and memory cache availability.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "cache_stats",
+    description:
+      "Get cache statistics for all scan types (trivy, sonarqube, dtrack, registry). " +
+      "Shows hits, misses, and hit rate.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "cache_clear",
+    description: "Clear all cached data from all cache types.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        confirm: {
+          type: "boolean",
+          description: "Must be true to confirm clearing all caches",
+        },
+      },
+      required: ["confirm"],
+    },
+  },
+  {
+    name: "cache_invalidate",
+    description:
+      "Invalidate cache entries matching a pattern. " +
+      "Use glob patterns like 'trivy:*' or 'sonarqube:project-*'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          description: "Glob pattern to match cache keys (e.g., 'trivy:*')",
+        },
+      },
+      required: ["pattern"],
+    },
+  },
+  {
+    name: "cache_config",
+    description:
+      "Get current cache configuration including Redis settings and TTL values per scan type.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 // =============================================================================
@@ -2895,6 +2981,108 @@ const vulnDbHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Redis Cache Handlers
+const cacheHandlers: Record<string, ToolHandler> = {
+  cache_init: async (args) => {
+    const useRedis = (args?.useRedis as boolean) ?? true;
+    const result = await initDistributedCaches(useRedis);
+    return {
+      initialized: true,
+      redis: {
+        connected: result.redis,
+        attempted: useRedis,
+      },
+      memory: {
+        available: result.memory,
+      },
+      mode: result.redis ? "hybrid" : "memory",
+    };
+  },
+
+  cache_status: async () => {
+    const health = await getCacheHealth();
+    return health;
+  },
+
+  cache_stats: async () => {
+    const stats = await getAllCacheStats();
+    return stats;
+  },
+
+  cache_clear: async (args) => {
+    const confirm = args?.confirm as boolean;
+    if (!confirm) {
+      return {
+        error: "Must set confirm=true to clear all caches",
+        cleared: false,
+      };
+    }
+    await clearAllCaches();
+    return {
+      cleared: true,
+      message: "All caches cleared successfully",
+    };
+  },
+
+  cache_invalidate: async (args) => {
+    const pattern = args?.pattern as string;
+    if (!pattern) {
+      return { error: "pattern is required" };
+    }
+    const deleted = await invalidateCacheByPattern(pattern);
+    return {
+      pattern,
+      deleted,
+      message: `Invalidated ${deleted} cache entries matching pattern "${pattern}"`,
+    };
+  },
+
+  cache_config: async () => {
+    const redisConfig = getRedisConfig();
+    const ttlConfig = getTTLConfig();
+    const connected = isRedisConnected();
+
+    // Mask password if present
+    const safeRedisConfig = {
+      ...redisConfig,
+      password: redisConfig.password ? "***" : undefined,
+    };
+
+    return {
+      redis: {
+        ...safeRedisConfig,
+        connected,
+      },
+      ttl: {
+        trivy: `${ttlConfig.trivy}s`,
+        sonarqube: `${ttlConfig.sonarqube}s`,
+        dtrack: `${ttlConfig.dtrack}s`,
+        registry: `${ttlConfig.registry}s`,
+        default: `${ttlConfig.default}s`,
+      },
+      environmentVariables: {
+        redis: [
+          "REDIS_HOST",
+          "REDIS_PORT",
+          "REDIS_PASSWORD",
+          "REDIS_DB",
+          "REDIS_KEY_PREFIX",
+          "REDIS_CONNECT_TIMEOUT",
+          "REDIS_MAX_RETRIES",
+          "REDIS_OFFLINE_QUEUE",
+        ],
+        ttl: [
+          "CACHE_TTL_TRIVY",
+          "CACHE_TTL_SONARQUBE",
+          "CACHE_TTL_DTRACK",
+          "CACHE_TTL_REGISTRY",
+          "CACHE_TTL_DEFAULT",
+        ],
+      },
+    };
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -2910,6 +3098,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...complianceHandlers,
   ...opaHandlers,
   ...vulnDbHandlers,
+  ...cacheHandlers,
 };
 
 export async function handleCallTool(

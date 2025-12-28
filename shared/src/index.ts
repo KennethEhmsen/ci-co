@@ -629,3 +629,28 @@ export {
   offlineScanImages,
   offlineScanPaths,
 } from "./offline-scanner.js";
+
+// Redis Cache exports
+export {
+  getRedisConfig,
+  getTTLConfig,
+  initRedisConnection,
+  closeRedisConnection,
+  isRedisConnected,
+  getRedisClient,
+  DistributedCache,
+  initDistributedCaches,
+  getTrivyCache,
+  getSonarqubeCache,
+  getDtrackCache,
+  getRegistryCache,
+  getAllCacheStats,
+  clearAllCaches,
+  invalidateCacheByPattern,
+  getCacheHealth,
+  createCacheKey,
+  type RedisConfig,
+  type CacheStats,
+  type CacheTTLConfig,
+  type CacheHealthStatus,
+} from "./redis-cache.js";
