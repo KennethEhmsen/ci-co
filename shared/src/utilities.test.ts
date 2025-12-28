@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Cache tests
 import { ScanCache, withCache } from "./cache.js";
@@ -4524,6 +4524,8 @@ describe("Offline-Scanner", () => {
         Results: [
           {
             Target: "alpine:latest",
+            Class: "os-pkgs",
+            Type: "alpine",
             Vulnerabilities: [],
           },
         ],
@@ -4532,7 +4534,7 @@ describe("Offline-Scanner", () => {
     });
 
     it("should return false for empty scan results", () => {
-      const scanResult = { Results: [] };
+      const scanResult = { Results: [] as import("./types.js").TrivyResult[] };
       expect(isOfflineScanError(scanResult)).toBe(false);
     });
   });
