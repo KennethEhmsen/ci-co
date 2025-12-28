@@ -217,7 +217,9 @@ vi.mock("./handlers.js", async (importOriginal) => {
     getBuiltinPolicy: vi.fn().mockReturnValue("package security\ndefault allow = false"),
     validateRegoSyntax: vi.fn().mockReturnValue({ valid: true }),
     // Vulnerability Database mocks
-    initVulnDatabase: vi.fn().mockReturnValue({ success: true }),
+    initVulnDatabase: vi
+      .fn()
+      .mockReturnValue({ success: true, path: "/tmp/vuln.db", created: true }),
     isVulnDbInitialized: vi.fn().mockReturnValue(true),
     lookupVulnerability: vi.fn().mockReturnValue({
       id: "CVE-2024-1234",
@@ -1450,7 +1452,11 @@ describe("handleCallTool - Vulnerability Database tools", () => {
   it("should handle vuln_db_sync when db not initialized", async () => {
     const { isVulnDbInitialized, initVulnDatabase } = await import("./handlers.js");
     vi.mocked(isVulnDbInitialized).mockReturnValueOnce(false);
-    vi.mocked(initVulnDatabase).mockReturnValueOnce({ success: true });
+    vi.mocked(initVulnDatabase).mockReturnValueOnce({
+      success: true,
+      path: "/tmp/test.db",
+      created: true,
+    });
     const result = await handleCallTool("vuln_db_sync", {});
     expect(result.content).toBeDefined();
     expect(result.isError).toBeUndefined();
@@ -1459,7 +1465,12 @@ describe("handleCallTool - Vulnerability Database tools", () => {
   it("should handle vuln_db_sync when init fails", async () => {
     const { isVulnDbInitialized, initVulnDatabase } = await import("./handlers.js");
     vi.mocked(isVulnDbInitialized).mockReturnValueOnce(false);
-    vi.mocked(initVulnDatabase).mockReturnValueOnce({ success: false, error: "Init failed" });
+    vi.mocked(initVulnDatabase).mockReturnValueOnce({
+      success: false,
+      path: "",
+      created: false,
+      error: "Init failed",
+    });
     const result = await handleCallTool("vuln_db_sync", {});
     const data = JSON.parse(result.content[0].text);
     expect(data.error).toContain("Failed to initialize");
@@ -1488,7 +1499,7 @@ describe("handleCallTool - Vulnerability Database tools", () => {
 
   it("should handle vuln_db_lookup not found", async () => {
     const { lookupVulnerability } = await import("./handlers.js");
-    vi.mocked(lookupVulnerability).mockReturnValueOnce(undefined);
+    vi.mocked(lookupVulnerability).mockReturnValueOnce(null);
     const result = await handleCallTool("vuln_db_lookup", { id: "CVE-9999-9999" });
     const data = JSON.parse(result.content[0].text);
     expect(data.error).toContain("not found");
