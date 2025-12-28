@@ -11,6 +11,19 @@ import {
   handleReadResource,
 } from "./index.js";
 
+// Mock the @cicd/shared module for evaluatePolicyWithScan
+vi.mock("@cicd/shared", async (importOriginal) => {
+  const original = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...original,
+    evaluatePolicyWithScan: vi.fn().mockResolvedValue({
+      allowed: true,
+      violations: [],
+      summary: { critical: 0, high: 0, medium: 0, low: 0 },
+    }),
+  };
+});
+
 // Mock the handlers module
 vi.mock("./handlers.js", async (importOriginal) => {
   const original = (await importOriginal()) as Record<string, unknown>;
@@ -85,17 +98,15 @@ vi.mock("./handlers.js", async (importOriginal) => {
       type: "generic",
       enabled: true,
     }),
-    listRegistryConfigs: vi
-      .fn()
-      .mockReturnValue([
-        {
-          id: "reg1",
-          name: "Registry 1",
-          url: "https://r1.test.com",
-          type: "generic",
-          enabled: true,
-        },
-      ]),
+    listRegistryConfigs: vi.fn().mockReturnValue([
+      {
+        id: "reg1",
+        name: "Registry 1",
+        url: "https://r1.test.com",
+        type: "generic",
+        enabled: true,
+      },
+    ]),
     removeRegistryConfig: vi.fn().mockReturnValue(true),
     scanMultipleRegistries: vi.fn().mockResolvedValue({
       registries: [],
@@ -205,11 +216,6 @@ vi.mock("./handlers.js", async (importOriginal) => {
     }),
     getBuiltinPolicy: vi.fn().mockReturnValue("package security\ndefault allow = false"),
     validateRegoSyntax: vi.fn().mockReturnValue({ valid: true }),
-    evaluatePolicyWithScan: vi.fn().mockResolvedValue({
-      allowed: true,
-      violations: [],
-      summary: { critical: 0, high: 0, medium: 0, low: 0 },
-    }),
     // Vulnerability Database mocks
     initVulnDatabase: vi.fn().mockReturnValue({ success: true }),
     isVulnDbInitialized: vi.fn().mockReturnValue(true),
