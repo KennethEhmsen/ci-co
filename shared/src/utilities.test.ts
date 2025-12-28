@@ -4245,3 +4245,295 @@ describe("Registry Scanner - Types", () => {
     expect(image.tag).toBe("v1.0.0");
   });
 });
+
+// =============================================================================
+// DB-SYNC TESTS
+// =============================================================================
+
+import {
+  getTrivyCacheDir,
+  getTrivyDbPath,
+  parseVulnFromTrivy,
+  importTrivyScanResult,
+  getVulnDbSyncStatus,
+} from "./db-sync.js";
+import { initVulnDatabase, closeVulnDatabase } from "./vuln-database.js";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as fs from "node:fs";
+
+describe("DB-Sync", () => {
+  describe("getTrivyCacheDir", () => {
+    it("should return path for current platform", () => {
+      const cacheDir = getTrivyCacheDir();
+      expect(cacheDir).toBeDefined();
+      expect(typeof cacheDir).toBe("string");
+      expect(cacheDir.length).toBeGreaterThan(0);
+    });
+
+    it("should return platform-appropriate path", () => {
+      const cacheDir = getTrivyCacheDir();
+      if (process.platform === "win32") {
+        expect(cacheDir).toContain("trivy");
+      } else {
+        expect(cacheDir).toContain(".cache");
+        expect(cacheDir).toContain("trivy");
+      }
+    });
+  });
+
+  describe("getTrivyDbPath", () => {
+    it("should return path to trivy.db", () => {
+      const dbPath = getTrivyDbPath();
+      expect(dbPath).toBeDefined();
+      expect(dbPath).toContain("trivy.db");
+      expect(dbPath).toContain("db");
+    });
+
+    it("should be under cache directory", () => {
+      const cacheDir = getTrivyCacheDir();
+      const dbPath = getTrivyDbPath();
+      expect(dbPath.startsWith(cacheDir)).toBe(true);
+    });
+  });
+
+  describe("parseVulnFromTrivy", () => {
+    it("should parse vulnerability with all fields", () => {
+      const trivyVuln = {
+        VulnerabilityID: "CVE-2024-1234",
+        Severity: "HIGH" as const,
+        Title: "Test Vulnerability",
+        Description: "A test vulnerability description",
+        PrimaryURL: "https://nvd.nist.gov/vuln/detail/CVE-2024-1234",
+        PkgName: "test-package",
+        InstalledVersion: "1.0.0",
+        FixedVersion: "1.0.1",
+      };
+
+      const result = parseVulnFromTrivy(trivyVuln, "alpine:latest");
+
+      expect(result.id).toBe("CVE-2024-1234");
+      expect(result.source).toBe("trivy");
+      expect(result.severity).toBe("HIGH");
+      expect(result.title).toBe("Test Vulnerability");
+      expect(result.description).toBe("A test vulnerability description");
+      expect(result.references).toContain("https://nvd.nist.gov/vuln/detail/CVE-2024-1234");
+    });
+
+    it("should handle missing optional fields", () => {
+      const trivyVuln = {
+        VulnerabilityID: "CVE-2024-5678",
+        Severity: "CRITICAL" as const,
+        PkgName: "vulnerable-pkg",
+        InstalledVersion: "2.0.0",
+      };
+
+      const result = parseVulnFromTrivy(trivyVuln, "node:20");
+
+      expect(result.id).toBe("CVE-2024-5678");
+      expect(result.severity).toBe("CRITICAL");
+      expect(result.title).toBe("CVE-2024-5678"); // Falls back to ID
+      expect(result.description).toBe("");
+      expect(result.references).toEqual([]);
+    });
+
+    it("should handle different severity levels", () => {
+      const severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"] as const;
+
+      for (const severity of severities) {
+        const vuln = {
+          VulnerabilityID: `CVE-2024-${severity}`,
+          Severity: severity,
+          PkgName: "test",
+          InstalledVersion: "1.0.0",
+        };
+
+        const result = parseVulnFromTrivy(vuln, "test:latest");
+        expect(result.severity).toBe(severity);
+      }
+    });
+  });
+
+  describe("importTrivyScanResult", () => {
+    const testDbPath = path.join(os.tmpdir(), `vuln-import-test-${Date.now()}.db`);
+
+    beforeEach(() => {
+      // Initialize a fresh database for testing
+      initVulnDatabase(testDbPath);
+    });
+
+    afterEach(() => {
+      closeVulnDatabase();
+      if (fs.existsSync(testDbPath)) {
+        fs.unlinkSync(testDbPath);
+      }
+    });
+
+    it("should import vulnerabilities from scan result", () => {
+      const scanResult = {
+        Results: [
+          {
+            Target: "alpine:latest",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2024-0001",
+                Severity: "HIGH" as const,
+                Title: "High Severity Bug",
+                PkgName: "openssl",
+                InstalledVersion: "1.1.1k",
+                FixedVersion: "1.1.1l",
+              },
+              {
+                VulnerabilityID: "CVE-2024-0002",
+                Severity: "MEDIUM" as const,
+                Title: "Medium Bug",
+                PkgName: "curl",
+                InstalledVersion: "7.79.0",
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = importTrivyScanResult(scanResult as import("./types.js").TrivyScanResult);
+
+      expect(result.success).toBe(true);
+      expect(result.imported).toBe(2);
+    });
+
+    it("should handle empty results", () => {
+      const scanResult = {
+        Results: [],
+      };
+
+      const result = importTrivyScanResult(scanResult as import("./types.js").TrivyScanResult);
+
+      expect(result.success).toBe(true);
+      expect(result.imported).toBe(0);
+    });
+
+    it("should handle null Results", () => {
+      const scanResult = {} as import("./types.js").TrivyScanResult;
+
+      const result = importTrivyScanResult(scanResult);
+
+      expect(result.success).toBe(true);
+      expect(result.imported).toBe(0);
+    });
+
+    it("should deduplicate vulnerabilities with same ID", () => {
+      const scanResult = {
+        Results: [
+          {
+            Target: "app:v1",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2024-DUPE",
+                Severity: "HIGH" as const,
+                PkgName: "pkg1",
+                InstalledVersion: "1.0.0",
+              },
+            ],
+          },
+          {
+            Target: "app:v2",
+            Vulnerabilities: [
+              {
+                VulnerabilityID: "CVE-2024-DUPE", // Same CVE
+                Severity: "HIGH" as const,
+                PkgName: "pkg2",
+                InstalledVersion: "2.0.0",
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = importTrivyScanResult(scanResult as import("./types.js").TrivyScanResult);
+
+      expect(result.success).toBe(true);
+      expect(result.imported).toBe(1); // Only one because of deduplication
+    });
+
+    it("should handle Results with no vulnerabilities", () => {
+      const scanResult = {
+        Results: [
+          {
+            Target: "clean-image:latest",
+            Class: "os-pkgs",
+            Type: "alpine",
+            // No Vulnerabilities field
+          },
+        ],
+      };
+
+      const result = importTrivyScanResult(scanResult as import("./types.js").TrivyScanResult);
+
+      expect(result.success).toBe(true);
+      expect(result.imported).toBe(0);
+    });
+  });
+
+  describe("getVulnDbSyncStatus", () => {
+    const testDbPath = path.join(os.tmpdir(), `vuln-sync-status-test-${Date.now()}.db`);
+
+    beforeEach(() => {
+      initVulnDatabase(testDbPath);
+    });
+
+    afterEach(() => {
+      closeVulnDatabase();
+      if (fs.existsSync(testDbPath)) {
+        fs.unlinkSync(testDbPath);
+      }
+    });
+
+    it("should return sync status when database is initialized", () => {
+      const status = getVulnDbSyncStatus();
+
+      expect(status).toBeDefined();
+      expect(status.sources).toBeDefined();
+      expect(Array.isArray(status.sources)).toBe(true);
+    });
+  });
+});
+
+// =============================================================================
+// OFFLINE-SCANNER TESTS
+// =============================================================================
+
+import { isOfflineScanError } from "./offline-scanner.js";
+
+describe("Offline-Scanner", () => {
+  describe("isOfflineScanError", () => {
+    it("should return true for error objects", () => {
+      const errorResult = { error: "Something went wrong" };
+      expect(isOfflineScanError(errorResult)).toBe(true);
+    });
+
+    it("should return true for error with dbStatus", () => {
+      const errorResult = {
+        error: "Database not available",
+        dbStatus: { exists: false, isStale: true },
+      };
+      expect(isOfflineScanError(errorResult)).toBe(true);
+    });
+
+    it("should return false for valid scan results", () => {
+      const scanResult = {
+        Results: [
+          {
+            Target: "alpine:latest",
+            Vulnerabilities: [],
+          },
+        ],
+      };
+      expect(isOfflineScanError(scanResult)).toBe(false);
+    });
+
+    it("should return false for empty scan results", () => {
+      const scanResult = { Results: [] };
+      expect(isOfflineScanError(scanResult)).toBe(false);
+    });
+  });
+});
