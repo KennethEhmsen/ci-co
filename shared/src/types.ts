@@ -6372,3 +6372,575 @@ export interface ListBaselinesOptions {
   /** Offset for pagination */
   offset?: number;
 }
+
+// =============================================================================
+// Extended Compliance & Governance Types (v1.26.0)
+// =============================================================================
+
+/**
+ * Extended compliance framework identifiers
+ */
+export type ExtendedComplianceFramework =
+  | "SOC2"
+  | "HIPAA"
+  | "PCI-DSS"
+  | "CIS"
+  | "NIST-CSF"
+  | "ISO-27001"
+  | "FEDRAMP"
+  | "GDPR"
+  | "DORA";
+
+/**
+ * Custom compliance framework definition
+ */
+export interface CustomComplianceFramework {
+  /** Unique framework ID */
+  id: string;
+  /** Framework name */
+  name: string;
+  /** Framework description */
+  description: string;
+  /** Framework version */
+  version: string;
+  /** Framework category */
+  category: "security" | "privacy" | "operational" | "financial" | "custom";
+  /** Controls defined in this framework */
+  controls: ComplianceControlDefinition[];
+  /** When framework was added */
+  createdAt: string;
+  /** Who added the framework */
+  createdBy?: string;
+}
+
+/**
+ * Compliance control definition
+ */
+export interface ComplianceControlDefinition {
+  /** Control ID (e.g., "CC6.1", "164.312(a)(1)") */
+  controlId: string;
+  /** Control name */
+  name: string;
+  /** Control description */
+  description: string;
+  /** Control category */
+  category: string;
+  /** Severity if control is violated */
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  /** Vulnerability patterns that violate this control */
+  vulnPatterns?: string[];
+  /** CWE IDs that map to this control */
+  cweIds?: string[];
+  /** CVE patterns that map to this control */
+  cvePatterns?: string[];
+}
+
+/**
+ * Control-to-vulnerability mapping
+ */
+export interface ControlVulnerabilityMapping {
+  /** Control ID */
+  controlId: string;
+  /** Framework ID */
+  frameworkId: string;
+  /** Vulnerability ID (CVE, package, etc.) */
+  vulnId: string;
+  /** Mapping type */
+  mappingType: "automatic" | "manual";
+  /** Mapping confidence (0-100) */
+  confidence: number;
+  /** When mapping was created */
+  createdAt: string;
+  /** Who created the mapping */
+  createdBy?: string;
+  /** Mapping notes */
+  notes?: string;
+}
+
+// =============================================================================
+// Governance Workflow Types
+// =============================================================================
+
+/**
+ * Governance policy status
+ */
+export type GovernancePolicyStatus = "draft" | "active" | "deprecated" | "archived";
+
+/**
+ * Governance policy definition
+ */
+export interface GovernancePolicy {
+  /** Unique policy ID */
+  id: string;
+  /** Policy name */
+  name: string;
+  /** Policy description */
+  description: string;
+  /** Policy status */
+  status: GovernancePolicyStatus;
+  /** Policy type */
+  type: "vulnerability" | "compliance" | "access" | "data" | "operational";
+  /** Policy rules (JSON) */
+  rules: GovernancePolicyRule[];
+  /** Enforcement level */
+  enforcement: "advisory" | "warning" | "blocking";
+  /** Applicable targets (projects, teams, etc.) */
+  targets?: string[];
+  /** Policy owner */
+  owner?: string;
+  /** When policy was created */
+  createdAt: string;
+  /** When policy was last updated */
+  updatedAt: string;
+  /** Who created the policy */
+  createdBy?: string;
+  /** Effective date */
+  effectiveDate?: string;
+  /** Expiration date */
+  expirationDate?: string;
+}
+
+/**
+ * Governance policy rule
+ */
+export interface GovernancePolicyRule {
+  /** Rule ID */
+  id: string;
+  /** Rule name */
+  name: string;
+  /** Condition expression */
+  condition: string;
+  /** Action when condition is met */
+  action: "allow" | "deny" | "require_approval" | "notify";
+  /** Severity threshold */
+  severityThreshold?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  /** Maximum allowed count */
+  maxCount?: number;
+  /** Grace period in hours */
+  gracePeriodHours?: number;
+}
+
+/**
+ * Policy exception status
+ */
+export type ExceptionStatus = "pending" | "approved" | "rejected" | "expired" | "revoked";
+
+/**
+ * Policy exception request
+ */
+export interface PolicyException {
+  /** Unique exception ID */
+  id: string;
+  /** Policy ID this exception applies to */
+  policyId: string;
+  /** Exception status */
+  status: ExceptionStatus;
+  /** Reason for exception */
+  reason: string;
+  /** Business justification */
+  justification: string;
+  /** Risk assessment */
+  riskAssessment?: string;
+  /** Compensating controls */
+  compensatingControls?: string[];
+  /** Target (project, team, vulnerability, etc.) */
+  target: string;
+  /** Target type */
+  targetType: "project" | "team" | "vulnerability" | "control";
+  /** Requestor */
+  requestedBy: string;
+  /** When requested */
+  requestedAt: string;
+  /** Approver */
+  approvedBy?: string;
+  /** When approved/rejected */
+  decidedAt?: string;
+  /** Decision notes */
+  decisionNotes?: string;
+  /** Exception start date */
+  startDate: string;
+  /** Exception end date */
+  endDate: string;
+  /** Renewal count */
+  renewalCount?: number;
+}
+
+/**
+ * Options for creating a governance policy
+ */
+export interface CreatePolicyOptions {
+  /** Policy name */
+  name: string;
+  /** Policy description */
+  description: string;
+  /** Policy type */
+  type: GovernancePolicy["type"];
+  /** Policy rules */
+  rules: GovernancePolicyRule[];
+  /** Enforcement level */
+  enforcement?: GovernancePolicy["enforcement"];
+  /** Applicable targets */
+  targets?: string[];
+  /** Policy owner */
+  owner?: string;
+  /** Who is creating the policy */
+  createdBy?: string;
+  /** Effective date */
+  effectiveDate?: string;
+}
+
+/**
+ * Options for requesting an exception
+ */
+export interface RequestExceptionOptions {
+  /** Policy ID */
+  policyId: string;
+  /** Reason for exception */
+  reason: string;
+  /** Business justification */
+  justification: string;
+  /** Risk assessment */
+  riskAssessment?: string;
+  /** Compensating controls */
+  compensatingControls?: string[];
+  /** Target (project, team, etc.) */
+  target: string;
+  /** Target type */
+  targetType: PolicyException["targetType"];
+  /** Requestor */
+  requestedBy: string;
+  /** Exception duration in days */
+  durationDays: number;
+}
+
+// =============================================================================
+// Evidence Collection Types
+// =============================================================================
+
+/**
+ * Evidence type
+ */
+export type EvidenceType =
+  | "scan_result"
+  | "configuration"
+  | "policy"
+  | "approval"
+  | "remediation"
+  | "screenshot"
+  | "log"
+  | "document"
+  | "attestation";
+
+/**
+ * Evidence record
+ */
+export interface EvidenceRecord {
+  /** Unique evidence ID */
+  id: string;
+  /** Evidence type */
+  type: EvidenceType;
+  /** Evidence title */
+  title: string;
+  /** Evidence description */
+  description?: string;
+  /** Control ID this evidence supports */
+  controlId: string;
+  /** Framework ID */
+  frameworkId: string;
+  /** Evidence content (JSON or reference) */
+  content: Record<string, unknown>;
+  /** Content hash for integrity */
+  contentHash: string;
+  /** Collection timestamp */
+  collectedAt: string;
+  /** Collection method */
+  collectionMethod: "automatic" | "manual" | "api";
+  /** Who collected the evidence */
+  collectedBy?: string;
+  /** Evidence validity period start */
+  validFrom: string;
+  /** Evidence validity period end */
+  validUntil?: string;
+  /** Attached files/references */
+  attachments?: EvidenceAttachment[];
+  /** Tags */
+  tags?: string[];
+}
+
+/**
+ * Evidence attachment
+ */
+export interface EvidenceAttachment {
+  /** Attachment ID */
+  id: string;
+  /** File name */
+  filename: string;
+  /** MIME type */
+  mimeType: string;
+  /** File size in bytes */
+  size: number;
+  /** Storage path or URL */
+  path: string;
+  /** Content hash */
+  hash: string;
+  /** Upload timestamp */
+  uploadedAt: string;
+}
+
+/**
+ * Options for collecting evidence
+ */
+export interface CollectEvidenceOptions {
+  /** Control ID */
+  controlId: string;
+  /** Framework ID */
+  frameworkId: string;
+  /** Evidence type */
+  type: EvidenceType;
+  /** Evidence title */
+  title: string;
+  /** Description */
+  description?: string;
+  /** Evidence content */
+  content: Record<string, unknown>;
+  /** Collector ID */
+  collectedBy?: string;
+  /** Validity period in days */
+  validityDays?: number;
+  /** Tags */
+  tags?: string[];
+}
+
+/**
+ * Evidence export package
+ */
+export interface EvidencePackage {
+  /** Package ID */
+  id: string;
+  /** Package name */
+  name: string;
+  /** Framework ID */
+  frameworkId: string;
+  /** Controls included */
+  controls: string[];
+  /** Evidence records */
+  evidence: EvidenceRecord[];
+  /** Package generation timestamp */
+  generatedAt: string;
+  /** Generated by */
+  generatedBy?: string;
+  /** Package format */
+  format: "json" | "zip" | "pdf";
+  /** Total evidence count */
+  evidenceCount: number;
+  /** Coverage percentage */
+  coveragePercent: number;
+}
+
+// =============================================================================
+// Audit Preparation Types
+// =============================================================================
+
+/**
+ * Audit type
+ */
+export type AuditType = "SOC2-TYPE1" | "SOC2-TYPE2" | "ISO-27001" | "PCI-DSS" | "HIPAA" | "CUSTOM";
+
+/**
+ * Audit package
+ */
+export interface AuditPackage {
+  /** Package ID */
+  id: string;
+  /** Audit type */
+  auditType: AuditType;
+  /** Audit period start */
+  periodStart: string;
+  /** Audit period end */
+  periodEnd: string;
+  /** Organization name */
+  organization: string;
+  /** Scope description */
+  scope: string;
+  /** Systems in scope */
+  systemsInScope: string[];
+  /** Control summary */
+  controlSummary: AuditControlSummary[];
+  /** Evidence packages */
+  evidencePackages: string[];
+  /** Findings summary */
+  findingsSummary: AuditFindingsSummary;
+  /** Generated timestamp */
+  generatedAt: string;
+  /** Generated by */
+  generatedBy?: string;
+  /** Package status */
+  status: "draft" | "review" | "final";
+}
+
+/**
+ * Audit control summary
+ */
+export interface AuditControlSummary {
+  /** Control ID */
+  controlId: string;
+  /** Control name */
+  controlName: string;
+  /** Control status */
+  status: "compliant" | "partial" | "non-compliant" | "not-applicable";
+  /** Evidence count */
+  evidenceCount: number;
+  /** Findings count */
+  findingsCount: number;
+  /** Notes */
+  notes?: string;
+}
+
+/**
+ * Audit findings summary
+ */
+export interface AuditFindingsSummary {
+  /** Total findings */
+  total: number;
+  /** Findings by severity */
+  bySeverity: Record<string, number>;
+  /** Open findings */
+  open: number;
+  /** Remediated findings */
+  remediated: number;
+  /** Accepted risk */
+  acceptedRisk: number;
+}
+
+/**
+ * Attestation record
+ */
+export interface AttestationRecord {
+  /** Attestation ID */
+  id: string;
+  /** Attestation type */
+  type: AuditType;
+  /** Period covered */
+  periodStart: string;
+  periodEnd: string;
+  /** Organization */
+  organization: string;
+  /** Attestation statement */
+  statement: string;
+  /** Attester name */
+  attesterName: string;
+  /** Attester title */
+  attesterTitle: string;
+  /** Attestation date */
+  attestedAt: string;
+  /** Digital signature (if applicable) */
+  signature?: string;
+  /** Related audit package */
+  auditPackageId?: string;
+}
+
+/**
+ * Compliance timeline event
+ */
+export interface ComplianceTimelineEvent {
+  /** Event ID */
+  id: string;
+  /** Event timestamp */
+  timestamp: string;
+  /** Event type */
+  eventType:
+    | "scan"
+    | "finding"
+    | "remediation"
+    | "exception"
+    | "policy_change"
+    | "evidence"
+    | "attestation"
+    | "audit";
+  /** Event description */
+  description: string;
+  /** Related entity ID */
+  entityId?: string;
+  /** Entity type */
+  entityType?: string;
+  /** Actor */
+  actor?: string;
+  /** Severity/importance */
+  severity?: "info" | "low" | "medium" | "high" | "critical";
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for generating audit package
+ */
+export interface PrepareAuditOptions {
+  /** Audit type */
+  auditType: AuditType;
+  /** Period start */
+  periodStart: string;
+  /** Period end */
+  periodEnd: string;
+  /** Organization name */
+  organization: string;
+  /** Scope description */
+  scope: string;
+  /** Systems in scope */
+  systemsInScope: string[];
+  /** Who is preparing the package */
+  preparedBy?: string;
+}
+
+/**
+ * Options for generating attestation
+ */
+export interface GenerateAttestationOptions {
+  /** Attestation type */
+  type: AuditType;
+  /** Period start */
+  periodStart: string;
+  /** Period end */
+  periodEnd: string;
+  /** Organization */
+  organization: string;
+  /** Attester name */
+  attesterName: string;
+  /** Attester title */
+  attesterTitle: string;
+  /** Custom statement (optional) */
+  customStatement?: string;
+  /** Related audit package ID */
+  auditPackageId?: string;
+}
+
+/**
+ * Options for generating compliance timeline
+ */
+export interface TimelineOptions {
+  /** Start date */
+  startDate: string;
+  /** End date */
+  endDate: string;
+  /** Framework filter */
+  frameworkId?: string;
+  /** Event types to include */
+  eventTypes?: ComplianceTimelineEvent["eventType"][];
+  /** Target filter (project, team) */
+  target?: string;
+  /** Maximum events */
+  limit?: number;
+}
+
+/**
+ * Governance database initialization result
+ */
+export interface GovernanceDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Timestamp */
+  created: string;
+  /** Error if failed */
+  error?: string;
+}

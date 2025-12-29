@@ -4867,6 +4867,250 @@ export const toolDefinitions = [
       required: [],
     },
   },
+  // =========================================================================
+  // Governance Workflow Tools (v1.26.0)
+  // =========================================================================
+  {
+    name: "governance_create_policy",
+    description:
+      "Create a security governance policy with rules for enforcement. " +
+      "Policies can be advisory (warn) or blocking (fail builds).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Unique policy name" },
+        description: { type: "string", description: "Policy description" },
+        version: { type: "string", description: "Policy version (default: 1.0)" },
+        enforcementLevel: {
+          type: "string",
+          enum: ["advisory", "blocking"],
+          description: "Enforcement level (default: advisory)",
+        },
+        owner: { type: "string", description: "Policy owner" },
+        rules: {
+          type: "array",
+          items: { type: "object" },
+          description: "Policy rules array",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "governance_list_policies",
+    description: "List all governance policies with optional status filter.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["draft", "active", "deprecated"],
+          description: "Filter by policy status",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "governance_activate_policy",
+    description: "Activate a draft policy to make it enforceable.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyId: { type: "string", description: "Policy ID to activate" },
+        actor: { type: "string", description: "User activating the policy" },
+      },
+      required: ["policyId"],
+    },
+  },
+  {
+    name: "governance_request_exception",
+    description: "Request an exception to a governance policy with justification.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyId: { type: "string", description: "Policy ID for exception" },
+        requester: { type: "string", description: "User requesting exception" },
+        reason: { type: "string", description: "Justification for exception" },
+        scope: { type: "object", description: "Scope of exception (targets, etc.)" },
+        expiresAt: { type: "string", description: "Exception expiration date (ISO)" },
+      },
+      required: ["policyId", "requester", "reason"],
+    },
+  },
+  {
+    name: "governance_approve_exception",
+    description: "Approve a pending policy exception request.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        exceptionId: { type: "string", description: "Exception ID to approve" },
+        approver: { type: "string", description: "User approving the exception" },
+      },
+      required: ["exceptionId", "approver"],
+    },
+  },
+  {
+    name: "governance_list_exceptions",
+    description: "List policy exceptions with optional filters.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyId: { type: "string", description: "Filter by policy ID" },
+        status: {
+          type: "string",
+          enum: ["pending", "approved", "rejected", "expired"],
+          description: "Filter by exception status",
+        },
+      },
+      required: [],
+    },
+  },
+  // =========================================================================
+  // Evidence Collection Tools (v1.26.0)
+  // =========================================================================
+  {
+    name: "evidence_collect",
+    description: "Collect compliance evidence with metadata, linked to frameworks and controls.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: [
+            "scan_result",
+            "configuration",
+            "policy",
+            "attestation",
+            "log",
+            "screenshot",
+            "document",
+          ],
+          description: "Type of evidence",
+        },
+        title: { type: "string", description: "Evidence title" },
+        description: { type: "string", description: "Evidence description" },
+        framework: { type: "string", description: "Compliance framework (SOC2, HIPAA, etc.)" },
+        controlId: { type: "string", description: "Control ID within framework" },
+        source: { type: "string", description: "Source system or tool" },
+        collectedBy: { type: "string", description: "User collecting evidence" },
+        content: { type: "object", description: "Evidence content/data" },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tags for categorization",
+        },
+      },
+      required: ["type", "title", "source"],
+    },
+  },
+  {
+    name: "evidence_attach",
+    description: "Attach a file to existing evidence record.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        evidenceId: { type: "string", description: "Evidence record ID" },
+        filename: { type: "string", description: "Attachment filename" },
+        mimeType: { type: "string", description: "MIME type" },
+        storagePath: { type: "string", description: "Path where file is stored" },
+        uploadedBy: { type: "string", description: "User uploading attachment" },
+      },
+      required: ["evidenceId", "filename"],
+    },
+  },
+  {
+    name: "evidence_export",
+    description: "Export evidence package for a framework or set of controls.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        framework: { type: "string", description: "Filter by framework" },
+        controlIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by control IDs",
+        },
+        includeContent: { type: "boolean", description: "Include evidence content" },
+        includeAttachments: { type: "boolean", description: "Include attachment metadata" },
+      },
+      required: [],
+    },
+  },
+  // =========================================================================
+  // Audit Preparation Tools (v1.26.0)
+  // =========================================================================
+  {
+    name: "audit_prepare_package",
+    description: "Prepare an audit package with evidence, findings, and remediations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Audit package name" },
+        type: {
+          type: "string",
+          enum: ["internal", "external", "certification", "assessment"],
+          description: "Audit type",
+        },
+        framework: { type: "string", description: "Compliance framework" },
+        preparedBy: { type: "string", description: "Preparer name" },
+        evidenceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Evidence record IDs to include",
+        },
+        controlIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Control IDs covered",
+        },
+        scope: { type: "object", description: "Audit scope details" },
+      },
+      required: ["name", "type"],
+    },
+  },
+  {
+    name: "audit_generate_attestation",
+    description: "Generate a signed attestation statement for compliance assertion.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: { type: "string", description: "Attestation type" },
+        statement: { type: "string", description: "Attestation statement text" },
+        attester: { type: "string", description: "Person attesting" },
+        attesterRole: { type: "string", description: "Role of attester" },
+        auditPackageId: { type: "string", description: "Link to audit package" },
+        evidenceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Supporting evidence IDs",
+        },
+        scope: { type: "object", description: "Scope of attestation" },
+        validUntil: { type: "string", description: "Attestation validity end (ISO)" },
+      },
+      required: ["type", "statement", "attester"],
+    },
+  },
+  {
+    name: "audit_timeline",
+    description: "Get compliance timeline showing events and changes over time.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: { type: "string", description: "Target to get timeline for" },
+        framework: { type: "string", description: "Filter by framework" },
+        eventTypes: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by event types",
+        },
+        startDate: { type: "string", description: "Start date (ISO)" },
+        endDate: { type: "string", description: "End date (ISO)" },
+        limit: { type: "number", description: "Maximum events to return" },
+      },
+      required: [],
+    },
+  },
 ];
 
 // =============================================================================
@@ -8442,6 +8686,208 @@ const slaHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Governance Workflow Handlers (v1.26.0)
+// =============================================================================
+const governanceHandlers: Record<string, ToolHandler> = {
+  governance_create_policy: async (args) => {
+    try {
+      const { createGovernancePolicy, initGovernanceDatabase } = await import("./handlers.js");
+      initGovernanceDatabase();
+      return createGovernancePolicy({
+        name: args?.name as string,
+        description: args?.description as string,
+        version: args?.version as string,
+        enforcementLevel: args?.enforcementLevel as "advisory" | "blocking",
+        owner: args?.owner as string,
+        rules: args?.rules as Array<{ type: string; condition: string; action: string }>,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  governance_list_policies: async (args) => {
+    try {
+      const { listGovernancePolicies, initGovernanceDatabase } = await import("./handlers.js");
+      initGovernanceDatabase();
+      return listGovernancePolicies(args?.status as "draft" | "active" | "deprecated");
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  governance_activate_policy: async (args) => {
+    try {
+      const { activateGovernancePolicy, initGovernanceDatabase } = await import("./handlers.js");
+      initGovernanceDatabase();
+      return activateGovernancePolicy(args?.policyId as string, args?.actor as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  governance_request_exception: async (args) => {
+    try {
+      const { requestPolicyException, initGovernanceDatabase } = await import("./handlers.js");
+      initGovernanceDatabase();
+      return requestPolicyException({
+        policyId: args?.policyId as string,
+        requester: args?.requester as string,
+        reason: args?.reason as string,
+        scope: args?.scope as Record<string, unknown>,
+        expiresAt: args?.expiresAt as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  governance_approve_exception: async (args) => {
+    try {
+      const { approvePolicyException, initGovernanceDatabase } = await import("./handlers.js");
+      initGovernanceDatabase();
+      return approvePolicyException(args?.exceptionId as string, args?.approver as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  governance_list_exceptions: async (args) => {
+    try {
+      const { listPolicyExceptions, initGovernanceDatabase } = await import("./handlers.js");
+      initGovernanceDatabase();
+      return listPolicyExceptions(
+        args?.policyId as string,
+        args?.status as "pending" | "approved" | "rejected" | "expired"
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Evidence Collection Handlers (v1.26.0)
+// =============================================================================
+const evidenceHandlers: Record<string, ToolHandler> = {
+  evidence_collect: async (args) => {
+    try {
+      const { collectEvidence, initEvidenceDatabase } = await import("./handlers.js");
+      initEvidenceDatabase();
+      return collectEvidence({
+        type: args?.type as
+          | "scan_result"
+          | "configuration"
+          | "policy"
+          | "attestation"
+          | "log"
+          | "screenshot"
+          | "document",
+        title: args?.title as string,
+        description: args?.description as string,
+        framework: args?.framework as string,
+        controlId: args?.controlId as string,
+        source: args?.source as string,
+        collectedBy: args?.collectedBy as string,
+        content: args?.content as Record<string, unknown>,
+        tags: args?.tags as string[],
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  evidence_attach: async (args) => {
+    try {
+      const { attachToEvidence, initEvidenceDatabase } = await import("./handlers.js");
+      initEvidenceDatabase();
+      return attachToEvidence(args?.evidenceId as string, {
+        filename: args?.filename as string,
+        mimeType: args?.mimeType as string,
+        storagePath: args?.storagePath as string,
+        uploadedBy: args?.uploadedBy as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  evidence_export: async (args) => {
+    try {
+      const { exportEvidencePackage, initEvidenceDatabase } = await import("./handlers.js");
+      initEvidenceDatabase();
+      return exportEvidencePackage({
+        framework: args?.framework as string,
+        controlIds: args?.controlIds as string[],
+        includeContent: args?.includeContent as boolean,
+        includeAttachments: args?.includeAttachments as boolean,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Audit Preparation Handlers (v1.26.0)
+// =============================================================================
+const auditPrepHandlers: Record<string, ToolHandler> = {
+  audit_prepare_package: async (args) => {
+    try {
+      const { prepareAuditPackage, initAuditDatabase } = await import("./handlers.js");
+      initAuditDatabase();
+      return prepareAuditPackage({
+        name: args?.name as string,
+        type: args?.type as "internal" | "external" | "certification" | "assessment",
+        framework: args?.framework as string,
+        preparedBy: args?.preparedBy as string,
+        evidenceIds: args?.evidenceIds as string[],
+        controlIds: args?.controlIds as string[],
+        scope: args?.scope as Record<string, unknown>,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  audit_generate_attestation: async (args) => {
+    try {
+      const { generateAttestation, initAuditDatabase } = await import("./handlers.js");
+      initAuditDatabase();
+      return generateAttestation({
+        type: args?.type as string,
+        statement: args?.statement as string,
+        attester: args?.attester as string,
+        attesterRole: args?.attesterRole as string,
+        auditPackageId: args?.auditPackageId as string,
+        evidenceIds: args?.evidenceIds as string[],
+        scope: args?.scope as Record<string, unknown>,
+        validUntil: args?.validUntil as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  audit_timeline: async (args) => {
+    try {
+      const { getComplianceTimeline, initAuditDatabase } = await import("./handlers.js");
+      initAuditDatabase();
+      return getComplianceTimeline({
+        target: args?.target as string,
+        framework: args?.framework as string,
+        eventTypes: args?.eventTypes as string[],
+        startDate: args?.startDate as string,
+        endDate: args?.endDate as string,
+        limit: args?.limit as number,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -8475,6 +8921,9 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...comparisonHandlers,
   ...remediationAutomationHandlers,
   ...slaHandlers,
+  ...governanceHandlers,
+  ...evidenceHandlers,
+  ...auditPrepHandlers,
 };
 
 export async function handleCallTool(
