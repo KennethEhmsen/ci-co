@@ -245,6 +245,12 @@ import {
   exportReportToExcel,
   exportVulnerabilitiesToCsv,
   type ReportData,
+  // Comparison
+  initComparisonDb,
+  compareProjects,
+  compareTeams,
+  compareToBaseline,
+  type EntityMetrics,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -4274,6 +4280,134 @@ export const toolDefinitions = [
       required: ["data", "outputPath"],
     },
   },
+  // Cross-Project Comparative Analysis Tools
+  {
+    name: "compare_projects",
+    description:
+      "Compare security metrics between two projects. " +
+      "Provides detailed analysis of vulnerability counts, risk scores, compliance, and trends. " +
+      "Identifies which project has better security posture and generates recommendations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectIdA: {
+          type: "string",
+          description: "First project ID",
+        },
+        projectIdB: {
+          type: "string",
+          description: "Second project ID",
+        },
+        metricsA: {
+          type: "object",
+          description: "Security metrics for first project",
+          properties: {
+            entityId: { type: "string" },
+            entityName: { type: "string" },
+            entityType: { type: "string", enum: ["project", "team", "image", "repository"] },
+            timestamp: { type: "string" },
+            vulnerabilityCount: { type: "number" },
+            criticalCount: { type: "number" },
+            highCount: { type: "number" },
+            mediumCount: { type: "number" },
+            lowCount: { type: "number" },
+            riskScore: { type: "number" },
+            healthScore: { type: "number" },
+            complianceScore: { type: "number" },
+            mttr: { type: "number", description: "Mean time to remediate in hours" },
+            remediationVelocity: { type: "number", description: "Vulnerabilities fixed per day" },
+            scanCoverage: { type: "number", description: "Percentage of assets scanned" },
+            assetCount: { type: "number" },
+          },
+          required: [
+            "entityId",
+            "entityName",
+            "entityType",
+            "timestamp",
+            "vulnerabilityCount",
+            "criticalCount",
+            "highCount",
+            "mediumCount",
+            "lowCount",
+            "riskScore",
+            "healthScore",
+            "complianceScore",
+          ],
+        },
+        metricsB: {
+          type: "object",
+          description: "Security metrics for second project (same structure as metricsA)",
+        },
+        normalize: {
+          type: "boolean",
+          description: "Normalize metrics by asset count for fair comparison (default: false)",
+        },
+      },
+      required: ["projectIdA", "projectIdB", "metricsA", "metricsB"],
+    },
+  },
+  {
+    name: "compare_teams",
+    description:
+      "Compare security metrics between two teams. " +
+      "Analyzes aggregate security posture across all projects owned by each team. " +
+      "Useful for organizational security benchmarking and identifying teams that need support.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        teamIdA: {
+          type: "string",
+          description: "First team ID",
+        },
+        teamIdB: {
+          type: "string",
+          description: "Second team ID",
+        },
+        metricsA: {
+          type: "object",
+          description: "Aggregate security metrics for first team",
+        },
+        metricsB: {
+          type: "object",
+          description: "Aggregate security metrics for second team",
+        },
+        normalize: {
+          type: "boolean",
+          description: "Normalize by project count for fair comparison (default: false)",
+        },
+      },
+      required: ["teamIdA", "teamIdB", "metricsA", "metricsB"],
+    },
+  },
+  {
+    name: "compare_to_baseline",
+    description:
+      "Compare current security metrics against a saved baseline snapshot. " +
+      "Useful for tracking security progress over time and detecting regressions. " +
+      "Can use a specific baseline ID or the default baseline for an entity.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        currentMetrics: {
+          type: "object",
+          description: "Current entity metrics to compare",
+        },
+        baselineId: {
+          type: "string",
+          description: "Specific baseline ID to compare against",
+        },
+        useDefaultBaseline: {
+          type: "boolean",
+          description: "Use the default baseline for the entity (requires entityId)",
+        },
+        entityId: {
+          type: "string",
+          description: "Entity ID when using default baseline",
+        },
+      },
+      required: ["currentMetrics"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -7347,6 +7481,116 @@ const exportHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Cross-Project Comparative Analysis handlers
+let comparisonDbInitialized = false;
+
+function ensureComparisonDb() {
+  if (!comparisonDbInitialized) {
+    const result = initComparisonDb();
+    if (!result.success) {
+      throw new Error(`Failed to initialize comparison database: ${result.error}`);
+    }
+    comparisonDbInitialized = true;
+  }
+}
+
+const comparisonHandlers: Record<string, ToolHandler> = {
+  compare_projects: async (args) => {
+    ensureComparisonDb();
+
+    const projectIdA = args?.projectIdA as string;
+    const projectIdB = args?.projectIdB as string;
+    const metricsA = args?.metricsA as EntityMetrics;
+    const metricsB = args?.metricsB as EntityMetrics;
+
+    if (!projectIdA) {
+      return { error: "projectIdA is required" };
+    }
+    if (!projectIdB) {
+      return { error: "projectIdB is required" };
+    }
+    if (!metricsA) {
+      return { error: "metricsA is required" };
+    }
+    if (!metricsB) {
+      return { error: "metricsB is required" };
+    }
+
+    try {
+      const result = compareProjects({
+        projectIdA,
+        projectIdB,
+        metricsA,
+        metricsB,
+        normalize: args?.normalize as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  compare_teams: async (args) => {
+    ensureComparisonDb();
+
+    const teamIdA = args?.teamIdA as string;
+    const teamIdB = args?.teamIdB as string;
+    const metricsA = args?.metricsA as EntityMetrics;
+    const metricsB = args?.metricsB as EntityMetrics;
+
+    if (!teamIdA) {
+      return { error: "teamIdA is required" };
+    }
+    if (!teamIdB) {
+      return { error: "teamIdB is required" };
+    }
+    if (!metricsA) {
+      return { error: "metricsA is required" };
+    }
+    if (!metricsB) {
+      return { error: "metricsB is required" };
+    }
+
+    try {
+      const result = compareTeams({
+        teamIdA,
+        teamIdB,
+        metricsA,
+        metricsB,
+        normalize: args?.normalize as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  compare_to_baseline: async (args) => {
+    ensureComparisonDb();
+
+    const currentMetrics = args?.currentMetrics as EntityMetrics;
+
+    if (!currentMetrics) {
+      return { error: "currentMetrics is required" };
+    }
+
+    try {
+      const result = compareToBaseline({
+        currentMetrics,
+        baselineId: args?.baselineId as string | undefined,
+        useDefaultBaseline: args?.useDefaultBaseline as boolean | undefined,
+        entityId: args?.entityId as string | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -7377,6 +7621,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...trendHandlers,
   ...riskHandlers,
   ...exportHandlers,
+  ...comparisonHandlers,
 };
 
 export async function handleCallTool(

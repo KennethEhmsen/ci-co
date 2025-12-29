@@ -1227,4 +1227,50 @@ export type {
   ReportData,
   PdfExportResult,
   ExcelExportResult,
+  // Comparison Types
+  ComparisonEntityType,
+  ComparisonMetric,
+  ComparisonTrend,
+  EntityMetrics,
+  ComparisonMetricResult,
+  ComparisonResult,
+  Baseline,
+  CreateBaselineOptions,
+  CompareProjectsOptions,
+  CompareTeamsOptions,
+  CompareToBaselineOptions,
+  RankingEntry,
+  GetRankingsOptions,
+  RankingsResult,
+  ComparisonDbInitResult,
+  ListBaselinesOptions,
 } from "./types.js";
+
+// =============================================================================
+// Cross-Project Comparative Analysis
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initComparisonDb,
+  closeComparisonDb,
+  getComparisonDbPath,
+  // Comparison functions
+  compareProjects,
+  compareTeams,
+  compareToBaseline,
+  // Baseline management
+  createBaseline,
+  getBaseline,
+  getDefaultBaseline,
+  listBaselines,
+  deleteBaseline,
+  setDefaultBaseline,
+  // Rankings / Leaderboard
+  recordEntityMetrics,
+  getRankings,
+  // Caching
+  getCachedComparison,
+  cacheComparison,
+  clearExpiredCache,
+} from "./comparison.js";

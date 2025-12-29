@@ -221,6 +221,12 @@ import {
   type SsoSession,
   type TrendGranularity,
   type ReportData,
+  // Comparison
+  initComparisonDb,
+  compareProjects,
+  compareTeams,
+  compareToBaseline,
+  type EntityMetrics,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -2587,6 +2593,102 @@ const toolHandlers: Record<string, ToolHandler> = {
       const result = await exportVulnerabilitiesToCsv(data, outputPath, {
         delimiter: input?.delimiter as "," | ";" | "\t" | "|" | undefined,
         includeBom: input?.includeBom as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  // Cross-Project Comparative Analysis
+  compare_projects: async (input) => {
+    initComparisonDb();
+
+    const projectIdA = input?.projectIdA as string;
+    const projectIdB = input?.projectIdB as string;
+    const metricsA = input?.metricsA as EntityMetrics;
+    const metricsB = input?.metricsB as EntityMetrics;
+
+    if (!projectIdA) {
+      return { error: "projectIdA is required" };
+    }
+    if (!projectIdB) {
+      return { error: "projectIdB is required" };
+    }
+    if (!metricsA) {
+      return { error: "metricsA is required" };
+    }
+    if (!metricsB) {
+      return { error: "metricsB is required" };
+    }
+
+    try {
+      const result = compareProjects({
+        projectIdA,
+        projectIdB,
+        metricsA,
+        metricsB,
+        normalize: input?.normalize as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  compare_teams: async (input) => {
+    initComparisonDb();
+
+    const teamIdA = input?.teamIdA as string;
+    const teamIdB = input?.teamIdB as string;
+    const metricsA = input?.metricsA as EntityMetrics;
+    const metricsB = input?.metricsB as EntityMetrics;
+
+    if (!teamIdA) {
+      return { error: "teamIdA is required" };
+    }
+    if (!teamIdB) {
+      return { error: "teamIdB is required" };
+    }
+    if (!metricsA) {
+      return { error: "metricsA is required" };
+    }
+    if (!metricsB) {
+      return { error: "metricsB is required" };
+    }
+
+    try {
+      const result = compareTeams({
+        teamIdA,
+        teamIdB,
+        metricsA,
+        metricsB,
+        normalize: input?.normalize as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  compare_to_baseline: async (input) => {
+    initComparisonDb();
+
+    const currentMetrics = input?.currentMetrics as EntityMetrics;
+
+    if (!currentMetrics) {
+      return { error: "currentMetrics is required" };
+    }
+
+    try {
+      const result = compareToBaseline({
+        currentMetrics,
+        baselineId: input?.baselineId as string | undefined,
+        useDefaultBaseline: input?.useDefaultBaseline as boolean | undefined,
+        entityId: input?.entityId as string | undefined,
       });
 
       return result;
@@ -5676,6 +5778,96 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["data", "outputPath"],
+    },
+  },
+  // Cross-Project Comparative Analysis Tools
+  {
+    name: "compare_projects",
+    description:
+      "Compare security metrics between two projects. Provides detailed analysis of vulnerability counts, risk scores, compliance, and trends. Identifies which project has better security posture and generates recommendations.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        projectIdA: {
+          type: "string",
+          description: "First project ID",
+        },
+        projectIdB: {
+          type: "string",
+          description: "Second project ID",
+        },
+        metricsA: {
+          type: "object",
+          description: "Security metrics for first project",
+        },
+        metricsB: {
+          type: "object",
+          description: "Security metrics for second project",
+        },
+        normalize: {
+          type: "boolean",
+          description: "Normalize metrics by asset count for fair comparison (default: false)",
+        },
+      },
+      required: ["projectIdA", "projectIdB", "metricsA", "metricsB"],
+    },
+  },
+  {
+    name: "compare_teams",
+    description:
+      "Compare security metrics between two teams. Analyzes aggregate security posture across all projects owned by each team. Useful for organizational security benchmarking.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        teamIdA: {
+          type: "string",
+          description: "First team ID",
+        },
+        teamIdB: {
+          type: "string",
+          description: "Second team ID",
+        },
+        metricsA: {
+          type: "object",
+          description: "Aggregate security metrics for first team",
+        },
+        metricsB: {
+          type: "object",
+          description: "Aggregate security metrics for second team",
+        },
+        normalize: {
+          type: "boolean",
+          description: "Normalize by project count for fair comparison (default: false)",
+        },
+      },
+      required: ["teamIdA", "teamIdB", "metricsA", "metricsB"],
+    },
+  },
+  {
+    name: "compare_to_baseline",
+    description:
+      "Compare current security metrics against a saved baseline snapshot. Useful for tracking security progress over time and detecting regressions.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        currentMetrics: {
+          type: "object",
+          description: "Current entity metrics to compare",
+        },
+        baselineId: {
+          type: "string",
+          description: "Specific baseline ID to compare against",
+        },
+        useDefaultBaseline: {
+          type: "boolean",
+          description: "Use the default baseline for the entity (requires entityId)",
+        },
+        entityId: {
+          type: "string",
+          description: "Entity ID when using default baseline",
+        },
+      },
+      required: ["currentMetrics"],
     },
   },
 ];

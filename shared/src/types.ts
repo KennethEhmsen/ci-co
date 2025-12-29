@@ -6064,3 +6064,311 @@ export interface ExcelExportResult extends ExportResult {
   /** Whether charts were included */
   hasCharts: boolean;
 }
+
+// =============================================================================
+// Cross-Project Comparative Analysis Types
+// =============================================================================
+
+/**
+ * Entity type for comparison
+ */
+export type ComparisonEntityType = "project" | "team" | "image" | "repository";
+
+/**
+ * Metric types available for comparison
+ */
+export type ComparisonMetric =
+  | "vulnerability_count"
+  | "critical_count"
+  | "high_count"
+  | "medium_count"
+  | "low_count"
+  | "risk_score"
+  | "health_score"
+  | "compliance_score"
+  | "mttr"
+  | "remediation_velocity"
+  | "scan_coverage";
+
+/**
+ * Trend direction for comparison deltas
+ */
+export type ComparisonTrend = "improving" | "stable" | "declining";
+
+/**
+ * Security metrics for a single entity
+ */
+export interface EntityMetrics {
+  /** Entity identifier */
+  entityId: string;
+  /** Entity name */
+  entityName: string;
+  /** Entity type */
+  entityType: ComparisonEntityType;
+  /** Timestamp of metrics collection */
+  timestamp: string;
+  /** Total vulnerability count */
+  vulnerabilityCount: number;
+  /** Critical vulnerabilities */
+  criticalCount: number;
+  /** High vulnerabilities */
+  highCount: number;
+  /** Medium vulnerabilities */
+  mediumCount: number;
+  /** Low vulnerabilities */
+  lowCount: number;
+  /** Unknown severity vulnerabilities */
+  unknownCount?: number;
+  /** Overall risk score (0-100) */
+  riskScore: number;
+  /** Health score (0-100) */
+  healthScore: number;
+  /** Compliance score (0-100) */
+  complianceScore: number;
+  /** Mean time to remediate in hours */
+  mttr?: number;
+  /** Vulnerabilities fixed per day */
+  remediationVelocity?: number;
+  /** Percentage of assets scanned */
+  scanCoverage?: number;
+  /** Total assets count */
+  assetCount?: number;
+}
+
+/**
+ * Metric comparison result between two entities
+ */
+export interface ComparisonMetricResult {
+  /** Metric name */
+  metric: ComparisonMetric;
+  /** First entity value */
+  valueA: number;
+  /** Second entity value */
+  valueB: number;
+  /** Absolute difference (B - A) */
+  delta: number;
+  /** Percentage change */
+  percentChange: number;
+  /** Trend direction */
+  trend: ComparisonTrend;
+  /** Which entity is "better" for this metric */
+  winner?: "A" | "B" | "tie";
+}
+
+/**
+ * Full comparison result between two entities
+ */
+export interface ComparisonResult {
+  /** First entity metrics */
+  entityA: EntityMetrics;
+  /** Second entity metrics */
+  entityB: EntityMetrics;
+  /** Metric-by-metric comparisons */
+  metrics: ComparisonMetricResult[];
+  /** Overall comparison summary */
+  summary: {
+    /** Entity with better overall security posture */
+    betterEntity: "A" | "B" | "tie";
+    /** Confidence score for the comparison (0-100) */
+    confidence: number;
+    /** Key differences identified */
+    keyDifferences: string[];
+    /** Recommendations */
+    recommendations: string[];
+  };
+  /** Comparison timestamp */
+  comparedAt: string;
+}
+
+/**
+ * Baseline snapshot for comparison
+ */
+export interface Baseline {
+  /** Unique baseline ID */
+  id: string;
+  /** Baseline name */
+  name: string;
+  /** Description */
+  description?: string;
+  /** Entity type */
+  entityType: ComparisonEntityType;
+  /** Entity ID */
+  entityId: string;
+  /** Entity name */
+  entityName: string;
+  /** Metrics snapshot */
+  metrics: EntityMetrics;
+  /** When baseline was created */
+  createdAt: string;
+  /** Who created the baseline */
+  createdBy?: string;
+  /** Tags for organization */
+  tags?: string[];
+  /** Whether this is the default baseline for the entity */
+  isDefault?: boolean;
+}
+
+/**
+ * Options for creating a baseline
+ */
+export interface CreateBaselineOptions {
+  /** Baseline name */
+  name: string;
+  /** Description */
+  description?: string;
+  /** Entity type */
+  entityType: ComparisonEntityType;
+  /** Entity ID */
+  entityId: string;
+  /** Entity name */
+  entityName: string;
+  /** Metrics to snapshot */
+  metrics: EntityMetrics;
+  /** Creator ID */
+  createdBy?: string;
+  /** Tags */
+  tags?: string[];
+  /** Set as default baseline */
+  isDefault?: boolean;
+}
+
+/**
+ * Options for comparing projects
+ */
+export interface CompareProjectsOptions {
+  /** First project ID */
+  projectIdA: string;
+  /** Second project ID */
+  projectIdB: string;
+  /** Optional: Metrics to use (if provided externally) */
+  metricsA?: EntityMetrics;
+  metricsB?: EntityMetrics;
+  /** Normalize by asset count */
+  normalize?: boolean;
+}
+
+/**
+ * Options for comparing teams
+ */
+export interface CompareTeamsOptions {
+  /** First team ID */
+  teamIdA: string;
+  /** Second team ID */
+  teamIdB: string;
+  /** Optional: Metrics to use (if provided externally) */
+  metricsA?: EntityMetrics;
+  metricsB?: EntityMetrics;
+  /** Normalize by project count */
+  normalize?: boolean;
+}
+
+/**
+ * Options for comparing to baseline
+ */
+export interface CompareToBaselineOptions {
+  /** Current entity metrics */
+  currentMetrics: EntityMetrics;
+  /** Baseline ID to compare against */
+  baselineId?: string;
+  /** Or use default baseline for entity */
+  useDefaultBaseline?: boolean;
+  /** Entity ID if using default baseline */
+  entityId?: string;
+}
+
+/**
+ * Ranking entry for leaderboard
+ */
+export interface RankingEntry {
+  /** Rank position (1 = best) */
+  rank: number;
+  /** Entity ID */
+  entityId: string;
+  /** Entity name */
+  entityName: string;
+  /** Entity type */
+  entityType: ComparisonEntityType;
+  /** Score for ranking metric */
+  score: number;
+  /** Percentile (0-100) */
+  percentile: number;
+  /** Change from previous period */
+  changeFromPrevious?: number;
+  /** Trend direction */
+  trend?: ComparisonTrend;
+}
+
+/**
+ * Options for generating rankings
+ */
+export interface GetRankingsOptions {
+  /** Metric to rank by */
+  metric: ComparisonMetric;
+  /** Entity type to rank */
+  entityType: ComparisonEntityType;
+  /** Entity IDs to include (optional, all if not specified) */
+  entityIds?: string[];
+  /** Maximum results */
+  limit?: number;
+  /** Sort order */
+  order?: "asc" | "desc";
+}
+
+/**
+ * Rankings result
+ */
+export interface RankingsResult {
+  /** Metric used for ranking */
+  metric: ComparisonMetric;
+  /** Entity type */
+  entityType: ComparisonEntityType;
+  /** Ranked entries */
+  rankings: RankingEntry[];
+  /** Statistics */
+  stats: {
+    /** Total entities ranked */
+    total: number;
+    /** Average score */
+    average: number;
+    /** Median score */
+    median: number;
+    /** Standard deviation */
+    stdDev: number;
+    /** Best score */
+    best: number;
+    /** Worst score */
+    worst: number;
+  };
+  /** Generated timestamp */
+  generatedAt: string;
+}
+
+/**
+ * Comparison database initialization result
+ */
+export interface ComparisonDbInitResult {
+  /** Whether initialization succeeded */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Timestamp */
+  created: string;
+  /** Error if failed */
+  error?: string;
+}
+
+/**
+ * Options for listing baselines
+ */
+export interface ListBaselinesOptions {
+  /** Filter by entity type */
+  entityType?: ComparisonEntityType;
+  /** Filter by entity ID */
+  entityId?: string;
+  /** Filter by tags */
+  tags?: string[];
+  /** Maximum results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
