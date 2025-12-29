@@ -191,6 +191,13 @@ import {
   generateReport,
   createTemplate,
   createReportSchedule,
+  // Trend Analysis
+  initTrendDatabase,
+  isTrendDbInitialized,
+  getVulnerabilityHistory,
+  getTrendForecast,
+  detectTrendAnomalies,
+  compareTrendPeriods,
   // Types
   type ComplianceFramework,
   type CreateScheduleInput,
@@ -198,6 +205,7 @@ import {
   type ListSchedulesOptions,
   type SuppressionType,
   type SsoSession,
+  type TrendGranularity,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -2229,6 +2237,130 @@ const toolHandlers: Record<string, ToolHandler> = {
         nextRunAt: schedule.nextRunAt,
         createdAt: schedule.createdAt,
       };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  // Trend Analysis
+  trend_get_vulnerability_history: async (input) => {
+    if (!isTrendDbInitialized()) {
+      const result = initTrendDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Trend database: ${result.error}` };
+      }
+    }
+
+    const target = input?.target as string;
+    if (!target) {
+      return { error: "target is required (image name, project key, or organization)" };
+    }
+
+    try {
+      const history = getVulnerabilityHistory({
+        target,
+        targetType: input?.targetType as "image" | "project" | "organization" | undefined,
+        startDate: input?.startDate as string | undefined,
+        endDate: input?.endDate as string | undefined,
+        granularity: input?.granularity as TrendGranularity | undefined,
+        includeMovingAverages: input?.includeMovingAverages as boolean | undefined,
+      });
+
+      return history;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  trend_get_forecast: async (input) => {
+    if (!isTrendDbInitialized()) {
+      const result = initTrendDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Trend database: ${result.error}` };
+      }
+    }
+
+    const target = input?.target as string;
+    if (!target) {
+      return { error: "target is required (image name, project key, or organization)" };
+    }
+
+    try {
+      const forecast = getTrendForecast({
+        target,
+        targetType: input?.targetType as "image" | "project" | "organization" | undefined,
+        horizonDays: input?.horizonDays as number | undefined,
+      });
+
+      return forecast;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  trend_detect_anomalies: async (input) => {
+    if (!isTrendDbInitialized()) {
+      const result = initTrendDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Trend database: ${result.error}` };
+      }
+    }
+
+    const target = input?.target as string;
+    if (!target) {
+      return { error: "target is required (image name, project key, or organization)" };
+    }
+
+    try {
+      const anomalies = detectTrendAnomalies({
+        target,
+        targetType: input?.targetType as "image" | "project" | "organization" | undefined,
+        startDate: input?.startDate as string | undefined,
+        endDate: input?.endDate as string | undefined,
+        zScoreThreshold: input?.threshold as number | undefined,
+      });
+
+      return anomalies;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  trend_compare_periods: async (input) => {
+    if (!isTrendDbInitialized()) {
+      const result = initTrendDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Trend database: ${result.error}` };
+      }
+    }
+
+    const target = input?.target as string;
+    const period1Start = input?.period1Start as string;
+    const period1End = input?.period1End as string;
+    const period2Start = input?.period2Start as string;
+    const period2End = input?.period2End as string;
+
+    if (!target) {
+      return { error: "target is required" };
+    }
+    if (!period1Start || !period1End) {
+      return { error: "period1Start and period1End are required" };
+    }
+    if (!period2Start || !period2End) {
+      return { error: "period2Start and period2End are required" };
+    }
+
+    try {
+      const comparison = compareTrendPeriods({
+        target,
+        targetType: input?.targetType as "image" | "project" | "organization" | undefined,
+        period1Start,
+        period1End,
+        period2Start,
+        period2End,
+      });
+
+      return comparison;
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
     }
@@ -4931,6 +5063,142 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: ["name", "templateId", "frequency"],
+    },
+  },
+  // Trend Analysis Tools
+  {
+    name: "trend_get_vulnerability_history",
+    description:
+      "Get historical vulnerability data for a target (image, project, or organization). Returns time-series data with daily/weekly/monthly aggregation, moving averages, and trend summary.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier (image name, project key, or organization name)",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "project", "organization"],
+          description: "Type of target (default: auto-detected)",
+        },
+        startDate: {
+          type: "string",
+          description: "Start date for history (YYYY-MM-DD, default: 30 days ago)",
+        },
+        endDate: {
+          type: "string",
+          description: "End date for history (YYYY-MM-DD, default: today)",
+        },
+        granularity: {
+          type: "string",
+          enum: ["daily", "weekly", "monthly"],
+          description: "Aggregation level (default: daily)",
+        },
+        includeMovingAverages: {
+          type: "boolean",
+          description: "Include 7-day and 30-day moving averages (default: false)",
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
+    name: "trend_get_forecast",
+    description:
+      "Generate vulnerability count forecasts using historical data. Uses linear regression or moving averages to predict future vulnerability counts with confidence intervals.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier (image name, project key, or organization name)",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "project", "organization"],
+          description: "Type of target (default: auto-detected)",
+        },
+        horizonDays: {
+          type: "number",
+          description: "Number of days to forecast (default: 30, max: 90)",
+        },
+        modelType: {
+          type: "string",
+          enum: ["linear_regression", "moving_average"],
+          description: "Forecasting model type (default: linear_regression)",
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
+    name: "trend_detect_anomalies",
+    description:
+      "Detect anomalies in vulnerability trends using Z-score analysis. Identifies significant spikes or drops in vulnerability counts that deviate from normal patterns.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier (image name, project key, or organization name)",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "project", "organization"],
+          description: "Type of target (default: auto-detected)",
+        },
+        lookbackDays: {
+          type: "number",
+          description: "Days to analyze (default: 30)",
+        },
+        threshold: {
+          type: "number",
+          description: "Z-score threshold for anomaly detection (default: 2.0)",
+        },
+        metrics: {
+          type: "array",
+          items: { type: "string", enum: ["total", "critical", "high", "medium", "low"] },
+          description: 'Metrics to analyze (default: ["total", "critical"])',
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
+    name: "trend_compare_periods",
+    description:
+      "Compare vulnerability metrics between two time periods. Calculate percentage changes, net improvements/regressions, and identify which severity levels improved or worsened.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier (image name, project key, or organization name)",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "project", "organization"],
+          description: "Type of target (default: auto-detected)",
+        },
+        period1Start: {
+          type: "string",
+          description: "Start of first period (YYYY-MM-DD)",
+        },
+        period1End: {
+          type: "string",
+          description: "End of first period (YYYY-MM-DD)",
+        },
+        period2Start: {
+          type: "string",
+          description: "Start of second period (YYYY-MM-DD)",
+        },
+        period2End: {
+          type: "string",
+          description: "End of second period (YYYY-MM-DD)",
+        },
+      },
+      required: ["target", "period1Start", "period1End", "period2Start", "period2End"],
     },
   },
 ];

@@ -5126,3 +5126,413 @@ export interface ReportDbInitResult {
   /** Error message if failed */
   error?: string;
 }
+
+// =============================================================================
+// Trend Analysis Types
+// =============================================================================
+
+/**
+ * Time granularity for trend data
+ */
+export type TrendGranularity = "daily" | "weekly" | "monthly";
+
+/**
+ * Trend data point
+ */
+export interface TrendDataPoint {
+  /** Date of the data point (ISO string) */
+  date: string;
+  /** Total vulnerability count */
+  total: number;
+  /** Critical severity count */
+  critical: number;
+  /** High severity count */
+  high: number;
+  /** Medium severity count */
+  medium: number;
+  /** Low severity count */
+  low: number;
+  /** Unknown severity count */
+  unknown: number;
+  /** New vulnerabilities introduced */
+  newCount: number;
+  /** Fixed vulnerabilities */
+  fixedCount: number;
+  /** Net change (new - fixed) */
+  netChange: number;
+}
+
+/**
+ * Vulnerability history result
+ */
+export interface VulnerabilityHistory {
+  /** Target identifier (image or project) */
+  target: string;
+  /** Target type */
+  targetType: "image" | "project" | "organization";
+  /** Start date of the history */
+  startDate: string;
+  /** End date of the history */
+  endDate: string;
+  /** Granularity of the data */
+  granularity: TrendGranularity;
+  /** Data points */
+  dataPoints: TrendDataPoint[];
+  /** Summary statistics */
+  summary: {
+    /** Average total vulnerabilities */
+    avgTotal: number;
+    /** Peak total vulnerabilities */
+    peakTotal: number;
+    /** Minimum total vulnerabilities */
+    minTotal: number;
+    /** Total new vulnerabilities in period */
+    totalNew: number;
+    /** Total fixed vulnerabilities in period */
+    totalFixed: number;
+    /** Net change over period */
+    netChange: number;
+    /** Trend direction */
+    trend: "improving" | "stable" | "worsening";
+  };
+  /** Moving averages */
+  movingAverages?: {
+    /** 7-day moving average (for daily data) */
+    ma7?: number[];
+    /** 30-day moving average (for daily data) */
+    ma30?: number[];
+  };
+}
+
+/**
+ * Forecast prediction
+ */
+export interface TrendForecast {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType: "image" | "project" | "organization";
+  /** Date forecast was generated */
+  generatedAt: string;
+  /** Forecast horizon in days */
+  horizonDays: number;
+  /** Predicted data points */
+  predictions: TrendForecastPoint[];
+  /** Model information */
+  model: {
+    /** Type of model used */
+    type: "linear_regression" | "moving_average" | "exponential_smoothing";
+    /** R-squared value (goodness of fit) */
+    rSquared: number;
+    /** Slope of trend line (vulnerabilities per day) */
+    slope: number;
+    /** Y-intercept */
+    intercept: number;
+    /** Confidence level (0-1) */
+    confidence: number;
+  };
+  /** Key predictions */
+  insights: {
+    /** Estimated days to reach zero critical vulnerabilities */
+    daysToZeroCritical: number | null;
+    /** Estimated days to reach zero high vulnerabilities */
+    daysToZeroHigh: number | null;
+    /** Predicted total in 7 days */
+    totalIn7Days: number;
+    /** Predicted total in 30 days */
+    totalIn30Days: number;
+    /** Risk trend assessment */
+    riskTrend: "decreasing" | "stable" | "increasing";
+  };
+}
+
+/**
+ * Forecast data point
+ */
+export interface TrendForecastPoint {
+  /** Date of prediction */
+  date: string;
+  /** Predicted total vulnerabilities */
+  predictedTotal: number;
+  /** Lower bound (confidence interval) */
+  lowerBound: number;
+  /** Upper bound (confidence interval) */
+  upperBound: number;
+  /** Predicted critical count */
+  predictedCritical: number;
+  /** Predicted high count */
+  predictedHigh: number;
+}
+
+/**
+ * Anomaly detection result
+ */
+export interface TrendAnomaly {
+  /** Date of anomaly */
+  date: string;
+  /** Type of anomaly */
+  type: "spike" | "drop" | "unusual_pattern";
+  /** Severity of the anomaly */
+  severity: "low" | "medium" | "high";
+  /** Metric that triggered the anomaly */
+  metric: "total" | "critical" | "high" | "new" | "fixed";
+  /** Actual value */
+  actualValue: number;
+  /** Expected value (based on historical data) */
+  expectedValue: number;
+  /** Z-score (standard deviations from mean) */
+  zScore: number;
+  /** Percentage deviation from expected */
+  deviationPercent: number;
+  /** Human-readable description */
+  description: string;
+}
+
+/**
+ * Anomaly detection result set
+ */
+export interface AnomalyDetectionResult {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType: "image" | "project" | "organization";
+  /** Analysis period start */
+  startDate: string;
+  /** Analysis period end */
+  endDate: string;
+  /** Detected anomalies */
+  anomalies: TrendAnomaly[];
+  /** Detection parameters */
+  parameters: {
+    /** Z-score threshold used */
+    zScoreThreshold: number;
+    /** Minimum deviation percentage to flag */
+    minDeviationPercent: number;
+  };
+  /** Summary */
+  summary: {
+    /** Total anomalies detected */
+    totalAnomalies: number;
+    /** High severity anomalies */
+    highSeverity: number;
+    /** Spikes detected */
+    spikes: number;
+    /** Drops detected */
+    drops: number;
+  };
+}
+
+/**
+ * Period comparison result
+ */
+export interface PeriodComparison {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType: "image" | "project" | "organization";
+  /** First period */
+  period1: {
+    /** Start date */
+    startDate: string;
+    /** End date */
+    endDate: string;
+    /** Label for the period */
+    label: string;
+  };
+  /** Second period */
+  period2: {
+    /** Start date */
+    startDate: string;
+    /** End date */
+    endDate: string;
+    /** Label for the period */
+    label: string;
+  };
+  /** Comparison metrics */
+  comparison: {
+    /** Total vulnerabilities comparison */
+    total: MetricComparison;
+    /** Critical vulnerabilities comparison */
+    critical: MetricComparison;
+    /** High vulnerabilities comparison */
+    high: MetricComparison;
+    /** Medium vulnerabilities comparison */
+    medium: MetricComparison;
+    /** Low vulnerabilities comparison */
+    low: MetricComparison;
+    /** New vulnerabilities rate comparison */
+    newRate: MetricComparison;
+    /** Fix rate comparison */
+    fixRate: MetricComparison;
+  };
+  /** Overall assessment */
+  assessment: {
+    /** Overall change direction */
+    direction: "improved" | "unchanged" | "worsened";
+    /** Confidence in assessment */
+    confidence: "low" | "medium" | "high";
+    /** Key observations */
+    observations: string[];
+  };
+}
+
+/**
+ * Metric comparison between periods
+ */
+export interface MetricComparison {
+  /** Value in period 1 */
+  period1Value: number;
+  /** Value in period 2 */
+  period2Value: number;
+  /** Absolute change */
+  absoluteChange: number;
+  /** Percentage change */
+  percentChange: number;
+  /** Direction of change */
+  direction: "increased" | "unchanged" | "decreased";
+}
+
+/**
+ * Trend snapshot stored in database
+ */
+export interface TrendSnapshot {
+  /** Unique identifier */
+  id: string;
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType: "image" | "project" | "organization";
+  /** Snapshot date */
+  date: string;
+  /** Total vulnerabilities */
+  total: number;
+  /** Critical count */
+  critical: number;
+  /** High count */
+  high: number;
+  /** Medium count */
+  medium: number;
+  /** Low count */
+  low: number;
+  /** Unknown count */
+  unknown: number;
+  /** New vulnerabilities since last snapshot */
+  newCount: number;
+  /** Fixed vulnerabilities since last snapshot */
+  fixedCount: number;
+  /** Created timestamp */
+  createdAt: string;
+}
+
+/**
+ * Options for getting vulnerability history
+ */
+export interface GetHistoryOptions {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType?: "image" | "project" | "organization";
+  /** Start date (ISO string or relative like "30d", "90d") */
+  startDate?: string;
+  /** End date (ISO string) */
+  endDate?: string;
+  /** Granularity of data points */
+  granularity?: TrendGranularity;
+  /** Include moving averages */
+  includeMovingAverages?: boolean;
+}
+
+/**
+ * Options for getting forecast
+ */
+export interface GetForecastOptions {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType?: "image" | "project" | "organization";
+  /** Number of days to forecast */
+  horizonDays?: number;
+  /** Confidence level (0-1) */
+  confidenceLevel?: number;
+  /** Historical data range to use for model */
+  historicalDays?: number;
+}
+
+/**
+ * Options for detecting anomalies
+ */
+export interface DetectAnomaliesOptions {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType?: "image" | "project" | "organization";
+  /** Start date */
+  startDate?: string;
+  /** End date */
+  endDate?: string;
+  /** Z-score threshold for anomaly detection (default: 2.0) */
+  zScoreThreshold?: number;
+  /** Minimum deviation percentage to flag (default: 20) */
+  minDeviationPercent?: number;
+}
+
+/**
+ * Options for comparing periods
+ */
+export interface ComparePeriodOptions {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType?: "image" | "project" | "organization";
+  /** Period 1 start date */
+  period1Start: string;
+  /** Period 1 end date */
+  period1End: string;
+  /** Period 1 label */
+  period1Label?: string;
+  /** Period 2 start date */
+  period2Start: string;
+  /** Period 2 end date */
+  period2End: string;
+  /** Period 2 label */
+  period2Label?: string;
+}
+
+/**
+ * Options for recording a trend snapshot
+ */
+export interface RecordSnapshotOptions {
+  /** Target identifier */
+  target: string;
+  /** Target type */
+  targetType?: "image" | "project" | "organization";
+  /** Snapshot date (defaults to now) */
+  date?: string;
+  /** Vulnerability counts */
+  counts: {
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    unknown?: number;
+  };
+  /** New vulnerabilities since last snapshot */
+  newCount?: number;
+  /** Fixed vulnerabilities since last snapshot */
+  fixedCount?: number;
+}
+
+/**
+ * Trend analysis database initialization result
+ */
+export interface TrendDbInitResult {
+  /** Whether initialization was successful */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Timestamp */
+  created: string;
+  /** Error message if failed */
+  error?: string;
+}

@@ -1106,3 +1106,45 @@ export type {
   CreateScheduleOptions,
   ReportDbInitResult,
 } from "./types.js";
+
+// Trend Analysis
+export {
+  // Database lifecycle
+  initTrendDatabase,
+  closeTrendDatabase,
+  isTrendDbInitialized,
+  // Snapshot management
+  recordTrendSnapshot,
+  // History retrieval
+  getVulnerabilityHistory,
+  // Forecasting
+  getTrendForecast,
+  // Anomaly detection
+  detectTrendAnomalies,
+  // Period comparison
+  compareTrendPeriods,
+  // Utilities
+  listTrendTargets,
+  cleanupTrendSnapshots,
+  getTrendSnapshotCount,
+} from "./trend-analysis.js";
+
+// Trend Analysis Types re-export
+export type {
+  TrendGranularity,
+  TrendDataPoint,
+  VulnerabilityHistory,
+  TrendForecast,
+  TrendForecastPoint,
+  TrendAnomaly,
+  AnomalyDetectionResult,
+  PeriodComparison,
+  MetricComparison,
+  TrendSnapshot,
+  GetHistoryOptions,
+  GetForecastOptions,
+  DetectAnomaliesOptions,
+  ComparePeriodOptions,
+  RecordSnapshotOptions,
+  TrendDbInitResult,
+} from "./types.js";
