@@ -5111,6 +5111,256 @@ export const toolDefinitions = [
       required: [],
     },
   },
+  // =========================================================================
+  // Notification Channel Tools (v1.27.0)
+  // =========================================================================
+  {
+    name: "notification_create_channel",
+    description:
+      "Create a notification channel (Slack, Teams, Email, PagerDuty, Webhook, OpsGenie).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Channel name" },
+        type: {
+          type: "string",
+          enum: ["slack", "teams", "email", "pagerduty", "webhook", "opsgenie"],
+          description: "Channel type",
+        },
+        config: {
+          type: "object",
+          description: "Channel configuration (webhookUrl, emails, routingKey, etc.)",
+        },
+        createdBy: { type: "string", description: "User creating channel" },
+      },
+      required: ["name", "type", "config"],
+    },
+  },
+  {
+    name: "notification_list_channels",
+    description: "List configured notification channels.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["slack", "teams", "email", "pagerduty", "webhook", "opsgenie"],
+          description: "Filter by channel type",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "inactive", "error"],
+          description: "Filter by status",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "notification_test_channel",
+    description: "Test a notification channel by sending a test message.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channelId: { type: "string", description: "Channel ID to test" },
+        actor: { type: "string", description: "User testing channel" },
+      },
+      required: ["channelId"],
+    },
+  },
+  {
+    name: "notification_send",
+    description: "Send a notification through a configured channel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channelId: { type: "string", description: "Channel ID to send to" },
+        title: { type: "string", description: "Notification title" },
+        message: { type: "string", description: "Notification message" },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low", "info"],
+          description: "Notification severity",
+        },
+        details: { type: "object", description: "Additional details/metadata" },
+      },
+      required: ["channelId", "message"],
+    },
+  },
+  // =========================================================================
+  // Alert Rule Tools (v1.27.0)
+  // =========================================================================
+  {
+    name: "alert_create_rule",
+    description: "Create an alert rule with conditions and thresholds.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Rule name" },
+        description: { type: "string", description: "Rule description" },
+        conditions: {
+          type: "array",
+          description:
+            "Array of conditions: {metric, operator, threshold} where metric is vulnerability_count|critical_count|high_count|sla_breach|scan_failure",
+          items: {
+            type: "object",
+            properties: {
+              metric: { type: "string" },
+              operator: { type: "string", enum: ["gt", "gte", "lt", "lte", "eq", "neq"] },
+              threshold: { type: "number" },
+            },
+          },
+        },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low", "info"],
+          description: "Alert severity",
+        },
+        channelIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Notification channel IDs",
+        },
+        cooldownMinutes: { type: "number", description: "Cooldown between alerts" },
+        createdBy: { type: "string", description: "User creating rule" },
+      },
+      required: ["name", "conditions", "severity"],
+    },
+  },
+  {
+    name: "alert_list_rules",
+    description: "List configured alert rules.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["active", "inactive", "muted"],
+          description: "Filter by status",
+        },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low", "info"],
+          description: "Filter by severity",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "alert_evaluate_rule",
+    description: "Evaluate an alert rule against current metrics.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ruleId: { type: "string", description: "Rule ID to evaluate" },
+        context: {
+          type: "object",
+          description: "Evaluation context with metric values",
+          properties: {
+            vulnerability_count: { type: "number" },
+            critical_count: { type: "number" },
+            high_count: { type: "number" },
+            sla_breach: { type: "boolean" },
+            scan_failure: { type: "boolean" },
+          },
+        },
+      },
+      required: ["ruleId", "context"],
+    },
+  },
+  {
+    name: "alert_trigger",
+    description: "Manually trigger an alert for a rule.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ruleId: { type: "string", description: "Rule ID to trigger" },
+        title: { type: "string", description: "Alert title" },
+        message: { type: "string", description: "Alert message" },
+        metadata: { type: "object", description: "Additional metadata" },
+      },
+      required: ["ruleId", "title", "message"],
+    },
+  },
+  // =========================================================================
+  // Escalation Policy Tools (v1.27.0)
+  // =========================================================================
+  {
+    name: "escalation_create_policy",
+    description: "Create an escalation policy with multiple tiers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Policy name" },
+        description: { type: "string", description: "Policy description" },
+        tiers: {
+          type: "array",
+          description: "Escalation tiers with level, delayMinutes, channelIds, notifyAll",
+          items: {
+            type: "object",
+            properties: {
+              level: { type: "number", description: "Tier level (1, 2, 3...)" },
+              delayMinutes: { type: "number", description: "Minutes before escalating" },
+              channelIds: {
+                type: "array",
+                items: { type: "string" },
+                description: "Notification channels for this tier",
+              },
+              notifyAll: { type: "boolean", description: "Notify all channels at once" },
+            },
+          },
+        },
+        repeatAfterMinutes: {
+          type: "number",
+          description: "Repeat from tier 1 after all tiers exhausted",
+        },
+        maxRepeats: { type: "number", description: "Maximum repeat cycles" },
+        createdBy: { type: "string", description: "User creating policy" },
+      },
+      required: ["name", "tiers"],
+    },
+  },
+  {
+    name: "escalation_list_policies",
+    description: "List configured escalation policies.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["active", "inactive"],
+          description: "Filter by status",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "escalation_start",
+    description: "Start an escalation for an alert.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyId: { type: "string", description: "Escalation policy ID" },
+        alertId: { type: "string", description: "Alert ID to escalate" },
+        metadata: { type: "object", description: "Additional metadata" },
+      },
+      required: ["policyId", "alertId"],
+    },
+  },
+  {
+    name: "escalation_resolve",
+    description: "Resolve an active escalation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        instanceId: { type: "string", description: "Escalation instance ID" },
+        resolvedBy: { type: "string", description: "User resolving escalation" },
+      },
+      required: ["instanceId"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -8888,6 +9138,189 @@ const auditPrepHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Notification Channel Handlers (v1.27.0)
+// =============================================================================
+const notificationHandlers: Record<string, ToolHandler> = {
+  notification_create_channel: async (args) => {
+    try {
+      const { createNotificationChannel, initNotificationDatabase } = await import("./handlers.js");
+      initNotificationDatabase();
+      return createNotificationChannel({
+        name: args?.name as string,
+        type: args?.type as "slack" | "teams" | "email" | "pagerduty" | "webhook" | "opsgenie",
+        config: args?.config as unknown as import("@cicd/shared").ChannelConfig,
+        createdBy: args?.createdBy as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  notification_list_channels: async (args) => {
+    try {
+      const { listNotificationChannels, initNotificationDatabase } = await import("./handlers.js");
+      initNotificationDatabase();
+      return listNotificationChannels({
+        type: args?.type as "slack" | "teams" | "email" | "pagerduty" | "webhook" | "opsgenie",
+        status: args?.status as "active" | "inactive" | "error",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  notification_test_channel: async (args) => {
+    try {
+      const { testNotificationChannel, initNotificationDatabase } = await import("./handlers.js");
+      initNotificationDatabase();
+      return testNotificationChannel(args?.channelId as string, args?.actor as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  notification_send: async (args) => {
+    try {
+      const { sendNotification, initNotificationDatabase } = await import("./handlers.js");
+      initNotificationDatabase();
+      return sendNotification(args?.channelId as string, {
+        title: args?.title as string,
+        message: args?.message as string,
+        severity: args?.severity as "critical" | "high" | "medium" | "low" | "info",
+        details: args?.details as Record<string, unknown>,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Alert Rule Handlers (v1.27.0)
+// =============================================================================
+const alertRulesHandlers: Record<string, ToolHandler> = {
+  alert_create_rule: async (args) => {
+    try {
+      const { createAlertRule, initAlertRulesDatabase } = await import("./handlers.js");
+      initAlertRulesDatabase();
+      return createAlertRule({
+        name: args?.name as string,
+        description: args?.description as string,
+        conditions: args?.conditions as import("@cicd/shared").AlertCondition[],
+        severity: args?.severity as "critical" | "high" | "medium" | "low" | "info",
+        channelIds: args?.channelIds as string[],
+        cooldownMinutes: args?.cooldownMinutes as number,
+        createdBy: args?.createdBy as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  alert_list_rules: async (args) => {
+    try {
+      const { listAlertRules, initAlertRulesDatabase } = await import("./handlers.js");
+      initAlertRulesDatabase();
+      return listAlertRules({
+        status: args?.status as "active" | "inactive" | "muted",
+        severity: args?.severity as "critical" | "high" | "medium" | "low" | "info",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  alert_evaluate_rule: async (args) => {
+    try {
+      const { evaluateAlertRule, initAlertRulesDatabase } = await import("./handlers.js");
+      initAlertRulesDatabase();
+      return evaluateAlertRule(
+        args?.ruleId as string,
+        args?.context as Record<string, number | boolean>
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  alert_trigger: async (args) => {
+    try {
+      const { triggerAlert, initAlertRulesDatabase } = await import("./handlers.js");
+      initAlertRulesDatabase();
+      return triggerAlert(
+        args?.ruleId as string,
+        args?.title as string,
+        args?.message as string,
+        args?.metadata as Record<string, unknown>
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Escalation Policy Handlers (v1.27.0)
+// =============================================================================
+const escalationHandlers: Record<string, ToolHandler> = {
+  escalation_create_policy: async (args) => {
+    try {
+      const { createEscalationPolicy, initEscalationDatabase } = await import("./handlers.js");
+      initEscalationDatabase();
+      return createEscalationPolicy({
+        name: args?.name as string,
+        description: args?.description as string,
+        tiers: args?.tiers as Array<{
+          level: number;
+          delayMinutes: number;
+          channelIds: string[];
+          notifyAll: boolean;
+        }>,
+        repeatAfterMinutes: args?.repeatAfterMinutes as number,
+        maxRepeats: args?.maxRepeats as number,
+        createdBy: args?.createdBy as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  escalation_list_policies: async (args) => {
+    try {
+      const { listEscalationPolicies, initEscalationDatabase } = await import("./handlers.js");
+      initEscalationDatabase();
+      return listEscalationPolicies(args?.status as "active" | "inactive");
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  escalation_start: async (args) => {
+    try {
+      const { startEscalation, initEscalationDatabase } = await import("./handlers.js");
+      initEscalationDatabase();
+      return startEscalation({
+        policyId: args?.policyId as string,
+        alertId: args?.alertId as string,
+        metadata: args?.metadata as Record<string, unknown>,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  escalation_resolve: async (args) => {
+    try {
+      const { resolveEscalation, initEscalationDatabase } = await import("./handlers.js");
+      initEscalationDatabase();
+      return resolveEscalation(args?.instanceId as string, args?.resolvedBy as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -8924,6 +9357,9 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...governanceHandlers,
   ...evidenceHandlers,
   ...auditPrepHandlers,
+  ...notificationHandlers,
+  ...alertRulesHandlers,
+  ...escalationHandlers,
 };
 
 export async function handleCallTool(
