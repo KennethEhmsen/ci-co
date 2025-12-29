@@ -1192,3 +1192,39 @@ export type {
   SetAssetCriticalityOptions,
   RiskConfig,
 } from "./types.js";
+
+// Report Export (PDF, Excel, CSV)
+export {
+  // Core export functions
+  exportToPdf,
+  exportToExcel,
+  exportToCsv,
+  // Convenience functions
+  exportReportToPdf,
+  exportReportToExcel,
+  exportVulnerabilitiesToCsv,
+  // Worksheet helpers
+  createVulnerabilityWorksheet,
+  createSummaryWorksheet,
+  createComplianceWorksheet,
+  // Dependency check
+  checkExportDependencies,
+} from "./export.js";
+
+// Report Export Types re-export
+export type {
+  PdfPageSize,
+  PdfOrientation,
+  ExportFormat,
+  PdfHeaderFooter,
+  PdfBranding,
+  PdfExportOptions,
+  ExcelWorksheet,
+  ExcelColumn,
+  ExcelExportOptions,
+  CsvExportOptions,
+  ExportResult,
+  ReportData,
+  PdfExportResult,
+  ExcelExportResult,
+} from "./types.js";

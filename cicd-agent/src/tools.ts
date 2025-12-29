@@ -205,6 +205,10 @@ import {
   calculateRiskScore,
   storeRiskScore,
   getPrioritizedList,
+  // Report Export (PDF, Excel, CSV)
+  exportReportToPdf,
+  exportReportToExcel,
+  exportVulnerabilitiesToCsv,
   // Types
   type ComplianceFramework,
   type RiskAssetCriticality,
@@ -216,6 +220,7 @@ import {
   type SuppressionType,
   type SsoSession,
   type TrendGranularity,
+  type ReportData,
 } from "@cicd/shared";
 
 // Re-export validation functions and config for tests
@@ -2507,6 +2512,81 @@ const toolHandlers: Record<string, ToolHandler> = {
         limit: input?.limit as number | undefined,
         includeTiers: input?.includeTiers as RiskTier[] | undefined,
         groupByAsset: input?.groupByAsset as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  // Report Export (PDF, Excel, CSV)
+  export_to_pdf: async (input) => {
+    const data = input?.data as ReportData;
+    const outputPath = input?.outputPath as string;
+
+    if (!data) {
+      return { error: "data is required" };
+    }
+    if (!outputPath) {
+      return { error: "outputPath is required" };
+    }
+
+    try {
+      const result = await exportReportToPdf(data, outputPath, {
+        pageSize: input?.pageSize as "A4" | "Letter" | "Legal" | "A3" | "Tabloid",
+        orientation: input?.orientation as "portrait" | "landscape",
+        includeTableOfContents: input?.includeTableOfContents as boolean | undefined,
+        branding: input?.branding as
+          | { logo?: string; companyName?: string; primaryColor?: string }
+          | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  export_to_excel: async (input) => {
+    const data = input?.data as ReportData;
+    const outputPath = input?.outputPath as string;
+
+    if (!data) {
+      return { error: "data is required" };
+    }
+    if (!outputPath) {
+      return { error: "outputPath is required" };
+    }
+
+    try {
+      const result = await exportReportToExcel(data, outputPath, {
+        author: input?.author as string | undefined,
+        company: input?.company as string | undefined,
+        includeCharts: input?.includeCharts as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  export_to_csv: async (input) => {
+    const data = input?.data as ReportData;
+    const outputPath = input?.outputPath as string;
+
+    if (!data) {
+      return { error: "data is required" };
+    }
+    if (!outputPath) {
+      return { error: "outputPath is required" };
+    }
+
+    try {
+      const result = await exportVulnerabilitiesToCsv(data, outputPath, {
+        delimiter: input?.delimiter as "," | ";" | "\t" | "|" | undefined,
+        includeBom: input?.includeBom as boolean | undefined,
       });
 
       return result;
@@ -5498,6 +5578,104 @@ export const tools: Anthropic.Tool[] = [
         },
       },
       required: [],
+    },
+  },
+  // Report Export (PDF, Excel, CSV) Tools
+  {
+    name: "export_to_pdf",
+    description:
+      "Export security report data to a professional PDF document. Supports branding, table of contents, headers/footers, and page customization.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        data: {
+          type: "object",
+          description:
+            "Report data containing title, summary, vulnerabilities, compliance, and trends",
+        },
+        outputPath: {
+          type: "string",
+          description: "Output file path for the PDF",
+        },
+        pageSize: {
+          type: "string",
+          enum: ["A4", "Letter", "Legal", "A3", "Tabloid"],
+          description: "Page size (default: A4)",
+        },
+        orientation: {
+          type: "string",
+          enum: ["portrait", "landscape"],
+          description: "Page orientation (default: portrait)",
+        },
+        includeTableOfContents: {
+          type: "boolean",
+          description: "Include table of contents (default: true)",
+        },
+        branding: {
+          type: "object",
+          description: "Branding configuration (logo, companyName, primaryColor)",
+        },
+      },
+      required: ["data", "outputPath"],
+    },
+  },
+  {
+    name: "export_to_excel",
+    description:
+      "Export security report data to an Excel spreadsheet with multiple worksheets. Includes summary, vulnerability details, and compliance status.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        data: {
+          type: "object",
+          description: "Report data (same structure as export_to_pdf)",
+        },
+        outputPath: {
+          type: "string",
+          description: "Output file path for the Excel file (.xlsx)",
+        },
+        author: {
+          type: "string",
+          description: "Document author",
+        },
+        company: {
+          type: "string",
+          description: "Company name for document properties",
+        },
+        includeCharts: {
+          type: "boolean",
+          description: "Include trend charts if trend data available (default: true)",
+        },
+      },
+      required: ["data", "outputPath"],
+    },
+  },
+  {
+    name: "export_to_csv",
+    description:
+      "Export vulnerability data to CSV format for import into other tools. Supports custom delimiters and UTF-8 BOM for Excel compatibility.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        data: {
+          type: "object",
+          description: "Report data with vulnerabilities array",
+        },
+        outputPath: {
+          type: "string",
+          description: "Output file path for the CSV file",
+        },
+        delimiter: {
+          type: "string",
+          enum: [",", ";", "\t", "|"],
+          description: "Field delimiter (default: comma)",
+        },
+        includeBom: {
+          type: "boolean",
+          description: "Include UTF-8 BOM for Excel compatibility (default: true)",
+        },
+      },
+      required: ["data", "outputPath"],
     },
   },
 ];

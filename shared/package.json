@@ -22,10 +22,12 @@
   "dependencies": {
     "@node-saml/node-saml": "^5.0.1",
     "better-sqlite3": "^12.5.0",
+    "exceljs": "^4.4.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.1.0",
     "minimatch": "^10.1.1",
     "openid-client": "^5.7.1",
+    "puppeteer": "^24.34.0",
     "yaml": "^2.7.0"
   },
   "optionalDependencies": {

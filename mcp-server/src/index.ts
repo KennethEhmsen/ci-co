@@ -240,6 +240,11 @@ import {
   type RiskAssetCriticality,
   type RiskExposureLevel,
   type RiskTier,
+  // Report Export (PDF, Excel, CSV)
+  exportReportToPdf,
+  exportReportToExcel,
+  exportVulnerabilitiesToCsv,
+  type ReportData,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -4113,6 +4118,162 @@ export const toolDefinitions = [
       required: [],
     },
   },
+  // Report Export (PDF, Excel, CSV) Tools
+  {
+    name: "export_to_pdf",
+    description:
+      "Export security report data to a professional PDF document. " +
+      "Supports branding, table of contents, headers/footers, and page customization. " +
+      "Ideal for executive summaries and compliance documentation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        data: {
+          type: "object",
+          description:
+            "Report data containing title, summary, vulnerabilities, compliance, and trends",
+          properties: {
+            title: { type: "string", description: "Report title" },
+            generatedAt: { type: "string", description: "Generation timestamp" },
+            target: { type: "string", description: "Target being reported on" },
+            summary: {
+              type: "object",
+              description: "Summary statistics",
+              properties: {
+                totalVulnerabilities: { type: "number" },
+                criticalCount: { type: "number" },
+                highCount: { type: "number" },
+                mediumCount: { type: "number" },
+                lowCount: { type: "number" },
+                healthScore: { type: "number" },
+              },
+            },
+            vulnerabilities: {
+              type: "array",
+              description: "List of vulnerabilities",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  severity: { type: "string" },
+                  package: { type: "string" },
+                  version: { type: "string" },
+                  fixedVersion: { type: "string" },
+                  cvss: { type: "number" },
+                },
+              },
+            },
+          },
+          required: ["title", "generatedAt"],
+        },
+        outputPath: {
+          type: "string",
+          description: "Output file path for the PDF",
+        },
+        pageSize: {
+          type: "string",
+          enum: ["A4", "Letter", "Legal", "A3", "Tabloid"],
+          description: "Page size (default: A4)",
+        },
+        orientation: {
+          type: "string",
+          enum: ["portrait", "landscape"],
+          description: "Page orientation (default: portrait)",
+        },
+        includeTableOfContents: {
+          type: "boolean",
+          description: "Include table of contents (default: true)",
+        },
+        branding: {
+          type: "object",
+          description: "Branding configuration",
+          properties: {
+            logo: { type: "string", description: "Logo URL or base64 data URI" },
+            companyName: { type: "string", description: "Company name for header" },
+            primaryColor: { type: "string", description: "Primary color (hex)" },
+          },
+        },
+      },
+      required: ["data", "outputPath"],
+    },
+  },
+  {
+    name: "export_to_excel",
+    description:
+      "Export security report data to an Excel spreadsheet with multiple worksheets. " +
+      "Includes summary, vulnerability details, and compliance status. " +
+      "Supports filtering, conditional formatting by severity, and charts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        data: {
+          type: "object",
+          description: "Report data (same structure as export_to_pdf)",
+          properties: {
+            title: { type: "string" },
+            generatedAt: { type: "string" },
+            summary: { type: "object" },
+            vulnerabilities: { type: "array" },
+            compliance: { type: "array" },
+            trends: { type: "array" },
+          },
+          required: ["title", "generatedAt"],
+        },
+        outputPath: {
+          type: "string",
+          description: "Output file path for the Excel file (.xlsx)",
+        },
+        author: {
+          type: "string",
+          description: "Document author",
+        },
+        company: {
+          type: "string",
+          description: "Company name for document properties",
+        },
+        includeCharts: {
+          type: "boolean",
+          description: "Include trend charts if trend data available (default: true)",
+        },
+      },
+      required: ["data", "outputPath"],
+    },
+  },
+  {
+    name: "export_to_csv",
+    description:
+      "Export vulnerability data to CSV format for import into other tools. " +
+      "Supports custom delimiters, UTF-8 BOM for Excel compatibility, and configurable columns.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        data: {
+          type: "object",
+          description: "Report data with vulnerabilities array",
+          properties: {
+            vulnerabilities: {
+              type: "array",
+              items: { type: "object" },
+            },
+          },
+        },
+        outputPath: {
+          type: "string",
+          description: "Output file path for the CSV file",
+        },
+        delimiter: {
+          type: "string",
+          enum: [",", ";", "\t", "|"],
+          description: "Field delimiter (default: comma)",
+        },
+        includeBom: {
+          type: "boolean",
+          description: "Include UTF-8 BOM for Excel compatibility (default: true)",
+        },
+      },
+      required: ["data", "outputPath"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -7109,6 +7270,83 @@ const riskHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Report Export (PDF, Excel, CSV) handlers
+const exportHandlers: Record<string, ToolHandler> = {
+  export_to_pdf: async (args) => {
+    const data = args?.data as ReportData;
+    const outputPath = args?.outputPath as string;
+
+    if (!data) {
+      return { error: "data is required" };
+    }
+    if (!outputPath) {
+      return { error: "outputPath is required" };
+    }
+
+    try {
+      const result = await exportReportToPdf(data, outputPath, {
+        pageSize: args?.pageSize as "A4" | "Letter" | "Legal" | "A3" | "Tabloid",
+        orientation: args?.orientation as "portrait" | "landscape",
+        includeTableOfContents: args?.includeTableOfContents as boolean | undefined,
+        branding: args?.branding as
+          | { logo?: string; companyName?: string; primaryColor?: string }
+          | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  export_to_excel: async (args) => {
+    const data = args?.data as ReportData;
+    const outputPath = args?.outputPath as string;
+
+    if (!data) {
+      return { error: "data is required" };
+    }
+    if (!outputPath) {
+      return { error: "outputPath is required" };
+    }
+
+    try {
+      const result = await exportReportToExcel(data, outputPath, {
+        author: args?.author as string | undefined,
+        company: args?.company as string | undefined,
+        includeCharts: args?.includeCharts as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  export_to_csv: async (args) => {
+    const data = args?.data as ReportData;
+    const outputPath = args?.outputPath as string;
+
+    if (!data) {
+      return { error: "data is required" };
+    }
+    if (!outputPath) {
+      return { error: "outputPath is required" };
+    }
+
+    try {
+      const result = await exportVulnerabilitiesToCsv(data, outputPath, {
+        delimiter: args?.delimiter as "," | ";" | "\t" | "|" | undefined,
+        includeBom: args?.includeBom as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -7138,6 +7376,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...reportHandlers,
   ...trendHandlers,
   ...riskHandlers,
+  ...exportHandlers,
 };
 
 export async function handleCallTool(

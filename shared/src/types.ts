@@ -5810,3 +5810,257 @@ export interface RiskConfig {
   /** Custom weights for scoring */
   weights: RiskWeights;
 }
+
+// =============================================================================
+// Report Export Types (PDF, Excel, CSV)
+// =============================================================================
+
+/**
+ * PDF page size options
+ */
+export type PdfPageSize = "A4" | "Letter" | "Legal" | "A3" | "Tabloid";
+
+/**
+ * PDF page orientation
+ */
+export type PdfOrientation = "portrait" | "landscape";
+
+/**
+ * Export format options
+ */
+export type ExportFormat = "pdf" | "excel" | "csv" | "json";
+
+/**
+ * PDF header/footer configuration
+ */
+export interface PdfHeaderFooter {
+  /** Left content (can include {page}, {pages}, {date}, {title}) */
+  left?: string;
+  /** Center content */
+  center?: string;
+  /** Right content */
+  right?: string;
+  /** Font size in points */
+  fontSize?: number;
+}
+
+/**
+ * PDF branding configuration
+ */
+export interface PdfBranding {
+  /** Company logo URL or base64 data URI */
+  logo?: string;
+  /** Primary color (hex) */
+  primaryColor?: string;
+  /** Secondary color (hex) */
+  secondaryColor?: string;
+  /** Company name for header */
+  companyName?: string;
+}
+
+/**
+ * PDF export options
+ */
+export interface PdfExportOptions {
+  /** Output file path */
+  outputPath: string;
+  /** Page size */
+  pageSize?: PdfPageSize;
+  /** Page orientation */
+  orientation?: PdfOrientation;
+  /** Page margins in CSS format (e.g., "1in" or "25mm") */
+  margins?: {
+    top?: string;
+    right?: string;
+    bottom?: string;
+    left?: string;
+  };
+  /** Header configuration */
+  header?: PdfHeaderFooter;
+  /** Footer configuration */
+  footer?: PdfHeaderFooter;
+  /** Branding configuration */
+  branding?: PdfBranding;
+  /** Document title */
+  title?: string;
+  /** Document author */
+  author?: string;
+  /** Include table of contents */
+  includeTableOfContents?: boolean;
+  /** Include page numbers */
+  includePageNumbers?: boolean;
+  /** Include generation timestamp */
+  includeTimestamp?: boolean;
+  /** Print background colors/images */
+  printBackground?: boolean;
+}
+
+/**
+ * Excel worksheet configuration
+ */
+export interface ExcelWorksheet {
+  /** Sheet name */
+  name: string;
+  /** Data rows (array of objects or 2D array) */
+  data: Record<string, unknown>[] | unknown[][];
+  /** Column configuration */
+  columns?: ExcelColumn[];
+  /** Include filters */
+  includeFilters?: boolean;
+  /** Freeze first row (header) */
+  freezeHeader?: boolean;
+  /** Auto-width columns */
+  autoWidth?: boolean;
+}
+
+/**
+ * Excel column configuration
+ */
+export interface ExcelColumn {
+  /** Header text */
+  header: string;
+  /** Data key (for object data) */
+  key?: string;
+  /** Column width */
+  width?: number;
+  /** Number format (e.g., "0.00", "#,##0", "yyyy-mm-dd") */
+  numFmt?: string;
+  /** Horizontal alignment */
+  alignment?: "left" | "center" | "right";
+  /** Apply conditional formatting based on severity */
+  conditionalSeverity?: boolean;
+}
+
+/**
+ * Excel export options
+ */
+export interface ExcelExportOptions {
+  /** Output file path */
+  outputPath: string;
+  /** Worksheets to include */
+  worksheets: ExcelWorksheet[];
+  /** Document title */
+  title?: string;
+  /** Document author */
+  author?: string;
+  /** Company name */
+  company?: string;
+  /** Include charts */
+  includeCharts?: boolean;
+  /** Password protect the file */
+  password?: string;
+}
+
+/**
+ * CSV export options
+ */
+export interface CsvExportOptions {
+  /** Output file path */
+  outputPath: string;
+  /** Data rows */
+  data: Record<string, unknown>[];
+  /** Column order (defaults to object keys) */
+  columns?: string[];
+  /** Column headers (defaults to column names) */
+  headers?: Record<string, string>;
+  /** Field delimiter (default: comma) */
+  delimiter?: "," | ";" | "\t" | "|";
+  /** Include UTF-8 BOM for Excel compatibility */
+  includeBom?: boolean;
+  /** Quote all fields */
+  quoteAll?: boolean;
+  /** Line ending (default: \n) */
+  lineEnding?: "\n" | "\r\n";
+}
+
+/**
+ * Export result
+ */
+export interface ExportResult {
+  /** Whether export was successful */
+  success: boolean;
+  /** Output file path */
+  path: string;
+  /** File size in bytes */
+  size: number;
+  /** Export format */
+  format: ExportFormat;
+  /** Generation time in milliseconds */
+  duration: number;
+  /** Row count */
+  rowCount: number;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Report data for export
+ */
+export interface ReportData {
+  /** Report title */
+  title: string;
+  /** Generation timestamp */
+  generatedAt: string;
+  /** Target (image, project, etc.) */
+  target?: string;
+  /** Summary section */
+  summary?: {
+    totalVulnerabilities: number;
+    criticalCount: number;
+    highCount: number;
+    mediumCount: number;
+    lowCount: number;
+    unknownCount?: number;
+    healthScore?: number;
+    complianceStatus?: string;
+  };
+  /** Vulnerability details */
+  vulnerabilities?: Array<{
+    id: string;
+    severity: string;
+    package?: string;
+    version?: string;
+    fixedVersion?: string;
+    title?: string;
+    description?: string;
+    cvss?: number;
+    riskScore?: number;
+  }>;
+  /** Compliance findings */
+  compliance?: Array<{
+    framework: string;
+    control: string;
+    status: string;
+    findings: number;
+  }>;
+  /** Trend data for charts */
+  trends?: Array<{
+    date: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }>;
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * PDF generation result with additional details
+ */
+export interface PdfExportResult extends ExportResult {
+  /** Number of pages */
+  pageCount: number;
+  /** Whether TOC was included */
+  hasToc: boolean;
+}
+
+/**
+ * Excel generation result with additional details
+ */
+export interface ExcelExportResult extends ExportResult {
+  /** Number of worksheets */
+  worksheetCount: number;
+  /** Whether charts were included */
+  hasCharts: boolean;
+}
