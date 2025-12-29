@@ -1274,3 +1274,71 @@ export {
   cacheComparison,
   clearExpiredCache,
 } from "./comparison.js";
+
+// PR Generator exports
+export {
+  generateBranchName,
+  generateCommitMessage,
+  generatePrTitle,
+  generatePrBody,
+  createPullRequest,
+  createBatchPullRequests,
+  getPrStatus,
+  type PrCreateOptions,
+  type PrCreateResult,
+  type BatchPrResult,
+  type PrStatus,
+} from "./pr-generator.js";
+
+// IDE Integration exports
+export {
+  DiagnosticSeverity,
+  generateDiagnostics,
+  generateCodeActions,
+  generateFixEdit,
+  applyFixes,
+  type Position,
+  type Range,
+  type Diagnostic,
+  type DiagnosticRelatedInformation,
+  type CodeAction,
+  type WorkspaceEdit,
+  type TextEdit,
+  type Command,
+  type IdeDiagnosticsResult,
+  type IdeCodeActionsResult,
+} from "./ide-integration.js";
+
+// Dependency Updater exports
+export {
+  getUpdateType,
+  isBreakingUpdate,
+  detectPackageManager as detectProjectPackageManager,
+  checkUpdates,
+  previewUpdate,
+  applyUpdate,
+  applyUpdates,
+  rollbackUpdates,
+  type AvailableUpdate,
+  type UpdateCheckResult,
+  type UpdatePreview,
+  type UpdateApplyResult,
+  type BatchUpdateResult,
+} from "./deps-updater.js";
+
+// Fix Verification exports
+export {
+  extractVulnerabilities,
+  findVulnerability,
+  verifySingleFix,
+  verifyFixes,
+  compareScanResults as compareScanResultsForVerification,
+  generateVerificationSummary,
+  isCvePresent,
+  getAllCveIds,
+  countBySeverity,
+  calculateFixRate,
+  type VulnVerificationResult,
+  type FixVerificationResult,
+  type RescanOptions,
+} from "./fix-verification.js";

@@ -8,7 +8,13 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { CloudRegistryType, ComplianceFramework, RegistryAuth } from "@cicd/shared";
+import type {
+  CloudRegistryType,
+  ComplianceFramework,
+  RegistryAuth,
+  TrivyScanResult,
+  PackageManager,
+} from "@cicd/shared";
 import { evaluatePolicyWithScan } from "@cicd/shared";
 import {
   config,
@@ -4408,6 +4414,342 @@ export const toolDefinitions = [
       required: ["currentMetrics"],
     },
   },
+  // =========================================================================
+  // Remediation Automation Tools (v1.24.0)
+  // =========================================================================
+  {
+    name: "remediation_create_pr",
+    description:
+      "Create a pull request with automated fixes for vulnerabilities. " +
+      "Generates a branch, commits the changes, and opens a PR on Gitea.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner (user or organization)",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        vulnIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of vulnerability IDs to fix (e.g., ['CVE-2024-1234'])",
+        },
+        baseBranch: {
+          type: "string",
+          description: "Base branch for the PR (default: main)",
+        },
+        dryRun: {
+          type: "boolean",
+          description: "Preview the PR without actually creating it",
+        },
+      },
+      required: ["owner", "repo", "vulnIds"],
+    },
+  },
+  {
+    name: "remediation_batch_create",
+    description:
+      "Create multiple PRs for batch vulnerability remediation. " +
+      "Groups fixes by package manager and creates separate PRs for each.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        scanTarget: {
+          type: "string",
+          description: "Path or image to scan for vulnerabilities",
+        },
+        severity: {
+          type: "string",
+          description: "Minimum severity to include (CRITICAL, HIGH, MEDIUM, LOW)",
+        },
+        maxPrs: {
+          type: "number",
+          description: "Maximum number of PRs to create (default: 10)",
+        },
+        dryRun: {
+          type: "boolean",
+          description: "Preview without creating PRs",
+        },
+      },
+      required: ["owner", "repo", "scanTarget"],
+    },
+  },
+  {
+    name: "remediation_get_status",
+    description: "Get the status of a remediation pull request including merge state and checks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: {
+          type: "string",
+          description: "Repository owner",
+        },
+        repo: {
+          type: "string",
+          description: "Repository name",
+        },
+        prNumber: {
+          type: "number",
+          description: "Pull request number",
+        },
+      },
+      required: ["owner", "repo", "prNumber"],
+    },
+  },
+  // =========================================================================
+  // IDE Integration Tools (v1.24.0)
+  // =========================================================================
+  {
+    name: "ide_get_diagnostics",
+    description:
+      "Get LSP-compatible diagnostics from scan results for IDE integration. " +
+      "Returns diagnostics mapped to file locations for VS Code, JetBrains, etc.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scanTarget: {
+          type: "string",
+          description: "Path to scan for vulnerabilities",
+        },
+        minSeverity: {
+          type: "string",
+          description: "Minimum severity to report (CRITICAL, HIGH, MEDIUM, LOW)",
+        },
+        basePath: {
+          type: "string",
+          description: "Base path for relative file URIs",
+        },
+      },
+      required: ["scanTarget"],
+    },
+  },
+  {
+    name: "ide_get_code_actions",
+    description:
+      "Get LSP code actions (quick fixes) for vulnerabilities in a file. " +
+      "Returns actions that can be applied to fix security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: {
+          type: "string",
+          description: "Path to the file to get actions for",
+        },
+        scanTarget: {
+          type: "string",
+          description: "Path or image that was scanned",
+        },
+      },
+      required: ["filePath", "scanTarget"],
+    },
+  },
+  {
+    name: "ide_apply_fix",
+    description:
+      "Apply a security fix to a file. Generates the text edit needed to update a vulnerable dependency.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: {
+          type: "string",
+          description: "Path to the file to modify",
+        },
+        vulnId: {
+          type: "string",
+          description: "Vulnerability ID to fix",
+        },
+        packageName: {
+          type: "string",
+          description: "Package name to update",
+        },
+        targetVersion: {
+          type: "string",
+          description: "Version to update to",
+        },
+      },
+      required: ["filePath", "vulnId", "packageName", "targetVersion"],
+    },
+  },
+  // =========================================================================
+  // Dependency Update Tools (v1.24.0)
+  // =========================================================================
+  {
+    name: "deps_check_updates",
+    description:
+      "Check for available dependency updates in a project. " +
+      "Supports npm, pip, go, and other package managers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectPath: {
+          type: "string",
+          description: "Path to the project directory",
+        },
+        packageManager: {
+          type: "string",
+          description: "Package manager to use (npm, yarn, pnpm, pip, go, cargo)",
+        },
+      },
+      required: ["projectPath"],
+    },
+  },
+  {
+    name: "deps_preview_update",
+    description:
+      "Preview the impact of updating a dependency including risk assessment and breaking changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        packageName: {
+          type: "string",
+          description: "Package name to preview",
+        },
+        targetVersion: {
+          type: "string",
+          description: "Target version to update to",
+        },
+        currentVersion: {
+          type: "string",
+          description: "Current version installed",
+        },
+        projectPath: {
+          type: "string",
+          description: "Project path for context",
+        },
+      },
+      required: ["packageName", "targetVersion"],
+    },
+  },
+  {
+    name: "deps_apply_updates",
+    description: "Apply dependency updates to a project. Creates a backup for rollback.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectPath: {
+          type: "string",
+          description: "Path to the project directory",
+        },
+        updates: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              package: { type: "string" },
+              version: { type: "string" },
+            },
+          },
+          description: "List of updates to apply [{package, version}]",
+        },
+        packageManager: {
+          type: "string",
+          description: "Package manager to use",
+        },
+        dryRun: {
+          type: "boolean",
+          description: "Preview without applying",
+        },
+        stopOnError: {
+          type: "boolean",
+          description: "Stop on first error",
+        },
+      },
+      required: ["projectPath", "updates"],
+    },
+  },
+  {
+    name: "deps_rollback",
+    description: "Rollback to the previous dependency state using the backup lockfile.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectPath: {
+          type: "string",
+          description: "Path to the project directory",
+        },
+        packageManager: {
+          type: "string",
+          description: "Package manager to use",
+        },
+      },
+      required: ["projectPath"],
+    },
+  },
+  // =========================================================================
+  // Fix Verification Tools (v1.24.0)
+  // =========================================================================
+  {
+    name: "fix_verify",
+    description:
+      "Verify that vulnerability fixes have been successfully applied by comparing before/after scans.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fixes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              vulnId: { type: "string" },
+              packageName: { type: "string" },
+            },
+          },
+          description: "List of fixes to verify [{vulnId, packageName}]",
+        },
+        beforeScan: {
+          type: "object",
+          description: "Scan results before the fix",
+        },
+        afterScan: {
+          type: "object",
+          description: "Scan results after the fix",
+        },
+      },
+      required: ["fixes", "beforeScan", "afterScan"],
+    },
+  },
+  {
+    name: "fix_rescan",
+    description:
+      "Re-scan a target after applying fixes to confirm vulnerabilities are resolved. " +
+      "Compares with previous scan to show what was fixed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Path or image to scan",
+        },
+        scanType: {
+          type: "string",
+          enum: ["path", "image"],
+          description: "Type of scan to perform",
+        },
+        previousScan: {
+          type: "object",
+          description: "Previous scan results to compare against",
+        },
+        vulnIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Specific CVE IDs to check (optional)",
+        },
+      },
+      required: ["target", "scanType"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -7591,6 +7933,329 @@ const comparisonHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Remediation Automation Handlers (v1.24.0)
+// =============================================================================
+const remediationAutomationHandlers: Record<string, ToolHandler> = {
+  remediation_create_pr: async (args) => {
+    const owner = args?.owner as string;
+    const repo = args?.repo as string;
+    const vulnIds = args?.vulnIds as string[];
+
+    if (!owner || !repo || !vulnIds?.length) {
+      return { error: "owner, repo, and vulnIds are required" };
+    }
+
+    try {
+      // Get remediation suggestions for the vulnIds
+      const { createPullRequest } = await import("./handlers.js");
+
+      // For now, create a simple PR with the vuln IDs
+      const result = await createPullRequest(
+        vulnIds.map((vulnId) => ({
+          vulnerability: { id: vulnId, severity: "UNKNOWN" as const },
+          package: "unknown",
+          currentVersion: "unknown",
+          fixedVersion: "unknown",
+          command: "",
+          packageManager: "npm" as const,
+          breaking: false,
+          cvesFixed: [vulnId],
+          confidence: "low" as const,
+        })),
+        {
+          owner,
+          repo,
+          baseBranch: args?.baseBranch as string,
+          dryRun: args?.dryRun as boolean,
+        }
+      );
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  remediation_batch_create: async (args) => {
+    const owner = args?.owner as string;
+    const repo = args?.repo as string;
+    const scanTarget = args?.scanTarget as string;
+
+    if (!owner || !repo || !scanTarget) {
+      return { error: "owner, repo, and scanTarget are required" };
+    }
+
+    try {
+      const { trivyScanPath, generateRemediations, createBatchPullRequests } =
+        await import("./handlers.js");
+
+      // Scan for vulnerabilities
+      const scanResult = await trivyScanPath(
+        scanTarget,
+        (args?.severity as string) || "CRITICAL,HIGH"
+      );
+
+      // Generate remediation plan
+      const plan = generateRemediations(scanResult as TrivyScanResult);
+
+      // Create batch PRs
+      const result = await createBatchPullRequests(plan, {
+        owner,
+        repo,
+        maxPrs: (args?.maxPrs as number) || 10,
+        dryRun: args?.dryRun as boolean,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  remediation_get_status: async (args) => {
+    const owner = args?.owner as string;
+    const repo = args?.repo as string;
+    const prNumber = args?.prNumber as number;
+
+    if (!owner || !repo || !prNumber) {
+      return { error: "owner, repo, and prNumber are required" };
+    }
+
+    try {
+      const { getPrStatus } = await import("./handlers.js");
+      const status = await getPrStatus(prNumber, { owner, repo });
+      return status || { error: "PR not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  ide_get_diagnostics: async (args) => {
+    const scanTarget = args?.scanTarget as string;
+
+    if (!scanTarget) {
+      return { error: "scanTarget is required" };
+    }
+
+    try {
+      const { trivyScanPath, generateDiagnostics } = await import("./handlers.js");
+
+      const scanResult = await trivyScanPath(
+        scanTarget,
+        (args?.minSeverity as string) || "LOW,MEDIUM,HIGH,CRITICAL"
+      );
+
+      const diagnostics = generateDiagnostics(scanResult as TrivyScanResult, {
+        minSeverity: args?.minSeverity as string,
+        basePath: args?.basePath as string,
+      });
+
+      return diagnostics;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  ide_get_code_actions: async (args) => {
+    const filePath = args?.filePath as string;
+    const scanTarget = args?.scanTarget as string;
+
+    if (!filePath || !scanTarget) {
+      return { error: "filePath and scanTarget are required" };
+    }
+
+    try {
+      const { trivyScanPath, generateRemediations, generateCodeActions } =
+        await import("./handlers.js");
+
+      const scanResult = await trivyScanPath(scanTarget);
+      const plan = generateRemediations(scanResult as TrivyScanResult);
+      const actions = generateCodeActions(plan.suggestions, { filePath });
+
+      return { actions };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  ide_apply_fix: async (args) => {
+    const filePath = args?.filePath as string;
+    const vulnId = args?.vulnId as string;
+    const packageName = args?.packageName as string;
+    const targetVersion = args?.targetVersion as string;
+
+    if (!filePath || !vulnId || !packageName || !targetVersion) {
+      return { error: "filePath, vulnId, packageName, and targetVersion are required" };
+    }
+
+    try {
+      const fs = await import("fs");
+      const { generateFixEdit } = await import("./handlers.js");
+
+      const fileContent = fs.readFileSync(filePath, "utf-8");
+      const suggestion = {
+        vulnerability: { id: vulnId, severity: "UNKNOWN" as const },
+        package: packageName,
+        currentVersion: "unknown",
+        fixedVersion: targetVersion,
+        command: "",
+        packageManager: "npm" as const,
+        breaking: false,
+        cvesFixed: [vulnId],
+        confidence: "high" as const,
+      };
+
+      const edit = generateFixEdit(suggestion, fileContent, filePath);
+
+      if (edit) {
+        // Apply the edit
+        const lines = fileContent.split("\n");
+        lines[edit.range.start.line] = edit.newText;
+        fs.writeFileSync(filePath, lines.join("\n"));
+        return { success: true, edit };
+      }
+
+      return { success: false, error: "Could not generate fix edit" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  deps_check_updates: async (args) => {
+    const projectPath = args?.projectPath as string;
+
+    if (!projectPath) {
+      return { error: "projectPath is required" };
+    }
+
+    try {
+      const { checkUpdates } = await import("./handlers.js");
+      const result = await checkUpdates(projectPath, {
+        packageManager: args?.packageManager as PackageManager | undefined,
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  deps_preview_update: async (args) => {
+    const packageName = args?.packageName as string;
+    const targetVersion = args?.targetVersion as string;
+
+    if (!packageName || !targetVersion) {
+      return { error: "packageName and targetVersion are required" };
+    }
+
+    try {
+      const { previewUpdate } = await import("./handlers.js");
+      const preview = await previewUpdate(packageName, targetVersion, {
+        projectPath: args?.projectPath as string,
+        currentVersion: args?.currentVersion as string,
+      });
+      return preview;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  deps_apply_updates: async (args) => {
+    const projectPath = args?.projectPath as string;
+    const updates = args?.updates as Array<{ package: string; version: string }>;
+
+    if (!projectPath || !updates?.length) {
+      return { error: "projectPath and updates are required" };
+    }
+
+    try {
+      const { applyUpdates } = await import("./handlers.js");
+      const result = await applyUpdates(updates, {
+        projectPath,
+        packageManager: args?.packageManager as PackageManager | undefined,
+        dryRun: args?.dryRun as boolean,
+        stopOnError: args?.stopOnError as boolean,
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  deps_rollback: async (args) => {
+    const projectPath = args?.projectPath as string;
+
+    if (!projectPath) {
+      return { error: "projectPath is required" };
+    }
+
+    try {
+      const { rollbackUpdates } = await import("./handlers.js");
+      const result = await rollbackUpdates({
+        projectPath,
+        packageManager: args?.packageManager as PackageManager | undefined,
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  fix_verify: async (args) => {
+    const fixes = args?.fixes as Array<{ vulnId: string; packageName: string }>;
+    const beforeScan = args?.beforeScan as TrivyScanResult;
+    const afterScan = args?.afterScan as TrivyScanResult;
+
+    if (!fixes?.length || !beforeScan || !afterScan) {
+      return { error: "fixes, beforeScan, and afterScan are required" };
+    }
+
+    try {
+      const { verifyFixes } = await import("./handlers.js");
+      const result = verifyFixes(fixes, beforeScan, afterScan);
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  fix_rescan: async (args) => {
+    const target = args?.target as string;
+    const scanType = args?.scanType as "path" | "image";
+
+    if (!target || !scanType) {
+      return { error: "target and scanType are required" };
+    }
+
+    try {
+      const { trivyScanPath, trivyScanImage, compareScanResultsForVerification } =
+        await import("./handlers.js");
+
+      // Perform new scan
+      const newScan =
+        scanType === "path" ? await trivyScanPath(target) : await trivyScanImage(target);
+
+      // Compare with previous if provided
+      if (args?.previousScan) {
+        const comparison = compareScanResultsForVerification(
+          args.previousScan as TrivyScanResult,
+          newScan as TrivyScanResult
+        );
+        return {
+          scan: newScan,
+          comparison,
+          fixedCount: comparison.fixed.length,
+          newCount: comparison.new.length,
+        };
+      }
+
+      return { scan: newScan };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -7622,6 +8287,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...riskHandlers,
   ...exportHandlers,
   ...comparisonHandlers,
+  ...remediationAutomationHandlers,
 };
 
 export async function handleCallTool(
