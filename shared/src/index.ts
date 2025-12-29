@@ -1148,3 +1148,47 @@ export type {
   RecordSnapshotOptions,
   TrendDbInitResult,
 } from "./types.js";
+
+// Risk Scoring
+export {
+  // Database lifecycle
+  initRiskDatabase,
+  closeRiskDatabase,
+  isRiskDbInitialized,
+  // Configuration
+  getRiskConfig,
+  updateRiskConfig,
+  // Asset management
+  setAssetCriticality as setRiskAssetConfig,
+  getAssetConfig as getRiskAssetConfig,
+  listAssetConfigs as listRiskAssetConfigs,
+  deleteAssetConfig as deleteRiskAssetConfig,
+  // Risk calculation
+  calculateRiskScore,
+  storeRiskScore,
+  getStoredRiskScore,
+  // Prioritized list
+  getPrioritizedList,
+  // Utilities
+  clearRiskScores,
+  getRiskStats,
+} from "./risk-scoring.js";
+
+// Risk Scoring Types re-export
+export type {
+  RiskAssetCriticality,
+  RiskExposureLevel,
+  RiskTier,
+  RiskAssetConfig,
+  CvssComponents,
+  ExploitabilityFactors,
+  RiskScore,
+  CalculateRiskOptions,
+  RiskWeights,
+  PrioritizedVulnerability,
+  GetPrioritizedListOptions,
+  PrioritizedListResult,
+  RiskDbInitResult,
+  SetAssetCriticalityOptions,
+  RiskConfig,
+} from "./types.js";

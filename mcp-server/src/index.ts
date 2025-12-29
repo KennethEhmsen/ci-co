@@ -230,6 +230,16 @@ import {
   getTrendForecast,
   detectTrendAnomalies,
   compareTrendPeriods,
+  // Risk Scoring
+  initRiskDatabase,
+  isRiskDbInitialized,
+  setRiskAssetConfig,
+  calculateRiskScore,
+  storeRiskScore,
+  getPrioritizedList,
+  type RiskAssetCriticality,
+  type RiskExposureLevel,
+  type RiskTier,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -3946,6 +3956,163 @@ export const toolDefinitions = [
       required: ["target", "period1Start", "period1End", "period2Start", "period2End"],
     },
   },
+  // Risk Scoring Tools
+  {
+    name: "risk_calculate_score",
+    description:
+      "Calculate risk score for a vulnerability based on CVSS, asset criticality, " +
+      "exposure level, exploitability factors, and age. Returns a prioritized risk score (0-100) " +
+      "with risk tier classification and remediation recommendation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vulnId: {
+          type: "string",
+          description: "Vulnerability ID (e.g., CVE-2024-1234)",
+        },
+        cvssScore: {
+          type: "number",
+          description: "Base CVSS score (0-10)",
+        },
+        asset: {
+          type: "string",
+          description: "Asset identifier (image name, project name)",
+        },
+        assetType: {
+          type: "string",
+          enum: ["image", "project", "repository", "service"],
+          description: "Type of asset (default: image)",
+        },
+        criticality: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low", "minimal"],
+          description: "Asset business criticality (default: medium)",
+        },
+        exposure: {
+          type: "string",
+          enum: ["internet-facing", "internal-only", "air-gapped", "development"],
+          description: "Asset network exposure level (default: internal-only)",
+        },
+        exploitInWild: {
+          type: "boolean",
+          description: "Whether exploit exists in the wild",
+        },
+        pocAvailable: {
+          type: "boolean",
+          description: "Whether proof of concept is available",
+        },
+        activelyExploited: {
+          type: "boolean",
+          description: "Whether being actively exploited",
+        },
+        cisaKev: {
+          type: "boolean",
+          description: "Whether listed in CISA KEV catalog",
+        },
+        epssScore: {
+          type: "number",
+          description: "EPSS score (0-1) if available",
+        },
+        firstDetected: {
+          type: "string",
+          description: "Date vulnerability was first detected (ISO format)",
+        },
+        storeResult: {
+          type: "boolean",
+          description: "Whether to store the calculated score in database (default: false)",
+        },
+      },
+      required: ["vulnId", "cvssScore", "asset"],
+    },
+  },
+  {
+    name: "risk_set_asset_criticality",
+    description:
+      "Configure asset criticality and exposure for risk scoring. " +
+      "Sets business context that affects risk score calculations for all vulnerabilities " +
+      "on that asset. Higher criticality and exposure increase risk scores.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        asset: {
+          type: "string",
+          description: "Asset identifier (image name, project name)",
+        },
+        assetType: {
+          type: "string",
+          enum: ["image", "project", "repository", "service"],
+          description: "Type of asset",
+        },
+        criticality: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low", "minimal"],
+          description: "Business criticality level",
+        },
+        exposure: {
+          type: "string",
+          enum: ["internet-facing", "internal-only", "air-gapped", "development"],
+          description: "Network exposure level",
+        },
+        businessContext: {
+          type: "string",
+          description: "Description of asset's business purpose",
+        },
+        owner: {
+          type: "string",
+          description: "Team or person responsible for the asset",
+        },
+        complianceFrameworks: {
+          type: "array",
+          items: { type: "string" },
+          description: "Compliance frameworks applicable (e.g., 'SOC2', 'HIPAA')",
+        },
+        customMultiplier: {
+          type: "number",
+          description: "Custom risk multiplier (default: 1.0)",
+        },
+      },
+      required: ["asset", "assetType", "criticality", "exposure"],
+    },
+  },
+  {
+    name: "risk_get_prioritized_list",
+    description:
+      "Get a prioritized list of vulnerabilities sorted by risk score. " +
+      "Returns vulnerabilities with full risk context including tier classification, " +
+      "contributing factors, and remediation recommendations. Supports filtering by " +
+      "assets, minimum score, and risk tiers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        assets: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter to specific assets (optional, all if not specified)",
+        },
+        minRiskScore: {
+          type: "number",
+          description: "Minimum risk score to include (0-100)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results to return",
+        },
+        includeTiers: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["critical", "high", "medium", "low", "minimal"],
+          },
+          description: "Risk tiers to include (optional, all if not specified)",
+        },
+        groupByAsset: {
+          type: "boolean",
+          description: "Include asset-level summary statistics",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 // =============================================================================
@@ -6801,6 +6968,147 @@ const trendHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Risk Scoring handlers
+const riskHandlers: Record<string, ToolHandler> = {
+  risk_calculate_score: async (args) => {
+    if (!isRiskDbInitialized()) {
+      const result = initRiskDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Risk database: ${result.error}` };
+      }
+    }
+
+    const vulnId = args?.vulnId as string;
+    const cvssScore = args?.cvssScore as number;
+    const asset = args?.asset as string;
+
+    if (!vulnId) {
+      return { error: "vulnId is required" };
+    }
+    if (cvssScore === undefined || cvssScore === null) {
+      return { error: "cvssScore is required" };
+    }
+    if (!asset) {
+      return { error: "asset is required" };
+    }
+
+    try {
+      // Build asset config if criticality/exposure provided
+      const assetConfig =
+        args?.criticality || args?.exposure
+          ? {
+              asset,
+              assetType:
+                (args?.assetType as "image" | "project" | "repository" | "service") || "image",
+              criticality: (args?.criticality as RiskAssetCriticality) || "medium",
+              exposure: (args?.exposure as RiskExposureLevel) || "internal-only",
+            }
+          : asset;
+
+      // Build exploitability factors
+      const exploitability =
+        args?.exploitInWild ||
+        args?.pocAvailable ||
+        args?.activelyExploited ||
+        args?.cisaKev ||
+        args?.epssScore !== undefined
+          ? {
+              exploitInWild: (args?.exploitInWild as boolean) || false,
+              pocAvailable: (args?.pocAvailable as boolean) || false,
+              weaponized: false,
+              activelyExploited: (args?.activelyExploited as boolean) || false,
+              cisaKev: (args?.cisaKev as boolean) || false,
+              epssScore: args?.epssScore as number | undefined,
+            }
+          : undefined;
+
+      const score = calculateRiskScore({
+        vulnId,
+        cvss: { baseScore: cvssScore },
+        asset: assetConfig,
+        exploitability,
+        firstDetected: args?.firstDetected as string | undefined,
+      });
+
+      // Store if requested
+      if (args?.storeResult) {
+        storeRiskScore(score, asset, args?.firstDetected as string | undefined);
+      }
+
+      return score;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  risk_set_asset_criticality: async (args) => {
+    if (!isRiskDbInitialized()) {
+      const result = initRiskDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Risk database: ${result.error}` };
+      }
+    }
+
+    const asset = args?.asset as string;
+    const assetType = args?.assetType as "image" | "project" | "repository" | "service";
+    const criticality = args?.criticality as RiskAssetCriticality;
+    const exposure = args?.exposure as RiskExposureLevel;
+
+    if (!asset) {
+      return { error: "asset is required" };
+    }
+    if (!assetType) {
+      return { error: "assetType is required" };
+    }
+    if (!criticality) {
+      return { error: "criticality is required" };
+    }
+    if (!exposure) {
+      return { error: "exposure is required" };
+    }
+
+    try {
+      const config = setRiskAssetConfig({
+        asset,
+        assetType,
+        criticality,
+        exposure,
+        businessContext: args?.businessContext as string | undefined,
+        owner: args?.owner as string | undefined,
+        complianceFrameworks: args?.complianceFrameworks as string[] | undefined,
+        customMultiplier: args?.customMultiplier as number | undefined,
+      });
+
+      return config;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  risk_get_prioritized_list: async (args) => {
+    if (!isRiskDbInitialized()) {
+      const result = initRiskDatabase();
+      if (!result.success) {
+        return { error: `Failed to initialize Risk database: ${result.error}` };
+      }
+    }
+
+    try {
+      const result = getPrioritizedList({
+        assets: args?.assets as string[] | undefined,
+        minRiskScore: args?.minRiskScore as number | undefined,
+        limit: args?.limit as number | undefined,
+        includeTiers: args?.includeTiers as RiskTier[] | undefined,
+        groupByAsset: args?.groupByAsset as boolean | undefined,
+      });
+
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -6829,6 +7137,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...dashboardHandlers,
   ...reportHandlers,
   ...trendHandlers,
+  ...riskHandlers,
 };
 
 export async function handleCallTool(

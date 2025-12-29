@@ -5536,3 +5536,277 @@ export interface TrendDbInitResult {
   /** Error message if failed */
   error?: string;
 }
+
+// =============================================================================
+// Risk Scoring Types
+// =============================================================================
+
+/**
+ * Asset criticality level for business context
+ */
+export type RiskAssetCriticality = "critical" | "high" | "medium" | "low" | "minimal";
+
+/**
+ * Exposure level of an asset
+ */
+export type RiskExposureLevel = "internet-facing" | "internal-only" | "air-gapped" | "development";
+
+/**
+ * Risk score tier based on calculated risk
+ */
+export type RiskTier = "critical" | "high" | "medium" | "low" | "minimal";
+
+/**
+ * Configuration for asset criticality
+ */
+export interface RiskAssetConfig {
+  /** Asset identifier (image name, project name, etc.) */
+  asset: string;
+  /** Asset type */
+  assetType: "image" | "project" | "repository" | "service";
+  /** Business criticality level */
+  criticality: RiskAssetCriticality;
+  /** Exposure level */
+  exposure: RiskExposureLevel;
+  /** Business context/description */
+  businessContext?: string;
+  /** Owner/team responsible */
+  owner?: string;
+  /** Associated compliance frameworks */
+  complianceFrameworks?: string[];
+  /** Custom risk multiplier (default: 1.0) */
+  customMultiplier?: number;
+  /** When the config was created */
+  createdAt?: string;
+  /** When the config was last updated */
+  updatedAt?: string;
+}
+
+/**
+ * CVSS vector components for risk calculation
+ */
+export interface CvssComponents {
+  /** Base CVSS score (0-10) */
+  baseScore: number;
+  /** Attack vector */
+  attackVector?: "network" | "adjacent" | "local" | "physical";
+  /** Attack complexity */
+  attackComplexity?: "low" | "high";
+  /** Privileges required */
+  privilegesRequired?: "none" | "low" | "high";
+  /** User interaction required */
+  userInteraction?: "none" | "required";
+  /** Scope change */
+  scope?: "unchanged" | "changed";
+  /** Confidentiality impact */
+  confidentialityImpact?: "none" | "low" | "high";
+  /** Integrity impact */
+  integrityImpact?: "none" | "low" | "high";
+  /** Availability impact */
+  availabilityImpact?: "none" | "low" | "high";
+}
+
+/**
+ * Exploitability factors for temporal scoring
+ */
+export interface ExploitabilityFactors {
+  /** Known exploit in the wild */
+  exploitInWild: boolean;
+  /** Proof of concept available */
+  pocAvailable: boolean;
+  /** Weaponized exploit available */
+  weaponized: boolean;
+  /** Active exploitation reported */
+  activelyExploited: boolean;
+  /** CISA KEV listed */
+  cisaKev: boolean;
+  /** EPSS score (0-1) if available */
+  epssScore?: number;
+}
+
+/**
+ * Risk score calculation result for a single vulnerability
+ */
+export interface RiskScore {
+  /** Vulnerability ID (CVE) */
+  vulnId: string;
+  /** Base CVSS score */
+  baseCvss: number;
+  /** Exploitability multiplier (1.0-2.0) */
+  exploitabilityMultiplier: number;
+  /** Asset criticality multiplier (0.5-2.0) */
+  assetCriticalityMultiplier: number;
+  /** Exposure multiplier (0.5-2.0) */
+  exposureMultiplier: number;
+  /** Age factor (1.0-1.5, older = higher) */
+  ageFactor: number;
+  /** Final calculated risk score (0-100) */
+  riskScore: number;
+  /** Risk tier based on score */
+  riskTier: RiskTier;
+  /** Priority rank (1 = highest priority) */
+  priorityRank?: number;
+  /** Recommendation for remediation */
+  recommendation?: string;
+  /** Days since vulnerability was first detected */
+  ageInDays?: number;
+}
+
+/**
+ * Options for calculating risk score
+ */
+export interface CalculateRiskOptions {
+  /** Vulnerability ID (CVE) */
+  vulnId: string;
+  /** CVSS components */
+  cvss: CvssComponents;
+  /** Asset configuration (or asset name to look up) */
+  asset: string | RiskAssetConfig;
+  /** Exploitability factors */
+  exploitability?: ExploitabilityFactors;
+  /** First detected date (for age calculation) */
+  firstDetected?: string;
+  /** Custom weights for scoring components */
+  weights?: RiskWeights;
+}
+
+/**
+ * Custom weights for risk score calculation
+ */
+export interface RiskWeights {
+  /** Weight for exploitability (default: 1.0) */
+  exploitability?: number;
+  /** Weight for asset criticality (default: 1.0) */
+  assetCriticality?: number;
+  /** Weight for exposure (default: 1.0) */
+  exposure?: number;
+  /** Weight for age factor (default: 1.0) */
+  age?: number;
+}
+
+/**
+ * Prioritized vulnerability list entry
+ */
+export interface PrioritizedVulnerability {
+  /** Vulnerability ID */
+  vulnId: string;
+  /** Package name */
+  packageName?: string;
+  /** Installed version */
+  installedVersion?: string;
+  /** Fixed version */
+  fixedVersion?: string;
+  /** Asset identifier */
+  asset: string;
+  /** Risk score details */
+  riskScore: RiskScore;
+  /** Title/description */
+  title?: string;
+  /** Severity from original scan */
+  originalSeverity?: string;
+  /** When first detected */
+  firstDetected?: string;
+  /** Remediation recommendation */
+  remediation?: string;
+}
+
+/**
+ * Options for getting prioritized vulnerability list
+ */
+export interface GetPrioritizedListOptions {
+  /** Assets to include (or all if not specified) */
+  assets?: string[];
+  /** Minimum risk score to include */
+  minRiskScore?: number;
+  /** Maximum number of results */
+  limit?: number;
+  /** Risk tiers to include */
+  includeTiers?: RiskTier[];
+  /** Group by asset */
+  groupByAsset?: boolean;
+  /** Include only remediable vulnerabilities */
+  remediableOnly?: boolean;
+}
+
+/**
+ * Prioritized list result
+ */
+export interface PrioritizedListResult {
+  /** Total vulnerabilities analyzed */
+  totalAnalyzed: number;
+  /** Vulnerabilities included in result */
+  included: number;
+  /** Prioritized list */
+  vulnerabilities: PrioritizedVulnerability[];
+  /** Summary by risk tier */
+  tierSummary: Record<RiskTier, number>;
+  /** Summary by asset (if grouped) */
+  assetSummary?: Record<string, { count: number; avgRiskScore: number }>;
+  /** Generated at timestamp */
+  generatedAt: string;
+}
+
+/**
+ * Risk scoring database initialization result
+ */
+export interface RiskDbInitResult {
+  /** Whether initialization was successful */
+  success: boolean;
+  /** Database path */
+  path: string;
+  /** Timestamp */
+  created: string;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * Options for setting asset criticality
+ */
+export interface SetAssetCriticalityOptions {
+  /** Asset identifier */
+  asset: string;
+  /** Asset type */
+  assetType: "image" | "project" | "repository" | "service";
+  /** Criticality level */
+  criticality: RiskAssetCriticality;
+  /** Exposure level */
+  exposure: RiskExposureLevel;
+  /** Business context description */
+  businessContext?: string;
+  /** Owner/team */
+  owner?: string;
+  /** Compliance frameworks */
+  complianceFrameworks?: string[];
+  /** Custom multiplier */
+  customMultiplier?: number;
+}
+
+/**
+ * Risk configuration for global settings
+ */
+export interface RiskConfig {
+  /** Default criticality for unknown assets */
+  defaultCriticality: RiskAssetCriticality;
+  /** Default exposure for unknown assets */
+  defaultExposure: RiskExposureLevel;
+  /** Risk tier thresholds */
+  tierThresholds: {
+    critical: number; // >= this is critical
+    high: number; // >= this is high
+    medium: number; // >= this is medium
+    low: number; // >= this is low
+    // Below low threshold is minimal
+  };
+  /** Age factor configuration */
+  ageFactorConfig: {
+    /** Days after which age factor starts increasing */
+    startDays: number;
+    /** Maximum age factor multiplier */
+    maxFactor: number;
+    /** Days to reach max factor */
+    maxDays: number;
+  };
+  /** Custom weights for scoring */
+  weights: RiskWeights;
+}
