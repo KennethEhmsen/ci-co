@@ -5361,6 +5361,141 @@ export const toolDefinitions = [
       required: ["instanceId"],
     },
   },
+  // =========================================================================
+  // Security Metrics & KPIs Tools (v1.28.0)
+  // =========================================================================
+  {
+    name: "metrics_record_snapshot",
+    description: "Record a security metrics snapshot for a target (image, path, project).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Target identifier (image name, path, project key)",
+        },
+        targetType: {
+          type: "string",
+          enum: ["image", "path", "sonar_project", "dtrack_project"],
+          description: "Type of target",
+        },
+        metrics: {
+          type: "object",
+          description: "Security metrics snapshot",
+          properties: {
+            totalVulnerabilities: { type: "number", description: "Total vulnerability count" },
+            criticalCount: { type: "number", description: "Critical severity count" },
+            highCount: { type: "number", description: "High severity count" },
+            mediumCount: { type: "number", description: "Medium severity count" },
+            lowCount: { type: "number", description: "Low severity count" },
+          },
+          required: [
+            "totalVulnerabilities",
+            "criticalCount",
+            "highCount",
+            "mediumCount",
+            "lowCount",
+          ],
+        },
+      },
+      required: ["target", "targetType", "metrics"],
+    },
+  },
+  {
+    name: "metrics_get_mttr",
+    description: "Get Mean Time To Remediate (MTTR) statistics by severity.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: { type: "string", description: "Filter by target (optional)" },
+        severity: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Filter by severity (optional)",
+        },
+        startDate: { type: "string", description: "Start date filter (ISO format)" },
+        endDate: { type: "string", description: "End date filter (ISO format)" },
+      },
+    },
+  },
+  {
+    name: "metrics_get_trends",
+    description: "Get vulnerability trend analysis for a target over a time period.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: { type: "string", description: "Target to analyze" },
+        period: {
+          type: "string",
+          enum: ["7d", "30d", "90d", "180d", "365d"],
+          description: "Time period for analysis",
+        },
+        endDate: { type: "string", description: "End date (defaults to today)" },
+      },
+      required: ["target", "period"],
+    },
+  },
+  {
+    name: "metrics_set_baseline",
+    description: "Set a security baseline for comparison.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Baseline name (e.g., 'Q1-2025', 'release-1.0')" },
+        target: { type: "string", description: "Target identifier" },
+        metrics: {
+          type: "object",
+          description: "Baseline metrics",
+          properties: {
+            totalVulnerabilities: { type: "number" },
+            criticalCount: { type: "number" },
+            highCount: { type: "number" },
+            mediumCount: { type: "number" },
+            lowCount: { type: "number" },
+          },
+          required: [
+            "totalVulnerabilities",
+            "criticalCount",
+            "highCount",
+            "mediumCount",
+            "lowCount",
+          ],
+        },
+        createdBy: { type: "string", description: "User creating baseline" },
+      },
+      required: ["name", "target", "metrics"],
+    },
+  },
+  {
+    name: "metrics_compare_baseline",
+    description: "Compare current metrics against a baseline.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        baselineName: { type: "string", description: "Baseline name to compare against" },
+        target: { type: "string", description: "Target identifier" },
+        currentMetrics: {
+          type: "object",
+          description: "Current metrics to compare",
+          properties: {
+            totalVulnerabilities: { type: "number" },
+            criticalCount: { type: "number" },
+            highCount: { type: "number" },
+            mediumCount: { type: "number" },
+            lowCount: { type: "number" },
+          },
+          required: [
+            "totalVulnerabilities",
+            "criticalCount",
+            "highCount",
+            "mediumCount",
+            "lowCount",
+          ],
+        },
+      },
+      required: ["baselineName", "target", "currentMetrics"],
+    },
+  },
 ];
 
 // =============================================================================
@@ -9321,6 +9456,83 @@ const escalationHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Security Metrics Handlers (v1.28.0)
+// =============================================================================
+const securityMetricsHandlers: Record<string, ToolHandler> = {
+  metrics_record_snapshot: async (args) => {
+    try {
+      const { recordSnapshot, initMetricsDatabase } = await import("./handlers.js");
+      initMetricsDatabase();
+      return recordSnapshot({
+        target: args?.target as string,
+        targetType: args?.targetType as "image" | "path" | "sonar_project" | "dtrack_project",
+        metrics: args?.metrics as import("@cicd/shared").SnapshotMetrics,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  metrics_get_mttr: async (args) => {
+    try {
+      const { getMTTRStats, initMetricsDatabase } = await import("./handlers.js");
+      initMetricsDatabase();
+      return getMTTRStats({
+        target: args?.target as string,
+        severity: args?.severity as "critical" | "high" | "medium" | "low",
+        startDate: args?.startDate as string,
+        endDate: args?.endDate as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  metrics_get_trends: async (args) => {
+    try {
+      const { getTrends, initMetricsDatabase } = await import("./handlers.js");
+      initMetricsDatabase();
+      return getTrends({
+        target: args?.target as string,
+        period: args?.period as "7d" | "30d" | "90d" | "180d" | "365d",
+        endDate: args?.endDate as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  metrics_set_baseline: async (args) => {
+    try {
+      const { setMetricsBaseline, initMetricsDatabase } = await import("./handlers.js");
+      initMetricsDatabase();
+      return setMetricsBaseline({
+        name: args?.name as string,
+        target: args?.target as string,
+        metrics: args?.metrics as import("@cicd/shared").SnapshotMetrics,
+        createdBy: args?.createdBy as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  metrics_compare_baseline: async (args) => {
+    try {
+      const { compareMetricsBaseline, initMetricsDatabase } = await import("./handlers.js");
+      initMetricsDatabase();
+      return compareMetricsBaseline(
+        args?.baselineName as string,
+        args?.target as string,
+        args?.currentMetrics as import("@cicd/shared").SnapshotMetrics
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -9360,6 +9572,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...notificationHandlers,
   ...alertRulesHandlers,
   ...escalationHandlers,
+  ...securityMetricsHandlers,
 };
 
 export async function handleCallTool(

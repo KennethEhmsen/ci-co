@@ -1543,3 +1543,44 @@ export {
   type EscalateResult,
   type EscalationAuditEntry,
 } from "./escalation-policies.js";
+
+// =============================================================================
+// Security Metrics & KPIs (v1.28.0)
+// =============================================================================
+
+export {
+  initMetricsDatabase,
+  closeMetricsDatabase,
+  getMetricsDatabase,
+  getMetricsAuditLog,
+  recordSnapshot,
+  getSnapshot,
+  getSnapshotsForTarget,
+  getLatestSnapshot,
+  recordVulnerabilityDiscovery,
+  recordVulnerabilityResolution,
+  getMTTRStats,
+  getTrends,
+  setMetricsBaseline,
+  getMetricsBaseline,
+  listMetricsBaselines,
+  deleteMetricsBaseline,
+  compareMetricsBaseline,
+  getMetricsSummary,
+  type MetricsSeverity,
+  type MetricsTrendDirection,
+  type SecuritySnapshot,
+  type SnapshotMetrics,
+  type VulnerabilityLifecycle,
+  type MetricsBaseline,
+  type MTTRStats,
+  type TrendAnalysis,
+  type BaselineComparison,
+  type MetricsDbInitResult,
+  type RecordMetricsSnapshotOptions,
+  type GetMTTROptions,
+  type GetTrendsOptions,
+  type SetBaselineOptions,
+  type MetricsAuditEntry,
+  type MetricsSummary,
+} from "./security-metrics.js";
