@@ -4750,6 +4750,123 @@ export const toolDefinitions = [
       required: ["target", "scanType"],
     },
   },
+  // =========================================================================
+  // SLA Tracking Tools (v1.25.0)
+  // =========================================================================
+  {
+    name: "sla_configure",
+    description:
+      "Configure SLA targets for vulnerability remediation. Define acknowledgment and remediation " +
+      "time targets per severity level with warning thresholds.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Name for this SLA configuration",
+        },
+        description: {
+          type: "string",
+          description: "Description of the SLA policy",
+        },
+        setAsDefault: {
+          type: "boolean",
+          description: "Set this as the default SLA configuration",
+        },
+        targets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: {
+                type: "string",
+                enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+              },
+              acknowledgeHours: {
+                type: "number",
+                description: "Hours to acknowledge vulnerability",
+              },
+              remediateHours: {
+                type: "number",
+                description: "Hours to remediate vulnerability",
+              },
+              warningThresholdPercent: {
+                type: "number",
+                description: "Warning threshold as percentage (0-100)",
+              },
+            },
+            required: ["severity", "acknowledgeHours", "remediateHours"],
+          },
+          description: "SLA targets per severity level",
+        },
+      },
+      required: ["name", "targets"],
+    },
+  },
+  {
+    name: "sla_get_status",
+    description:
+      "Get SLA compliance status for tracked vulnerabilities. Shows compliant, warning, " +
+      "and breached counts with breakdown by severity.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Filter by specific target (image/project path)",
+        },
+        severity: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+          },
+          description: "Filter by severity levels",
+        },
+        configId: {
+          type: "string",
+          description: "SLA config ID to use (uses default if not specified)",
+        },
+        includeDetails: {
+          type: "boolean",
+          description: "Include individual vulnerability statuses",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "sla_get_breaches",
+    description:
+      "Get current SLA breaches and vulnerabilities approaching breach. " +
+      "Returns breached items and those in warning zone.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Filter by specific target",
+        },
+        severity: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+          },
+          description: "Filter by severity levels",
+        },
+        configId: {
+          type: "string",
+          description: "SLA config ID to use",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results to return",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 // =============================================================================
@@ -8256,6 +8373,75 @@ const remediationAutomationHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// SLA Tracking Handlers (v1.25.0)
+// =============================================================================
+const slaHandlers: Record<string, ToolHandler> = {
+  sla_configure: async (args) => {
+    const name = args?.name as string;
+    const targets = args?.targets as Array<{
+      severity: string;
+      acknowledgeHours: number;
+      remediateHours: number;
+      warningThresholdPercent?: number;
+    }>;
+
+    if (!name || !targets?.length) {
+      return { error: "name and targets are required" };
+    }
+
+    try {
+      const { configureSla } = await import("./handlers.js");
+      const result = configureSla({
+        name,
+        description: args?.description as string,
+        setAsDefault: args?.setAsDefault as boolean,
+        targets: targets.map((t) => ({
+          severity: t.severity as "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+          acknowledgeHours: t.acknowledgeHours,
+          remediateHours: t.remediateHours,
+          warningThresholdPercent: t.warningThresholdPercent ?? 75,
+        })),
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  sla_get_status: async (args) => {
+    try {
+      const { getSlaStatus } = await import("./handlers.js");
+      const severity = args?.severity as Array<"CRITICAL" | "HIGH" | "MEDIUM" | "LOW"> | undefined;
+      const result = getSlaStatus({
+        target: args?.target as string,
+        severity,
+        configId: args?.configId as string,
+        includeDetails: args?.includeDetails as boolean,
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+
+  sla_get_breaches: async (args) => {
+    try {
+      const { getSlaBreaches } = await import("./handlers.js");
+      const severity = args?.severity as Array<"CRITICAL" | "HIGH" | "MEDIUM" | "LOW"> | undefined;
+      const result = getSlaBreaches({
+        target: args?.target as string,
+        severity,
+        configId: args?.configId as string,
+        limit: args?.limit as number,
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -8288,6 +8474,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...exportHandlers,
   ...comparisonHandlers,
   ...remediationAutomationHandlers,
+  ...slaHandlers,
 };
 
 export async function handleCallTool(

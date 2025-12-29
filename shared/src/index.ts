@@ -1342,3 +1342,32 @@ export {
   type FixVerificationResult,
   type RescanOptions,
 } from "./fix-verification.js";
+
+// SLA Tracking (v1.25.0)
+export {
+  initSlaDatabase,
+  closeSlaDatabase,
+  configureSla,
+  getSlaConfig,
+  getDefaultSlaConfig,
+  listSlaConfigs,
+  deleteSlaConfig,
+  trackVulnerability,
+  acknowledgeVulnerability,
+  remediateVulnerability,
+  getSlaStatus,
+  getSlaBreaches,
+  clearTrackedVulnerabilities,
+  type SlaSeverity,
+  type SlaTarget,
+  type SlaConfig,
+  type SlaConfigureOptions,
+  type VulnSlaStatus,
+  type SlaStatusSummary,
+  type SlaGetStatusOptions,
+  type SlaStatusResult,
+  type SlaBreach,
+  type SlaApproaching,
+  type SlaBreachesResult,
+  type SlaGetBreachesOptions,
+} from "./sla-tracking.js";

@@ -1,14 +1,14 @@
 # CI/CD Security Scanning Platform - Comprehensive Milestone Roadmap
 
-**Document Version:** 1.2
+**Document Version:** 1.3
 **Last Updated:** December 29, 2024
-**Current Platform Version:** 1.24.0 (171 tools)
+**Current Platform Version:** 1.25.0 (174 tools)
 
 ---
 
 ## Executive Summary
 
-This document provides a comprehensive strategic roadmap for the CI/CD Security Scanning Platform. The platform has rapidly evolved to **171 MCP tools** across 21 functional categories, already achieving enterprise-grade capabilities including SSO, RBAC, API key management, team management, advanced analytics, and automated remediation.
+This document provides a comprehensive strategic roadmap for the CI/CD Security Scanning Platform. The platform has rapidly evolved to **174 MCP tools** across 22 functional categories, already achieving enterprise-grade capabilities including SSO, RBAC, API key management, team management, advanced analytics, automated remediation, and SLA tracking.
 
 ### Platform Vision
 
@@ -334,10 +334,8 @@ Based on the codebase analysis, the following enterprise features are already im
 
 ### v1.25.0 - Advanced Analytics & Reporting
 
-**Target Release:** Q2 2025
+**Status:** Complete (December 29, 2024)
 **Theme:** Business intelligence and executive reporting
-
-**Status:** Partially Implemented (based on codebase analysis)
 
 #### Features
 
@@ -421,11 +419,13 @@ Based on the codebase analysis, the following enterprise features are already im
 
 | Tool | Description |
 |------|-------------|
-| `sla_configure` | Configure SLA targets |
-| `sla_get_status` | Get SLA compliance status |
-| `sla_get_breaches` | Get SLA breaches and approaching |
+| `sla_configure` | Configure SLA targets per severity with warning thresholds |
+| `sla_get_status` | Get SLA compliance status with breakdown by severity |
+| `sla_get_breaches` | Get current breaches and approaching deadlines |
 
-**Platform Impact:** +23 tools (114 -> 137)
+**Implemented (v1.25.0):** SQLite-backed SLA tracking with default policies.
+
+**Platform Impact:** +3 tools (171 -> 174)
 
 ---
 
