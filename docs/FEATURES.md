@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **296 MCP tools** across **47 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, policy enforcement, AI-powered analysis, container security, and distributed caching into a unified security automation framework.
+The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **342 MCP tools** across **52 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, policy enforcement, AI-powered analysis, container security, multi-cloud security, and distributed caching into a unified security automation framework.
 
-**Platform Version:** 1.29.0
+**Platform Version:** 1.30.0
 
 ### Key Capabilities
 
@@ -20,8 +20,10 @@ The CI/CD Security Scanning Platform is a comprehensive enterprise security solu
 | **Container Security** | 41 | K8s, runtime, signing, supply chain |
 | **AI-Powered Security** | 26 | AI analysis, threat intel, NL queries |
 | **Infrastructure** | 22 | Cache, metrics, scan history, assets |
+| **Multi-Cloud Security** | 16 | AWS, Azure, GCP scanning |
+| **Enterprise Scale** | 30 | HA, backup, quotas, performance |
 
-**Total: 296 MCP Tools**
+**Total: 342 MCP Tools**
 
 ### Platform Highlights
 
@@ -31,6 +33,11 @@ The CI/CD Security Scanning Platform is a comprehensive enterprise security solu
 - **Threat Intelligence**: CVE enrichment, threat feeds, IOC management
 - **Compliance Automation**: SOC2, HIPAA, PCI-DSS, CIS, NIST frameworks
 - **Natural Language Queries**: Ask security questions in plain English
+- **Multi-Cloud Security**: AWS ECR/ECS/Lambda, Azure ACR/AKS, GCP GCR/GKE (v1.30.0)
+- **High Availability**: Cluster management, failover, split-brain detection (v1.30.0)
+- **Backup & DR**: Automated backups, scheduling, offsite export (v1.30.0)
+- **Resource Quotas**: Usage limits, breach tracking, alerts (v1.30.0)
+- **Performance Optimization**: Metrics, slow query analysis, index suggestions (v1.30.0)
 
 ---
 

@@ -2,7 +2,7 @@
 
 This document provides a complete reference for all tools and handlers available in the CI/CD Security Platform.
 
-**Version:** 1.29.0 | **Total Tools:** 296
+**Version:** 1.30.0 | **Total Tools:** 342
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides **296 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides **342 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration
@@ -80,7 +80,12 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 | **AI Security** | 8 | Claude-powered vulnerability analysis |
 | **Threat Intelligence** | 14 | CVE enrichment, threat feeds, IOCs |
 | **Natural Language Query** | 4 | NL security queries |
-| **Total** | **296** | |
+| **Multi-Cloud Security** | 16 | AWS/Azure/GCP scanning |
+| **High Availability** | 10 | Cluster management, failover |
+| **Backup & DR** | 8 | Backup, restore, scheduling |
+| **Resource Quotas** | 6 | Usage limits and tracking |
+| **Performance** | 6 | Metrics, slow queries, optimization |
+| **Total** | **342** | |
 
 ---
 
@@ -2122,6 +2127,81 @@ Get current cache configuration.
   }
 }
 ```
+
+---
+
+### Enterprise Scale Tools (v1.30.0)
+
+#### Multi-Cloud Security (16 tools)
+
+| Tool | Description |
+|------|-------------|
+| `cloud_init_db` | Initialize multi-cloud database |
+| `cloud_save_credentials` | Store cloud provider credentials (AWS/Azure/GCP) |
+| `cloud_list_credentials` | List stored cloud credentials |
+| `cloud_scan_aws_ecr` | Scan AWS ECR container repositories |
+| `cloud_scan_aws_ecs` | Scan AWS ECS clusters |
+| `cloud_scan_aws_lambda` | Scan AWS Lambda functions |
+| `cloud_get_aws_findings` | Get AWS Security Hub findings |
+| `cloud_scan_azure_acr` | Scan Azure Container Registry |
+| `cloud_scan_azure_aks` | Scan Azure Kubernetes Service |
+| `cloud_get_azure_alerts` | Get Azure Defender alerts |
+| `cloud_scan_gcp_gcr` | Scan Google Container Registry |
+| `cloud_scan_gcp_gke` | Scan Google Kubernetes Engine |
+| `cloud_get_gcp_findings` | Get GCP Security Command Center findings |
+| `cloud_compare_posture` | Compare security posture across cloud providers |
+| `cloud_get_dashboard` | Get unified multi-cloud security dashboard |
+
+#### High Availability (10 tools)
+
+| Tool | Description |
+|------|-------------|
+| `ha_init_db` | Initialize HA cluster database |
+| `ha_get_cluster_status` | Get cluster health and status |
+| `ha_list_nodes` | List all cluster nodes |
+| `ha_register_node` | Register a new node in the cluster |
+| `ha_promote_node` | Promote a node to primary |
+| `ha_demote_node` | Demote a node to standby |
+| `ha_get_replication_lag` | Get replication status and lag |
+| `ha_configure_failover` | Configure failover settings |
+| `ha_test_failover` | Test failover procedure |
+| `ha_get_split_brain_status` | Detect split-brain scenarios |
+
+#### Backup & DR (8 tools)
+
+| Tool | Description |
+|------|-------------|
+| `backup_init_db` | Initialize backup database |
+| `backup_create` | Create a new backup |
+| `backup_list` | List all backups |
+| `backup_restore` | Restore from backup |
+| `backup_verify` | Verify backup integrity |
+| `backup_schedule_create` | Create backup schedule |
+| `backup_schedule_list` | List backup schedules |
+| `backup_export_offsite` | Export backup to offsite storage |
+
+#### Resource Quotas (6 tools)
+
+| Tool | Description |
+|------|-------------|
+| `quota_init_db` | Initialize quotas database |
+| `quota_set` | Set quota for scope (team/project/user) |
+| `quota_get` | Get quota configuration |
+| `quota_get_usage` | Get current quota usage |
+| `quota_list_breaches` | List quota breaches |
+| `quota_get_summary` | Get quota summary for scope |
+
+#### Performance Optimization (6 tools)
+
+| Tool | Description |
+|------|-------------|
+| `perf_init_db` | Initialize performance database |
+| `perf_get_metrics` | Get performance metrics |
+| `perf_get_aggregated` | Get aggregated metrics with trends |
+| `perf_analyze_slow_queries` | Analyze slow database queries |
+| `perf_suggest_indexes` | Get index optimization suggestions |
+| `perf_cache_warmup` | Warm up caches for targets |
+| `perf_get_summary` | Get overall performance health |
 
 ---
 

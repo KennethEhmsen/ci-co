@@ -1,8 +1,8 @@
 # CI/CD Security Platform - Cheat Sheet
 
-Quick reference for all **296 MCP/Agent tools** across 47 functional categories.
+Quick reference for all **342 MCP/Agent tools** across 52 functional categories.
 
-**Version:** 1.29.0
+**Version:** 1.30.0
 
 ---
 
@@ -890,6 +890,27 @@ registry_scan_multiple --registries ecr,acr --severity CRITICAL
 | | `cache_clear` | Clear all caches |
 | | `cache_invalidate` | Invalidate by pattern |
 | | `cache_config` | Get configuration |
+| **Multi-Cloud** | `cloud_init_db` | Initialize multi-cloud DB |
+| | `cloud_save_credentials` | Store cloud credentials |
+| | `cloud_scan_aws_ecr` | Scan AWS ECR |
+| | `cloud_scan_azure_acr` | Scan Azure ACR |
+| | `cloud_scan_gcp_gcr` | Scan GCP GCR |
+| | `cloud_get_dashboard` | Multi-cloud dashboard |
+| **HA** | `ha_init_db` | Initialize HA DB |
+| | `ha_get_cluster_status` | Get cluster status |
+| | `ha_register_node` | Register node |
+| | `ha_promote_node` | Promote to primary |
+| | `ha_test_failover` | Test failover |
+| **Backup** | `backup_create` | Create backup |
+| | `backup_list` | List backups |
+| | `backup_restore` | Restore backup |
+| | `backup_verify` | Verify integrity |
+| **Quotas** | `quota_set` | Set quota |
+| | `quota_get_usage` | Get usage |
+| | `quota_list_breaches` | List breaches |
+| **Performance** | `perf_get_metrics` | Get metrics |
+| | `perf_analyze_slow_queries` | Analyze slow queries |
+| | `perf_suggest_indexes` | Index suggestions |
 
 ---
 
