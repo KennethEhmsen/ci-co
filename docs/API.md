@@ -2,26 +2,17 @@
 
 This document provides a complete reference for all tools and handlers available in the CI/CD Security Platform.
 
-**Version:** 1.22.0 | **Total Tools:** 82
+**Version:** 1.29.0 | **Total Tools:** 296
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [MCP Server Tools](#mcp-server-tools)
-  - [Trivy Tools](#trivy-tools)
-  - [SonarQube Tools](#sonarqube-tools)
-  - [Dependency-Track Tools](#dependency-track-tools)
-  - [Gitea Tools](#gitea-tools)
-  - [Drone CI Tools](#drone-ci-tools)
-  - [Docker Registry Tools](#docker-registry-tools)
-  - [Security Dashboard Tools](#security-dashboard-tools)
-  - [SARIF Reporting Tools](#sarif-reporting-tools)
-  - [Scheduler Tools](#scheduler-tools)
-  - [Remediation Tools](#remediation-tools)
-  - [Compliance Tools](#compliance-tools)
-  - [OPA/Rego Policy Tools](#oparego-policy-tools)
-  - [Vulnerability Database Tools](#vulnerability-database-tools)
-  - [Cache Tools](#cache-tools)
+  - [Core Scanning Tools](#core-scanning-tools)
+  - [Enterprise Security Tools](#enterprise-security-tools)
+  - [Analytics & Reporting Tools](#analytics--reporting-tools)
+  - [Container Security Tools](#container-security-tools)
+  - [AI-Powered Security Tools](#ai-powered-security-tools)
 - [MCP Resources](#mcp-resources)
 - [Handler Functions](#handler-functions)
 - [Configuration](#configuration)
@@ -31,7 +22,7 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides **82 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides **296 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration
@@ -42,7 +33,7 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 
 | Category | Tools | Description |
 |----------|-------|-------------|
-| **Trivy** | 11 | Vulnerability, secret, license, IaC scanning + SBOM |
+| **Trivy Scanning** | 11 | Vulnerability, secret, license, IaC scanning + SBOM |
 | **SonarQube** | 4 | Code quality, SAST analysis, security hotspots |
 | **Dependency-Track** | 5 | Software composition analysis + SBOM upload |
 | **Gitea** | 6 | Git repos, branches, commits |
@@ -56,7 +47,40 @@ All tools share the same underlying handlers from the `@cicd/shared` package.
 | **OPA/Rego Policy** | 4 | Declarative policy enforcement |
 | **Vulnerability Database** | 6 | Offline scanning and CVE management |
 | **Cache** | 6 | Redis/memory distributed caching |
-| **Total** | **82** | |
+| **Suppression Management** | 5 | Vulnerability suppression and exceptions |
+| **Metrics & Monitoring** | 5 | Prometheus metrics, push gateway |
+| **Scan History & Diff** | 7 | Historical comparison, trending |
+| **SSO Integration** | 20 | SAML/OIDC authentication |
+| **RBAC System** | 5 | Role-based access control |
+| **API Key Management** | 4 | Key creation, rotation, revocation |
+| **Team Management** | 5 | Organizations, teams, membership |
+| **Session Management** | 3 | Session listing and revocation |
+| **Audit Trail** | 3 | Search, export, statistics |
+| **Executive Dashboard** | 3 | Health scores, top risks |
+| **Report Builder** | 4 | Templates, scheduling, generation |
+| **Trend Analysis** | 4 | Forecasting, anomaly detection |
+| **Risk Scoring** | 3 | CVSS-based prioritization |
+| **Export Capabilities** | 3 | PDF, Excel, CSV |
+| **Comparative Analysis** | 3 | Project/team/baseline comparison |
+| **Remediation Automation** | 12 | PR generation, IDE integration |
+| **SLA Tracking** | 3 | SLA configuration and breaches |
+| **Governance** | 3 | Policies and exceptions |
+| **Evidence Collection** | 3 | Audit evidence management |
+| **Audit Preparation** | 3 | Audit packages, attestation |
+| **Notifications** | 3 | Alert channels and notifications |
+| **Alert Rules** | 3 | Custom alert configuration |
+| **Escalation** | 3 | Escalation policies |
+| **Security Metrics** | 4 | KPIs and trends |
+| **Integration Webhooks** | 8 | External system webhooks |
+| **Asset Inventory** | 6 | Scan target tracking |
+| **Kubernetes Security** | 9 | K8s cluster and namespace scanning |
+| **Runtime Security** | 11 | Container runtime monitoring |
+| **Image Signing** | 12 | Cosign/Notary verification |
+| **Supply Chain** | 9 | SLSA, in-toto attestations |
+| **AI Security** | 8 | Claude-powered vulnerability analysis |
+| **Threat Intelligence** | 14 | CVE enrichment, threat feeds, IOCs |
+| **Natural Language Query** | 4 | NL security queries |
+| **Total** | **296** | |
 
 ---
 

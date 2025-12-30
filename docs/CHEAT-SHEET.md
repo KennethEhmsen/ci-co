@@ -1,8 +1,8 @@
 # CI/CD Security Platform - Cheat Sheet
 
-Quick reference for all **82 MCP/Agent tools** across 14 functional categories.
+Quick reference for all **296 MCP/Agent tools** across 47 functional categories.
 
-**Version:** 1.22.0
+**Version:** 1.29.0
 
 ---
 
