@@ -1959,3 +1959,159 @@ export {
   type ConversationMessage,
   type ConversationSession,
 } from "./nl-query.js";
+
+// ============================================================================
+// v1.30.0 - Enterprise Scale & Multi-Cloud Security
+// ============================================================================
+
+// Multi-Cloud Security Scanning
+export {
+  multiCloud,
+  initMultiCloudDb,
+  // Credentials
+  saveCloudCredentials,
+  getCloudCredentials,
+  listCloudCredentials,
+  deleteCloudCredentials,
+  // AWS
+  scanAwsEcr,
+  scanAwsEcs,
+  scanAwsLambda,
+  getAwsSecurityHubFindings,
+  // Azure
+  scanAzureAcr,
+  scanAzureAks,
+  getAzureDefenderAlerts,
+  // GCP
+  scanGcpGcr,
+  scanGcpGke,
+  getGcpSccFindings,
+  // Unified
+  saveCloudFinding,
+  getCloudFindings,
+  recordCloudPosture,
+  compareCloudPosture,
+  getMultiCloudDashboard,
+  // Types
+  type CloudProvider,
+  type CloudCredentials,
+  type CloudRegistry,
+  type CloudSecurityFinding,
+  type CloudPostureScore,
+  type MultiCloudDashboard,
+  type AwsEcrScanResult,
+  type AwsEcsScanResult,
+  type AwsLambdaScanResult,
+  type AzureAcrScanResult,
+  type AzureAksScanResult,
+  type GcpGcrScanResult,
+  type GcpGkeScanResult,
+} from "./multi-cloud.js";
+
+// High Availability & Resilience
+export {
+  highAvailability,
+  initHaDb,
+  // Node management
+  registerNode,
+  getNode,
+  listNodes,
+  removeNode,
+  updateNodeStatus,
+  recordHeartbeat,
+  initializeLocalNode,
+  // Cluster status
+  getClusterStatus,
+  getReplicationStatus,
+  // Failover
+  getFailoverConfig,
+  setFailoverConfig,
+  promoteNode,
+  demoteNode,
+  testFailover,
+  getFailoverHistory,
+  // Split brain
+  detectSplitBrain,
+  // Types
+  type NodeRole,
+  type NodeStatus,
+  type ClusterHealth,
+  type ClusterNode,
+  type ClusterStatus,
+  type ReplicationStatus,
+  type FailoverConfig,
+  type FailoverEvent,
+  type SplitBrainStatus,
+} from "./high-availability.js";
+
+// Backup & Disaster Recovery
+export {
+  backup,
+  initBackupDb,
+  createBackup,
+  listBackups,
+  getBackup,
+  deleteBackup,
+  restoreBackup,
+  verifyBackup,
+  createBackupSchedule,
+  listBackupSchedules,
+  exportBackupOffsite,
+  cleanupExpiredBackups,
+  // Types
+  type BackupStatus,
+  type BackupType,
+  type StorageProvider,
+  type BackupMetadata,
+  type BackupSchedule,
+  type RestoreResult,
+  type BackupVerification,
+  type OffsiteExport,
+} from "./backup.js";
+
+// Resource Quotas & Limits
+export {
+  quotas,
+  initQuotasDb,
+  setQuota,
+  getQuota,
+  listQuotas,
+  deleteQuota,
+  getQuotaUsage,
+  incrementUsage,
+  checkQuota,
+  listBreaches,
+  resolveBreach,
+  listAlerts as listQuotaAlerts,
+  acknowledgeAlert,
+  getQuotaSummary,
+  // Types
+  type QuotaType,
+  type QuotaScope,
+  type QuotaConfig,
+  type QuotaUsage,
+  type QuotaBreach,
+  type QuotaAlert,
+} from "./quotas.js";
+
+// Performance Optimization
+export {
+  performance,
+  initPerformanceDb,
+  recordMetrics as recordPerfMetrics,
+  getMetrics as getPerfMetrics,
+  getAggregatedMetrics,
+  recordSlowQuery,
+  analyzeSlowQueries,
+  suggestIndexes,
+  applyIndexSuggestion,
+  recordCacheStats as recordPerfCacheStats,
+  getCacheStats as getPerfCacheStats,
+  warmupCache,
+  getPerformanceSummary,
+  // Types
+  type PerformanceMetrics,
+  type SlowQuery,
+  type IndexSuggestion,
+  type CacheStats as PerfCacheStats,
+} from "./performance.js";
