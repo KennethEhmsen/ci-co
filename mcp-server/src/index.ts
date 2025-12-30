@@ -265,7 +265,17 @@ export { validateSeverity, sanitizePath, sanitizeImageName } from "./handlers.js
 // =============================================================================
 // Tool Definitions (exported for testing)
 // =============================================================================
-export const toolDefinitions = [
+interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+}
+
+export const toolDefinitions: ToolDefinition[] = [
   // Trivy Tools
   {
     name: "trivy_scan_path",
@@ -5496,6 +5506,219 @@ export const toolDefinitions = [
       required: ["baselineName", "target", "currentMetrics"],
     },
   },
+  // =========================================================================
+  // Integration Webhooks Tools (v1.28.0)
+  // =========================================================================
+  {
+    name: "webhook_init",
+    description:
+      "Initialize the webhooks database. Must be called before using other webhook tools.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dbPath: {
+          type: "string",
+          description: "Path to the SQLite database file. Uses in-memory if not specified.",
+        },
+      },
+    },
+  },
+  {
+    name: "webhook_create",
+    description: "Create a new webhook to receive notifications for security events.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Unique name for the webhook.",
+        },
+        url: {
+          type: "string",
+          description: "The endpoint URL to send webhook notifications to.",
+        },
+        events: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "scan.completed",
+              "scan.failed",
+              "vulnerability.new_critical",
+              "vulnerability.new_high",
+              "vulnerability.new_medium",
+              "threshold.exceeded",
+              "compliance.violation",
+              "policy.failed",
+              "baseline.exceeded",
+            ],
+          },
+          description: "List of events to trigger this webhook.",
+        },
+        headers: {
+          type: "object",
+          description: "Optional custom headers to include in webhook requests.",
+          additionalProperties: { type: "string" },
+        },
+        payloadTemplate: {
+          type: "string",
+          description: "Optional custom payload template. Use {{key}} for placeholders.",
+        },
+        createdBy: {
+          type: "string",
+          description: "User or system creating the webhook.",
+        },
+      },
+      required: ["name", "url", "events"],
+    },
+  },
+  {
+    name: "webhook_list",
+    description: "List all configured webhooks, optionally filtered by status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["active", "inactive", "failing"],
+          description: "Filter by webhook status.",
+        },
+      },
+    },
+  },
+  {
+    name: "webhook_get",
+    description: "Get details of a specific webhook by ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "The webhook ID.",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "webhook_update",
+    description: "Update an existing webhook configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "The webhook ID to update.",
+        },
+        name: { type: "string" },
+        url: { type: "string" },
+        events: {
+          type: "array",
+          items: { type: "string" },
+        },
+        headers: {
+          type: "object",
+          additionalProperties: { type: "string" },
+        },
+        payloadTemplate: { type: "string" },
+        status: {
+          type: "string",
+          enum: ["active", "inactive"],
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "webhook_delete",
+    description: "Delete a webhook by ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "The webhook ID to delete.",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "webhook_test",
+    description: "Test a webhook endpoint by sending a test payload.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "The webhook ID to test.",
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "webhook_trigger",
+    description: "Trigger webhooks for a specific event type.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eventType: {
+          type: "string",
+          enum: [
+            "scan.completed",
+            "scan.failed",
+            "vulnerability.new_critical",
+            "vulnerability.new_high",
+            "vulnerability.new_medium",
+            "threshold.exceeded",
+            "compliance.violation",
+            "policy.failed",
+            "baseline.exceeded",
+          ],
+          description: "The event type to trigger.",
+        },
+        payload: {
+          type: "object",
+          description: "The payload data to send with the webhook.",
+        },
+      },
+      required: ["eventType", "payload"],
+    },
+  },
+  {
+    name: "webhook_stats",
+    description: "Get webhook statistics including delivery success rates.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "webhook_deliveries",
+    description: "Get webhook delivery history.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        webhookId: {
+          type: "string",
+          description: "Filter by webhook ID.",
+        },
+        eventType: {
+          type: "string",
+          description: "Filter by event type.",
+        },
+        successOnly: {
+          type: "boolean",
+          description: "Only return successful deliveries.",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of records to return (default: 100).",
+        },
+      },
+    },
+  },
 ];
 
 // =============================================================================
@@ -5519,7 +5742,7 @@ export const resourceDefinitions = [
 // =============================================================================
 // Handler Functions (exported for testing)
 // =============================================================================
-export function handleListTools() {
+export function handleListTools(): { tools: ToolDefinition[] } {
   return { tools: toolDefinitions };
 }
 
@@ -9533,6 +9756,169 @@ const securityMetricsHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Integration Webhooks Handlers (v1.28.0)
+// =============================================================================
+const integrationWebhooksHandlers: Record<string, ToolHandler> = {
+  webhook_init: async (args) => {
+    try {
+      const { initWebhooksDatabase } = await import("./handlers.js");
+      const result = initWebhooksDatabase(args?.dbPath as string | undefined);
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_create: async (args) => {
+    try {
+      const { createWebhook, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      const result = createWebhook({
+        name: args?.name as string,
+        url: args?.url as string,
+        events: args?.events as Array<
+          | "scan.completed"
+          | "scan.failed"
+          | "vulnerability.new_critical"
+          | "vulnerability.new_high"
+          | "vulnerability.new_medium"
+          | "threshold.exceeded"
+          | "compliance.violation"
+          | "policy.failed"
+          | "baseline.exceeded"
+        >,
+        headers: args?.headers as Record<string, string> | undefined,
+        payloadTemplate: args?.payloadTemplate as string | undefined,
+        createdBy: args?.createdBy as string | undefined,
+      });
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_list: async (args) => {
+    try {
+      const { listWebhooks, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      return listWebhooks(args?.status as "active" | "inactive" | "failing" | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_get: async (args) => {
+    try {
+      const { getWebhook, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      const result = getWebhook(args?.id as string);
+      return result || { error: "Webhook not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_update: async (args) => {
+    try {
+      const { updateWebhook, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      const result = updateWebhook(args?.id as string, {
+        name: args?.name as string | undefined,
+        url: args?.url as string | undefined,
+        events: args?.events as
+          | Array<
+              | "scan.completed"
+              | "scan.failed"
+              | "vulnerability.new_critical"
+              | "vulnerability.new_high"
+              | "vulnerability.new_medium"
+              | "threshold.exceeded"
+              | "compliance.violation"
+              | "policy.failed"
+              | "baseline.exceeded"
+            >
+          | undefined,
+        headers: args?.headers as Record<string, string> | undefined,
+        payloadTemplate: args?.payloadTemplate as string | undefined,
+        status: args?.status as "active" | "inactive" | undefined,
+      });
+      return result || { error: "Webhook not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_delete: async (args) => {
+    try {
+      const { deleteWebhook, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      const success = deleteWebhook(args?.id as string);
+      return { success, message: success ? "Webhook deleted" : "Webhook not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_test: async (args) => {
+    try {
+      const { testWebhook, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      return testWebhook(args?.id as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_trigger: async (args) => {
+    try {
+      const { triggerWebhooks, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      return triggerWebhooks({
+        eventType: args?.eventType as
+          | "scan.completed"
+          | "scan.failed"
+          | "vulnerability.new_critical"
+          | "vulnerability.new_high"
+          | "vulnerability.new_medium"
+          | "threshold.exceeded"
+          | "compliance.violation"
+          | "policy.failed"
+          | "baseline.exceeded",
+        payload: args?.payload as Record<string, unknown>,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_stats: async () => {
+    try {
+      const { getWebhookStats, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      return getWebhookStats();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  webhook_deliveries: async (args) => {
+    try {
+      const { getDeliveryHistory, initWebhooksDatabase } = await import("./handlers.js");
+      initWebhooksDatabase();
+      return getDeliveryHistory({
+        webhookId: args?.webhookId as string | undefined,
+        eventType: args?.eventType as
+          | "scan.completed"
+          | "scan.failed"
+          | "vulnerability.new_critical"
+          | "vulnerability.new_high"
+          | "vulnerability.new_medium"
+          | "threshold.exceeded"
+          | "compliance.violation"
+          | "policy.failed"
+          | "baseline.exceeded"
+          | undefined,
+        successOnly: args?.successOnly as boolean | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -9573,6 +9959,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...alertRulesHandlers,
   ...escalationHandlers,
   ...securityMetricsHandlers,
+  ...integrationWebhooksHandlers,
 };
 
 export async function handleCallTool(

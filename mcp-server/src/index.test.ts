@@ -438,8 +438,8 @@ describe("toolDefinitions", () => {
     expect(toolNames).toContain("security_scan_all");
   });
 
-  it("should have 186 tools total", () => {
-    expect(toolDefinitions.length).toBe(186);
+  it("should have 213 tools total", () => {
+    expect(toolDefinitions.length).toBe(213);
   });
 
   it("should have valid inputSchema for each tool", () => {
@@ -489,7 +489,7 @@ describe("handleListTools", () => {
     const result = handleListTools();
     expect(result).toHaveProperty("tools");
     expect(Array.isArray(result.tools)).toBe(true);
-    expect(result.tools.length).toBe(186);
+    expect(result.tools.length).toBe(213);
   });
 
   it("should return the same tools as toolDefinitions", () => {

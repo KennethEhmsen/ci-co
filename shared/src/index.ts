@@ -1584,3 +1584,48 @@ export {
   type MetricsAuditEntry,
   type MetricsSummary,
 } from "./security-metrics.js";
+
+// =============================================================================
+// Integration Webhooks (v1.28.0)
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initWebhooksDatabase,
+  closeWebhooksDatabase,
+  getWebhooksDatabase,
+  // CRUD operations
+  createWebhook,
+  getWebhook,
+  listWebhooks,
+  updateWebhook,
+  deleteWebhook,
+  // Triggering
+  triggerWebhooks,
+  testWebhook,
+  // Delivery history
+  getDeliveryHistory,
+  // Statistics
+  getWebhookStats,
+  // Cleanup
+  cleanupOldDeliveries,
+  // Audit
+  getWebhooksAuditLog,
+  // Signature utilities
+  generateSignature,
+  verifySignature,
+  // Types
+  type WebhookEventType,
+  type WebhookStatus,
+  type Webhook,
+  type WebhookDelivery,
+  type WebhookDbInitResult,
+  type CreateWebhookOptions,
+  type UpdateWebhookOptions,
+  type TriggerWebhookOptions,
+  type WebhookTestResult,
+  type WebhookAuditEntry,
+  type TriggerResult,
+  type DeliveryHistoryOptions,
+  type WebhookStats,
+} from "./integration-webhooks.js";
