@@ -5971,6 +5971,69 @@ export const toolDefinitions: ToolDefinition[] = [
       },
     },
   },
+  {
+    name: "k8s_check_kubectl",
+    description: "Check if kubectl is available and configured correctly.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "k8s_get_cluster_info",
+    description: "Get information about the connected Kubernetes cluster.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional).",
+        },
+        context: {
+          type: "string",
+          description: "Kubernetes context to use (optional).",
+        },
+      },
+    },
+  },
+  {
+    name: "k8s_get_security_contexts",
+    description: "Get security contexts for pods in a namespace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: {
+          type: "string",
+          description: "Namespace to check (default: all namespaces).",
+        },
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional).",
+        },
+      },
+    },
+  },
+  {
+    name: "k8s_trivy_scan",
+    description: "Run Trivy scan on Kubernetes cluster for vulnerabilities and misconfigurations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: {
+          type: "string",
+          description: "Namespace to scan (optional, scans all if not provided).",
+        },
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional).",
+        },
+        severity: {
+          type: "string",
+          description: "Severity levels to report (e.g., 'CRITICAL,HIGH').",
+        },
+      },
+    },
+  },
   // ==========================================================================
   // Container Runtime Security (v1.28.0)
   // ==========================================================================
@@ -6055,6 +6118,102 @@ export const toolDefinitions: ToolDefinition[] = [
         },
       },
       required: ["containerId", "type"],
+    },
+  },
+  {
+    name: "runtime_init_db",
+    description: "Initialize the runtime security database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Path to database file (default: ./runtime-security.db).",
+        },
+      },
+    },
+  },
+  {
+    name: "runtime_check_docker",
+    description: "Check if Docker is available and running.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "runtime_list_containers",
+    description: "List all running containers with their security information.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "runtime_get_state",
+    description:
+      "Get detailed runtime state for a container including processes and network connections.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Container ID or name.",
+        },
+      },
+      required: ["containerId"],
+    },
+  },
+  {
+    name: "runtime_get_baseline",
+    description: "Get stored security baseline for a container.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Container ID to get baseline for.",
+        },
+      },
+      required: ["containerId"],
+    },
+  },
+  {
+    name: "runtime_get_anomalies",
+    description: "Get stored anomaly detections from the database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Filter by container ID (optional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 100).",
+        },
+      },
+    },
+  },
+  {
+    name: "runtime_get_audit_log",
+    description: "Get runtime security audit log entries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Filter by container ID (optional).",
+        },
+        eventType: {
+          type: "string",
+          description: "Filter by event type (optional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 100).",
+        },
+      },
     },
   },
   // ==========================================================================
@@ -6154,6 +6313,171 @@ export const toolDefinitions: ToolDefinition[] = [
         },
       },
       required: ["image", "policyName"],
+    },
+  },
+  {
+    name: "signing_init_db",
+    description: "Initialize the image signing database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Path to database file (default: ./image-signing.db).",
+        },
+      },
+    },
+  },
+  {
+    name: "signing_generate_keypair",
+    description: "Generate a new Cosign key pair for signing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        keyName: {
+          type: "string",
+          description: "Name for the key pair.",
+        },
+        password: {
+          type: "string",
+          description: "Password to protect the private key (optional for passwordless).",
+        },
+        outputDir: {
+          type: "string",
+          description: "Directory to store the keys (default: current directory).",
+        },
+      },
+      required: ["keyName"],
+    },
+  },
+  {
+    name: "signing_cosign_sign",
+    description: "Sign a container image using Cosign.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image reference to sign.",
+        },
+        keyPath: {
+          type: "string",
+          description: "Path to private key file.",
+        },
+        keylessEnabled: {
+          type: "boolean",
+          description: "Use keyless signing with OIDC.",
+        },
+        annotations: {
+          type: "object",
+          description: "Additional annotations to include in signature.",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "signing_cosign_attest",
+    description: "Create and attach an attestation to a container image.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image reference.",
+        },
+        predicateType: {
+          type: "string",
+          description: "Attestation predicate type (e.g., 'slsaprovenance', 'custom').",
+        },
+        predicatePath: {
+          type: "string",
+          description: "Path to predicate JSON file.",
+        },
+        keyPath: {
+          type: "string",
+          description: "Path to private key file.",
+        },
+      },
+      required: ["image", "predicateType", "predicatePath"],
+    },
+  },
+  {
+    name: "signing_verify_attestation",
+    description: "Verify an attestation attached to a container image.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image reference.",
+        },
+        predicateType: {
+          type: "string",
+          description: "Expected predicate type.",
+        },
+        keyPath: {
+          type: "string",
+          description: "Path to public key file.",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "signing_list_policies",
+    description: "List all configured signing policies.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "signing_delete_policy",
+    description: "Delete a signing policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyId: {
+          type: "string",
+          description: "Policy ID to delete.",
+        },
+      },
+      required: ["policyId"],
+    },
+  },
+  {
+    name: "signing_get_history",
+    description: "Get verification history for images.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Filter by image reference (optional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 100).",
+        },
+      },
+    },
+  },
+  {
+    name: "signing_get_audit_log",
+    description: "Get signing/verification audit log entries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          description: "Filter by action type (optional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 100).",
+        },
+      },
     },
   },
   // ==========================================================================
@@ -6351,6 +6675,84 @@ export const toolDefinitions: ToolDefinition[] = [
       properties: {},
     },
   },
+  {
+    name: "supply_chain_init_db",
+    description: "Initialize the supply chain security database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Path to database file (default: ./supply-chain.db).",
+        },
+      },
+    },
+  },
+  {
+    name: "supply_chain_get_policy",
+    description: "Get a specific supply chain policy by name or ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nameOrId: {
+          type: "string",
+          description: "Policy name or ID.",
+        },
+      },
+      required: ["nameOrId"],
+    },
+  },
+  {
+    name: "supply_chain_list_policies",
+    description: "List all supply chain policies.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "supply_chain_list_trusted_builders",
+    description: "List all trusted builders.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "supply_chain_remove_trusted_builder",
+    description: "Remove a trusted builder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nameOrId: {
+          type: "string",
+          description: "Builder name or ID to remove.",
+        },
+      },
+      required: ["nameOrId"],
+    },
+  },
+  {
+    name: "supply_chain_get_audit_log",
+    description: "Get supply chain audit log entries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: {
+          type: "string",
+          description: "Filter by artifact (optional).",
+        },
+        policyId: {
+          type: "string",
+          description: "Filter by policy ID (optional).",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 100).",
+        },
+      },
+    },
+  },
   // =========================================================================
   // AI-Powered Security Tools (v1.29.0)
   // =========================================================================
@@ -6436,6 +6838,92 @@ export const toolDefinitions: ToolDefinition[] = [
         },
       },
       required: ["target", "type"],
+    },
+  },
+  {
+    name: "ai_init_client",
+    description: "Initialize the AI client for security analysis.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        apiKey: {
+          type: "string",
+          description:
+            "Anthropic API key (optional, uses ANTHROPIC_API_KEY env var if not provided).",
+        },
+        model: {
+          type: "string",
+          description: "Model to use (default: claude-3-sonnet-20240229).",
+        },
+      },
+    },
+  },
+  {
+    name: "ai_analyze_batch",
+    description: "Use AI to analyze multiple vulnerabilities in batch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vulnerabilities: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              vulnId: { type: "string" },
+              package: { type: "string" },
+              severity: { type: "string" },
+            },
+          },
+          description: "Array of vulnerabilities to analyze.",
+        },
+        concurrency: {
+          type: "number",
+          description: "Maximum concurrent analyses (default: 3).",
+        },
+      },
+      required: ["vulnerabilities"],
+    },
+  },
+  {
+    name: "ai_generate_insights",
+    description: "Generate AI-powered security insights from dashboard data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image to analyze.",
+        },
+        path: {
+          type: "string",
+          description: "File path to analyze.",
+        },
+        includeRecommendations: {
+          type: "boolean",
+          description: "Include prioritized recommendations (default: true).",
+        },
+      },
+    },
+  },
+  {
+    name: "ai_calculate_risk",
+    description: "Calculate AI-enhanced risk score for a set of vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image to analyze.",
+        },
+        path: {
+          type: "string",
+          description: "File path to analyze.",
+        },
+        contextFactors: {
+          type: "object",
+          description: "Additional context factors for risk calculation.",
+        },
+      },
     },
   },
   // =========================================================================
@@ -6562,6 +7050,245 @@ export const toolDefinitions: ToolDefinition[] = [
       properties: {},
     },
   },
+  {
+    name: "threat_intel_get_cve",
+    description: "Get stored CVE enrichment data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cveId: {
+          type: "string",
+          description: "CVE ID to look up.",
+        },
+      },
+      required: ["cveId"],
+    },
+  },
+  {
+    name: "threat_intel_save_cve",
+    description: "Save CVE enrichment data to the database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cveId: {
+          type: "string",
+          description: "CVE ID.",
+        },
+        epssScore: {
+          type: "number",
+          description: "EPSS probability score (0-1).",
+        },
+        epssPercentile: {
+          type: "number",
+          description: "EPSS percentile (0-100).",
+        },
+        inKev: {
+          type: "boolean",
+          description: "Whether CVE is in CISA KEV catalog.",
+        },
+        exploitMaturity: {
+          type: "string",
+          description: "Exploit maturity level.",
+        },
+      },
+      required: ["cveId"],
+    },
+  },
+  {
+    name: "threat_intel_batch_context",
+    description: "Get threat context for multiple CVEs in batch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cveIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of CVE IDs.",
+        },
+      },
+      required: ["cveIds"],
+    },
+  },
+  {
+    name: "threat_intel_add_feed",
+    description: "Add a new threat intelligence feed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Feed name.",
+        },
+        url: {
+          type: "string",
+          description: "Feed URL.",
+        },
+        type: {
+          type: "string",
+          enum: ["stix", "csv", "json", "misp"],
+          description: "Feed format type.",
+        },
+        updateInterval: {
+          type: "number",
+          description: "Update interval in hours.",
+        },
+      },
+      required: ["name", "url", "type"],
+    },
+  },
+  {
+    name: "threat_intel_set_feed_enabled",
+    description: "Enable or disable a threat feed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        feedId: {
+          type: "string",
+          description: "Feed ID.",
+        },
+        enabled: {
+          type: "boolean",
+          description: "Whether to enable the feed.",
+        },
+      },
+      required: ["feedId", "enabled"],
+    },
+  },
+  {
+    name: "threat_intel_save_ioc",
+    description: "Save an Indicator of Compromise.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["ip", "domain", "hash", "url", "email"],
+          description: "IOC type.",
+        },
+        value: {
+          type: "string",
+          description: "IOC value.",
+        },
+        threatType: {
+          type: "string",
+          description: "Type of threat (e.g., malware, phishing).",
+        },
+        confidence: {
+          type: "number",
+          description: "Confidence score (0-100).",
+        },
+        source: {
+          type: "string",
+          description: "Source of the IOC.",
+        },
+      },
+      required: ["type", "value"],
+    },
+  },
+  {
+    name: "threat_intel_delete_ioc",
+    description: "Delete an IOC from the database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        iocId: {
+          type: "string",
+          description: "IOC ID to delete.",
+        },
+      },
+      required: ["iocId"],
+    },
+  },
+  {
+    name: "threat_intel_save_actor",
+    description: "Save or update a threat actor profile.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Threat actor name.",
+        },
+        aliases: {
+          type: "array",
+          items: { type: "string" },
+          description: "Known aliases.",
+        },
+        description: {
+          type: "string",
+          description: "Actor description.",
+        },
+        motivation: {
+          type: "string",
+          description: "Actor motivation.",
+        },
+        capabilities: {
+          type: "array",
+          items: { type: "string" },
+          description: "Known capabilities.",
+        },
+        targetSectors: {
+          type: "array",
+          items: { type: "string" },
+          description: "Target sectors.",
+        },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "threat_intel_save_report",
+    description: "Save a threat intelligence report.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Report title.",
+        },
+        content: {
+          type: "string",
+          description: "Report content.",
+        },
+        threatTypes: {
+          type: "array",
+          items: { type: "string" },
+          description: "Types of threats covered.",
+        },
+        relatedCves: {
+          type: "array",
+          items: { type: "string" },
+          description: "Related CVE IDs.",
+        },
+        source: {
+          type: "string",
+          description: "Report source.",
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "threat_intel_search_reports",
+    description: "Search threat intelligence reports.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query.",
+        },
+        threatType: {
+          type: "string",
+          description: "Filter by threat type.",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum results (default: 50).",
+        },
+      },
+    },
+  },
   // =========================================================================
   // Natural Language Query Tools (v1.29.0)
   // =========================================================================
@@ -6612,6 +7339,57 @@ export const toolDefinitions: ToolDefinition[] = [
         message: { type: "string", description: "Message to send" },
       },
       required: ["sessionId", "message"],
+    },
+  },
+  {
+    name: "nl_init_client",
+    description: "Initialize the natural language query client.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        apiKey: {
+          type: "string",
+          description:
+            "Anthropic API key (optional, uses ANTHROPIC_API_KEY env var if not provided).",
+        },
+      },
+    },
+  },
+  {
+    name: "nl_execute_structured",
+    description: "Execute a structured query on security data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        intent: {
+          type: "string",
+          enum: ["count", "list", "filter", "compare", "summarize"],
+          description: "Query intent.",
+        },
+        target: {
+          type: "string",
+          enum: ["vulnerabilities", "packages", "severities", "sources"],
+          description: "Query target.",
+        },
+        filters: {
+          type: "object",
+          properties: {
+            severity: { type: "string" },
+            package: { type: "string" },
+            source: { type: "string" },
+          },
+          description: "Query filters.",
+        },
+        image: {
+          type: "string",
+          description: "Container image to query.",
+        },
+        path: {
+          type: "string",
+          description: "File path to query.",
+        },
+      },
+      required: ["intent", "target"],
     },
   },
 ];
@@ -10967,6 +11745,49 @@ const k8sSecurityHandlers: Record<string, ToolHandler> = {
       return { error: error instanceof Error ? error.message : String(error) };
     }
   },
+  k8s_check_kubectl: async () => {
+    try {
+      const { isKubectlAvailable } = await import("@cicd/shared");
+      const available = await isKubectlAvailable();
+      return { available, message: available ? "kubectl is available" : "kubectl not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_get_cluster_info: async (args) => {
+    try {
+      const { getClusterInfo } = await import("@cicd/shared");
+      return getClusterInfo({
+        kubeconfig: args?.kubeconfig as string | undefined,
+        context: args?.context as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_get_security_contexts: async (args) => {
+    try {
+      const { getSecurityContexts } = await import("@cicd/shared");
+      const namespace = (args?.namespace as string) || "default";
+      return getSecurityContexts(namespace, {
+        kubeconfig: args?.kubeconfig as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_trivy_scan: async (args) => {
+    try {
+      const { runTrivyK8sScan } = await import("@cicd/shared");
+      return runTrivyK8sScan({
+        namespace: args?.namespace as string | undefined,
+        kubeconfig: args?.kubeconfig as string | undefined,
+        severity: args?.severity as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
 };
 
 // =============================================================================
@@ -11011,6 +11832,77 @@ const runtimeSecurityHandlers: Record<string, ToolHandler> = {
       initRuntimeDatabase("./runtime-security.db");
       return generateSecurityProfile(args?.containerId as string, {
         profileType: args?.type as "apparmor" | "seccomp",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_init_db: async (args) => {
+    try {
+      const { initRuntimeDatabase } = await import("@cicd/shared");
+      return initRuntimeDatabase(args?.path as string | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_check_docker: async () => {
+    try {
+      const { isDockerAvailable } = await import("@cicd/shared");
+      const available = await isDockerAvailable();
+      return {
+        available,
+        message: available ? "Docker is available" : "Docker not found or not running",
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_list_containers: async () => {
+    try {
+      const { listRunningContainers } = await import("@cicd/shared");
+      return listRunningContainers();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_get_state: async (args) => {
+    try {
+      const { getContainerRuntimeState } = await import("@cicd/shared");
+      return getContainerRuntimeState(args?.containerId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_get_baseline: async (args) => {
+    try {
+      const { initRuntimeDatabase, getContainerBaseline } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      const baseline = getContainerBaseline(args?.containerId as string);
+      return baseline ?? { error: "No baseline found for container" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_get_anomalies: async (args) => {
+    try {
+      const { initRuntimeDatabase, getStoredAnomalies } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      const containerId = (args?.containerId as string) || "";
+      return getStoredAnomalies(containerId, {
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_get_audit_log: async (args) => {
+    try {
+      const { initRuntimeDatabase, getRuntimeAuditLog } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      return getRuntimeAuditLog({
+        containerId: args?.containerId as string | undefined,
+        eventType: args?.eventType as string | undefined,
+        limit: args?.limit as number | undefined,
       });
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
@@ -11067,6 +11959,104 @@ const imageSigningHandlers: Record<string, ToolHandler> = {
       const { initSigningDatabase, checkPolicy } = await import("@cicd/shared");
       initSigningDatabase("./image-signing.db");
       return checkPolicy(args?.image as string, args?.policyName as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_init_db: async (args) => {
+    try {
+      const { initSigningDatabase } = await import("@cicd/shared");
+      return initSigningDatabase(args?.path as string | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_generate_keypair: async (args) => {
+    try {
+      const { initSigningDatabase, generateCosignKeyPair } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      const outputPath = (args?.outputDir as string) || "./cosign-keys";
+      return generateCosignKeyPair(outputPath, args?.password as string | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_cosign_sign: async (args) => {
+    try {
+      const { initSigningDatabase, cosignSign } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return cosignSign(args?.image as string, {
+        keyPath: args?.keyPath as string | undefined,
+        keylessEnabled: args?.keylessEnabled as boolean | undefined,
+        annotations: args?.annotations as Record<string, string> | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_cosign_attest: async (args) => {
+    try {
+      const { initSigningDatabase, cosignAttest } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return cosignAttest(args?.image as string, {
+        predicateType: args?.predicateType as string,
+        predicatePath: args?.predicatePath as string,
+        keyPath: args?.keyPath as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_verify_attestation: async (args) => {
+    try {
+      const { initSigningDatabase, cosignVerifyAttestation } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      const predicateType = (args?.predicateType as string) || "https://slsa.dev/provenance/v0.2";
+      return cosignVerifyAttestation(args?.image as string, predicateType, {
+        keyPath: args?.keyPath as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_list_policies: async () => {
+    try {
+      const { initSigningDatabase, listSigningPolicies } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return listSigningPolicies();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_delete_policy: async (args) => {
+    try {
+      const { initSigningDatabase, deleteSigningPolicy } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      const deleted = deleteSigningPolicy(args?.policyId as string);
+      return { deleted, policyId: args?.policyId };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_get_history: async (args) => {
+    try {
+      const { initSigningDatabase, getVerificationHistory } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      const imageRef = (args?.image as string) || "";
+      return getVerificationHistory(imageRef, args?.limit as number | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_get_audit_log: async (args) => {
+    try {
+      const { initSigningDatabase, getSigningAuditLog } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return getSigningAuditLog({
+        imageRef: args?.imageRef as string | undefined,
+        eventType: args?.eventType as string | undefined,
+        limit: args?.limit as number | undefined,
+      });
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
     }
@@ -11205,6 +12195,65 @@ const supplyChainHandlers: Record<string, ToolHandler> = {
       return { error: error instanceof Error ? error.message : String(error) };
     }
   },
+  supply_chain_init_db: async (args) => {
+    try {
+      const { initSupplyChainDb } = await import("@cicd/shared");
+      return initSupplyChainDb((args?.path as string) || "./supply-chain.db");
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_get_policy: async (args) => {
+    try {
+      const { initSupplyChainDb, getSupplyChainPolicy } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      const policy = getSupplyChainPolicy(args?.nameOrId as string);
+      return policy ?? { error: "Policy not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_list_policies: async () => {
+    try {
+      const { initSupplyChainDb, listSupplyChainPolicies } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return listSupplyChainPolicies();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_list_trusted_builders: async () => {
+    try {
+      const { initSupplyChainDb, listTrustedBuilders } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return listTrustedBuilders();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_remove_trusted_builder: async (args) => {
+    try {
+      const { initSupplyChainDb, removeTrustedBuilder } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      const removed = removeTrustedBuilder(args?.nameOrId as string);
+      return { removed, nameOrId: args?.nameOrId };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_get_audit_log: async (args) => {
+    try {
+      const { initSupplyChainDb, getSupplyChainAuditLog } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return getSupplyChainAuditLog({
+        artifact: args?.artifact as string | undefined,
+        policyId: args?.policyId as string | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
 };
 
 // =============================================================================
@@ -11271,6 +12320,82 @@ const aiSecurityHandlers: Record<string, ToolHandler> = {
         type: args?.type as "container" | "application" | "infrastructure" | "api",
         technologies: args?.technologies as string[] | undefined,
         exposures: args?.exposures as string[] | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_init_client: async (args) => {
+    try {
+      const { initAIClient } = await import("@cicd/shared");
+      return initAIClient({
+        apiKey: args?.apiKey as string | undefined,
+        model: args?.model as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_analyze_batch: async (args) => {
+    try {
+      const { analyzeVulnerabilities } = await import("@cicd/shared");
+      type TrivySeverity = "UNKNOWN" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      const vulns =
+        (args?.vulnerabilities as Array<{ vulnId: string; package: string; severity?: string }>) ||
+        [];
+      const trivyVulns = vulns.map((v) => ({
+        VulnerabilityID: v.vulnId,
+        PkgName: v.package,
+        InstalledVersion: "unknown",
+        Severity: (v.severity as TrivySeverity) || "MEDIUM",
+        Title: "",
+        Description: "",
+      }));
+      return analyzeVulnerabilities(trivyVulns, {
+        packageManager: args?.packageManager as string | undefined,
+        runtime: args?.runtime as string | undefined,
+        application: args?.application as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_generate_insights: async (args) => {
+    try {
+      const { generateSecurityInsights, getSecurityDashboard } = await import("@cicd/shared");
+      // Build dashboard result from image or path scan
+      const dashboard = await getSecurityDashboard({
+        image: args?.image as string | undefined,
+        path: args?.path as string | undefined,
+      });
+      if ("error" in dashboard) {
+        return { error: dashboard.error };
+      }
+      return generateSecurityInsights(dashboard, {
+        apiKey: args?.apiKey as string | undefined,
+        model: args?.model as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_calculate_risk: async (args) => {
+    try {
+      // Import from ai-security module (exported as calculateAIRiskScore to avoid naming conflict)
+      const { calculateAIRiskScore, trivyScanImage, trivyScanPath } = await import("@cicd/shared");
+      let trivyResults;
+      if (args?.image) {
+        trivyResults = await trivyScanImage(args.image as string);
+      } else if (args?.path) {
+        trivyResults = await trivyScanPath(args.path as string);
+      }
+      if (!trivyResults || !("Results" in trivyResults)) {
+        return { error: "Scan failed or no results" };
+      }
+      // Use the ai-security calculateRiskScore which takes data object (single arg)
+      return calculateAIRiskScore({
+        trivyResults,
+        previousScore: args?.previousScore as number | undefined,
       });
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
@@ -11392,6 +12517,191 @@ const threatIntelHandlers: Record<string, ToolHandler> = {
       return { error: error instanceof Error ? error.message : String(error) };
     }
   },
+  threat_intel_get_cve: async (args) => {
+    try {
+      const { initThreatIntelDb, getCveEnrichment } = await import("@cicd/shared");
+      initThreatIntelDb();
+      const enrichment = getCveEnrichment(args?.cveId as string);
+      return enrichment ?? { error: "CVE not found in database" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_save_cve: async (args) => {
+    try {
+      const { initThreatIntelDb, saveCveEnrichment } = await import("@cicd/shared");
+      initThreatIntelDb();
+      saveCveEnrichment({
+        cveId: args?.cveId as string,
+        epssScore: args?.epssScore as number | undefined,
+        epssPercentile: args?.epssPercentile as number | undefined,
+        isKev: (args?.isKev as boolean) ?? false,
+        exploits:
+          (args?.exploits as Array<{
+            source: string;
+            url?: string;
+            description?: string;
+            published?: string;
+            verified: boolean;
+          }>) || [],
+        threatActors: (args?.threatActors as string[]) || [],
+        malwareFamilies: (args?.malwareFamilies as string[]) || [],
+        attackPatterns: (args?.attackPatterns as string[]) || [],
+        lastUpdated: new Date().toISOString(),
+      });
+      return { success: true, cveId: args?.cveId };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_batch_context: async (args) => {
+    try {
+      const { initThreatIntelDb, getBatchThreatContext } = await import("@cicd/shared");
+      initThreatIntelDb();
+      return getBatchThreatContext(args?.cveIds as string[]);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_add_feed: async (args) => {
+    try {
+      const { initThreatIntelDb, addThreatFeed } = await import("@cicd/shared");
+      initThreatIntelDb();
+      type FeedType = "CVE" | "IOC" | "MALWARE" | "ACTOR";
+      type FeedFormat = "json" | "csv" | "stix" | "openioc";
+      return addThreatFeed({
+        id: `feed-${Date.now()}`,
+        name: args?.name as string,
+        url: args?.url as string,
+        type: (args?.type as FeedType) || "CVE",
+        format: (args?.format as FeedFormat) || "json",
+        enabled: (args?.enabled as boolean) ?? true,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_set_feed_enabled: async (args) => {
+    try {
+      const { initThreatIntelDb, setThreatFeedEnabled } = await import("@cicd/shared");
+      initThreatIntelDb();
+      setThreatFeedEnabled(args?.feedId as string, args?.enabled as boolean);
+      return { success: true, feedId: args?.feedId, enabled: args?.enabled };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_save_ioc: async (args) => {
+    try {
+      const { initThreatIntelDb, saveIOC } = await import("@cicd/shared");
+      initThreatIntelDb();
+      type IOCType =
+        | "ip"
+        | "domain"
+        | "url"
+        | "hash_md5"
+        | "hash_sha1"
+        | "hash_sha256"
+        | "email"
+        | "file_name"
+        | "registry_key"
+        | "mutex"
+        | "user_agent";
+      type SeverityLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      saveIOC({
+        id: `ioc-${Date.now()}`,
+        type: (args?.type as IOCType) || "ip",
+        value: args?.value as string,
+        confidence: (args?.confidence as number) ?? 50,
+        severity: (args?.severity as SeverityLevel) || "MEDIUM",
+        source: (args?.source as string) || "manual",
+        firstSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
+        tags: (args?.tags as string[]) || [],
+        relatedCves: (args?.relatedCves as string[]) || [],
+        description: args?.description as string | undefined,
+      });
+      return { success: true, value: args?.value };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_delete_ioc: async (args) => {
+    try {
+      const { initThreatIntelDb, deleteIOC } = await import("@cicd/shared");
+      initThreatIntelDb();
+      const deleted = deleteIOC(args?.iocId as string);
+      return { deleted, iocId: args?.iocId };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_save_actor: async (args) => {
+    try {
+      const { initThreatIntelDb, saveThreatActor } = await import("@cicd/shared");
+      initThreatIntelDb();
+      type Sophistication = "LOW" | "MEDIUM" | "HIGH" | "EXPERT";
+      saveThreatActor({
+        id: `actor-${Date.now()}`,
+        name: args?.name as string,
+        aliases: (args?.aliases as string[]) || [],
+        description: (args?.description as string) || "",
+        motivation: (args?.motivation as string[]) || [],
+        sophistication: (args?.sophistication as Sophistication) || "MEDIUM",
+        targetedSectors: (args?.targetSectors as string[]) || [],
+        targetedCountries: (args?.targetedCountries as string[]) || [],
+        tools: (args?.tools as string[]) || [],
+        techniques: (args?.techniques as string[]) || [],
+        associatedCves: (args?.associatedCves as string[]) || [],
+        lastActivity: args?.lastActivity as string | undefined,
+        references: (args?.references as string[]) || [],
+      });
+      return { success: true, name: args?.name };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_save_report: async (args) => {
+    try {
+      const { initThreatIntelDb, saveThreatReport } = await import("@cicd/shared");
+      initThreatIntelDb();
+      type SeverityLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      saveThreatReport({
+        id: `report-${Date.now()}`,
+        title: args?.title as string,
+        summary: (args?.content as string) || "",
+        severity: (args?.severity as SeverityLevel) || "MEDIUM",
+        publishedDate: new Date().toISOString(),
+        source: (args?.source as string) || "manual",
+        tags: (args?.threatTypes as string[]) || [],
+        iocs: [],
+        cves: (args?.relatedCves as string[]) || [],
+        actors: [],
+        mitigations: (args?.mitigations as string[]) || [],
+        url: args?.url as string | undefined,
+      });
+      return { success: true, title: args?.title };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_search_reports: async (args) => {
+    try {
+      const { initThreatIntelDb, searchThreatReports } = await import("@cicd/shared");
+      initThreatIntelDb();
+      type SeverityLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      return searchThreatReports({
+        keyword: args?.keyword as string | undefined,
+        severity: args?.severity as SeverityLevel | undefined,
+        cve: args?.cve as string | undefined,
+        actor: args?.actor as string | undefined,
+        since: args?.since as string | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
 };
 
 // =============================================================================
@@ -11499,6 +12809,70 @@ const nlQueryHandlers: Record<string, ToolHandler> = {
       );
       nlConversationSessions.set(args?.sessionId as string, result.session);
       return result.response;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  nl_init_client: async (args) => {
+    try {
+      const { initNLQueryClient } = await import("@cicd/shared");
+      return initNLQueryClient({
+        apiKey: args?.apiKey as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  nl_execute_structured: async (args) => {
+    try {
+      const { executeStructuredQuery, trivyScanImage, trivyScanPath } =
+        await import("@cicd/shared");
+
+      let trivyResults;
+      if (args?.image) {
+        const result = await trivyScanImage(args.image as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      } else if (args?.path) {
+        const result = await trivyScanPath(args.path as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      }
+
+      type QueryIntent =
+        | "list_vulnerabilities"
+        | "count_vulnerabilities"
+        | "find_critical"
+        | "find_by_package"
+        | "find_by_cve"
+        | "compare_scans"
+        | "get_summary"
+        | "find_remediations"
+        | "check_compliance"
+        | "risk_assessment";
+      type SeverityLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      type SecuritySource = "trivy" | "sonarqube" | "dtrack";
+      const filters = args?.filters as Record<string, unknown> | undefined;
+      return executeStructuredQuery(
+        {
+          type: (args?.type as QueryIntent) || "list_vulnerabilities",
+          filters: filters
+            ? {
+                severity: filters.severity as SeverityLevel[] | undefined,
+                package: filters.package as string | undefined,
+                cveId: filters.cveId as string | undefined,
+                source: filters.source as SecuritySource[] | undefined,
+                fixAvailable: filters.fixAvailable as boolean | undefined,
+              }
+            : undefined,
+          limit: args?.limit as number | undefined,
+          orderBy: args?.orderBy as string | undefined,
+          groupBy: args?.groupBy as string | undefined,
+        },
+        { trivyResults }
+      );
     } catch (error) {
       return { error: error instanceof Error ? error.message : String(error) };
     }
