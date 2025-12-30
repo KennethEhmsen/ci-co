@@ -91,20 +91,27 @@ describe("RBAC Configuration", () => {
 
     it("should seed default permissions", () => {
       const permissions = listPermissions();
-      expect(permissions.length).toBeGreaterThanOrEqual(11);
+      // 22 permissions: scan (4), policy (3), suppression (4), config (2),
+      // report (4), audit (1), user (2), system (1)
+      expect(permissions.length).toBeGreaterThanOrEqual(21);
 
       const permNames = permissions.map((p) => p.name);
       expect(permNames).toContain("scan:read");
       expect(permNames).toContain("scan:execute");
+      expect(permNames).toContain("scan:configure");
+      expect(permNames).toContain("policy:read");
+      expect(permNames).toContain("suppression:approve");
+      expect(permNames).toContain("report:export");
       expect(permNames).toContain("system:admin");
     });
 
     it("should seed default roles", () => {
       const roles = listRoles(false);
-      expect(roles.length).toBeGreaterThanOrEqual(4);
+      expect(roles.length).toBeGreaterThanOrEqual(5);
 
       const roleNames = roles.map((r) => r.name);
       expect(roleNames).toContain("Admin");
+      expect(roleNames).toContain("Security Lead");
       expect(roleNames).toContain("Auditor");
       expect(roleNames).toContain("Developer");
       expect(roleNames).toContain("Viewer");
@@ -119,6 +126,27 @@ describe("RBAC Configuration", () => {
       expect(permissions.some((p) => p.name === "system:admin")).toBe(true);
     });
 
+    it("should have correct permissions for Security Lead role", () => {
+      const role = getRoleByName("Security Lead");
+      expect(role).not.toBeNull();
+      expect(role?.isSystem).toBe(true);
+
+      const permissions = getRolePermissions(role!.id);
+      const permNames = permissions.map((p) => p.name);
+      // Security Lead should have scan, policy, suppression, and report permissions
+      expect(permNames).toContain("scan:read");
+      expect(permNames).toContain("scan:execute");
+      expect(permNames).toContain("scan:configure");
+      expect(permNames).toContain("policy:read");
+      expect(permNames).toContain("policy:write");
+      expect(permNames).toContain("suppression:read");
+      expect(permNames).toContain("suppression:approve");
+      expect(permNames).toContain("report:read");
+      expect(permNames).toContain("report:export");
+      // Security Lead should NOT have system:admin
+      expect(permNames).not.toContain("system:admin");
+    });
+
     it("should have correct permissions for Developer role", () => {
       const role = getRoleByName("Developer");
       expect(role).not.toBeNull();
@@ -127,6 +155,8 @@ describe("RBAC Configuration", () => {
       const permNames = permissions.map((p) => p.name);
       expect(permNames).toContain("scan:read");
       expect(permNames).toContain("scan:execute");
+      expect(permNames).toContain("suppression:read");
+      expect(permNames).toContain("suppression:write");
       expect(permNames).toContain("report:read");
       expect(permNames).toContain("report:generate");
     });

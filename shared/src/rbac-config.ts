@@ -112,9 +112,56 @@ function createSchema(database: Database.Database): void {
 // =============================================================================
 
 const DEFAULT_PERMISSIONS: Array<Omit<RbacPermission, "id" | "createdAt">> = [
+  // Scan permissions
   { name: "scan:read", resource: "scan", action: "read", description: "View scan results" },
   { name: "scan:execute", resource: "scan", action: "execute", description: "Run scans" },
   { name: "scan:delete", resource: "scan", action: "delete", description: "Delete scan results" },
+  {
+    name: "scan:configure",
+    resource: "scan",
+    action: "configure",
+    description: "Configure scan settings",
+  },
+  // Policy permissions
+  {
+    name: "policy:read",
+    resource: "policy",
+    action: "read",
+    description: "View security policies",
+  },
+  {
+    name: "policy:write",
+    resource: "policy",
+    action: "write",
+    description: "Create/update policies",
+  },
+  { name: "policy:delete", resource: "policy", action: "delete", description: "Delete policies" },
+  // Suppression permissions
+  {
+    name: "suppression:read",
+    resource: "suppression",
+    action: "read",
+    description: "View suppressions",
+  },
+  {
+    name: "suppression:write",
+    resource: "suppression",
+    action: "write",
+    description: "Create suppressions",
+  },
+  {
+    name: "suppression:approve",
+    resource: "suppression",
+    action: "approve",
+    description: "Approve suppressions",
+  },
+  {
+    name: "suppression:delete",
+    resource: "suppression",
+    action: "delete",
+    description: "Delete suppressions",
+  },
+  // Config permissions
   { name: "config:read", resource: "config", action: "read", description: "View configuration" },
   {
     name: "config:write",
@@ -122,6 +169,7 @@ const DEFAULT_PERMISSIONS: Array<Omit<RbacPermission, "id" | "createdAt">> = [
     action: "write",
     description: "Modify configuration",
   },
+  // Report permissions
   { name: "report:read", resource: "report", action: "read", description: "View reports" },
   {
     name: "report:generate",
@@ -129,7 +177,16 @@ const DEFAULT_PERMISSIONS: Array<Omit<RbacPermission, "id" | "createdAt">> = [
     action: "execute",
     description: "Generate reports",
   },
+  { name: "report:export", resource: "report", action: "export", description: "Export reports" },
+  {
+    name: "report:schedule",
+    resource: "report",
+    action: "schedule",
+    description: "Schedule reports",
+  },
+  // Audit permissions
   { name: "audit:read", resource: "audit", action: "read", description: "View audit logs" },
+  // User/Admin permissions
   { name: "user:read", resource: "user", action: "read", description: "View user info" },
   { name: "user:manage", resource: "user", action: "write", description: "Manage users/roles" },
   { name: "system:admin", resource: "system", action: "admin", description: "Full system access" },
@@ -148,14 +205,51 @@ const DEFAULT_ROLES: DefaultRoleConfig[] = [
     permissions: ["system:admin"],
   },
   {
+    name: "Security Lead",
+    description: "Manage security settings, scans, policies, suppressions, and reports",
+    permissions: [
+      "scan:read",
+      "scan:execute",
+      "scan:delete",
+      "scan:configure",
+      "policy:read",
+      "policy:write",
+      "policy:delete",
+      "suppression:read",
+      "suppression:write",
+      "suppression:approve",
+      "suppression:delete",
+      "report:read",
+      "report:generate",
+      "report:export",
+      "report:schedule",
+      "config:read",
+      "audit:read",
+    ],
+  },
+  {
     name: "Auditor",
-    description: "Read-only access to all resources and audit logs",
-    permissions: ["scan:read", "report:read", "audit:read", "config:read"],
+    description: "Read-only access to all resources, policies, suppressions, and audit logs",
+    permissions: [
+      "scan:read",
+      "policy:read",
+      "suppression:read",
+      "report:read",
+      "config:read",
+      "audit:read",
+    ],
   },
   {
     name: "Developer",
-    description: "Scan execution and report access",
-    permissions: ["scan:read", "scan:execute", "report:read", "report:generate"],
+    description: "Scan execution, suppression requests, and report access",
+    permissions: [
+      "scan:read",
+      "scan:execute",
+      "suppression:read",
+      "suppression:write",
+      "report:read",
+      "report:generate",
+    ],
   },
   {
     name: "Viewer",
