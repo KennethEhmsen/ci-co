@@ -1678,3 +1678,284 @@ export {
   type AssetDbInitResult,
   type AssetAuditEntry,
 } from "./asset-inventory.js";
+
+// =============================================================================
+// Kubernetes Security (v1.28.0)
+// =============================================================================
+
+export {
+  // Cluster/Namespace scanning
+  isKubectlAvailable,
+  getClusterInfo,
+  scanK8sCluster,
+  scanK8sNamespace,
+  getSecurityContexts,
+  // RBAC analysis
+  auditRbac,
+  // Network Policy analysis
+  analyzeNetworkPolicies,
+  // Trivy K8s integration
+  runTrivyK8sScan,
+  // Types
+  type K8sResourceType,
+  type K8sSeverity,
+  type K8sMisconfigCategory,
+  type K8sMisconfiguration,
+  type K8sSecurityContext,
+  type K8sSecurityContextAnalysis,
+  type K8sRbacRule,
+  type K8sRbacBinding,
+  type K8sRbacAuditResult,
+  type K8sNetworkPolicy,
+  type K8sNetworkPolicyAnalysis,
+  type K8sClusterScanResult,
+  type K8sNamespaceScanResult,
+  type K8sScanOptions,
+} from "./k8s-security.js";
+
+// =============================================================================
+// Container Runtime Security (v1.28.0)
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initRuntimeDatabase,
+  closeRuntimeDatabase,
+  // Container scanning
+  isDockerAvailable,
+  listRunningContainers,
+  scanRunningContainer,
+  getContainerRuntimeState,
+  // Anomaly detection
+  detectAnomalies,
+  createContainerBaseline,
+  getContainerBaseline,
+  getStoredAnomalies,
+  // Security profiles
+  generateSecurityProfile,
+  // Audit logging
+  getRuntimeAuditLog,
+  // Types
+  type RuntimeSeverity,
+  type AnomalyType,
+  type ProfileType,
+  type ContainerInfo,
+  type RuntimeVulnerability,
+  type RuntimeScanResult,
+  type ProcessInfo,
+  type NetworkConnection,
+  type ContainerRuntimeState,
+  type RuntimeAnomaly,
+  type AnomalyDetectionResult as RuntimeAnomalyResult,
+  type SeccompProfile,
+  type AppArmorProfile,
+  type SecurityProfile,
+  type ContainerBaseline,
+  type RuntimeScanOptions,
+  type ProfileGenerationOptions,
+  type AnomalyDetectionOptions,
+  type RuntimeDbInitResult,
+} from "./runtime-security.js";
+
+// =============================================================================
+// Image Signing & Verification (v1.28.0)
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initSigningDatabase,
+  closeSigningDatabase,
+  // Cosign operations
+  isCosignInstalled,
+  getCosignVersion,
+  generateCosignKeyPair,
+  cosignSign,
+  cosignVerify,
+  cosignAttest,
+  cosignVerifyAttestation,
+  // Notary operations
+  isNotaryInstalled,
+  notaryVerify,
+  // Policy management
+  createSigningPolicy,
+  getSigningPolicy,
+  listSigningPolicies,
+  deleteSigningPolicy,
+  checkPolicy,
+  // Verification history
+  getVerificationHistory,
+  // Audit
+  getSigningAuditLog,
+  // Types
+  type SignatureType,
+  type VerificationStatus,
+  type AttestationType,
+  type ImageReference,
+  type SignatureInfo,
+  type VerificationResult,
+  type AttestationInfo,
+  type TrustChainInfo,
+  type SigningOptions,
+  type VerifyOptions,
+  type AttestOptions,
+  type CosignKeyPair,
+  type SigningPolicy,
+  type PolicyCheckResult,
+  type SigningDbInitResult,
+} from "./image-signing.js";
+
+// =============================================================================
+// Supply Chain Security (v1.28.0)
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initSupplyChainDb,
+  closeSupplyChainDb,
+  getSupplyChainDb,
+  // SLSA verification
+  verifySlsaProvenance,
+  // in-toto verification
+  verifyInToto,
+  // SBOM attestation
+  verifySbomAttestation,
+  // Policy management
+  createSupplyChainPolicy,
+  getSupplyChainPolicy,
+  listSupplyChainPolicies,
+  evaluateSupplyChainPolicy,
+  // Trusted builders
+  addTrustedBuilder,
+  listTrustedBuilders,
+  removeTrustedBuilder,
+  // Audit & Summary
+  getSupplyChainAuditLog,
+  getSupplyChainSummary,
+  // Types
+  type SlsaLevel,
+  type ProvenanceStatus,
+  type AttestationFormat,
+  type BuilderTrust,
+  type SlsaProvenance,
+  type SlsaVerificationResult,
+  type InTotoStatement,
+  type InTotoLink,
+  type InTotoLayout,
+  type InTotoKey,
+  type InTotoStep,
+  type InTotoInspection,
+  type InTotoVerificationResult,
+  type SbomAttestation,
+  type SbomVerificationResult,
+  type SupplyChainPolicy,
+  type SupplyChainRule,
+  type SupplyChainPolicyResult,
+  type TrustedBuilder,
+} from "./supply-chain.js";
+
+// =============================================================================
+// AI-Powered Security (v1.29.0)
+// =============================================================================
+
+// AI Security Analysis
+export {
+  // Client management
+  initAIClient,
+  // Vulnerability analysis
+  analyzeVulnerability,
+  analyzeVulnerabilities,
+  // Code security
+  analyzeCodeSecurity,
+  // Remediation
+  generateRemediationPlan,
+  // Insights
+  generateSecurityInsights,
+  // Threat modeling
+  generateThreatModel,
+  // Risk scoring
+  calculateRiskScore as calculateAIRiskScore,
+  // Types
+  type AIAnalysisConfig,
+  type VulnerabilityAnalysis,
+  type CodeSecurityAnalysis,
+  type CodeSecurityFinding,
+  type SecurityFindingType,
+  type AIRemediationPlan,
+  type RemediationStep,
+  type SecurityInsight,
+  type ThreatModelAnalysis,
+  type ThreatEntry,
+  type AttackSurfaceEntry,
+  type MitigationRecommendation,
+  type RiskScore as AIRiskScore,
+} from "./ai-security.js";
+
+// Threat Intelligence
+export {
+  // Database lifecycle
+  initThreatIntelDb,
+  closeThreatIntelDb,
+  // CVE Enrichment
+  getCveEnrichment,
+  saveCveEnrichment,
+  getVulnThreatContext,
+  getBatchThreatContext,
+  // Threat Feeds
+  listThreatFeeds,
+  addThreatFeed,
+  setThreatFeedEnabled,
+  updateFeedSyncStatus,
+  // IOCs
+  saveIOC,
+  searchIOCs,
+  checkIOC,
+  deleteIOC,
+  // Threat Actors
+  saveThreatActor,
+  getThreatActor,
+  searchThreatActors,
+  // Threat Reports
+  saveThreatReport,
+  searchThreatReports,
+  // Statistics
+  getThreatIntelStats,
+  // Types
+  type ThreatIntelConfig,
+  type CVEEnrichment,
+  type ExploitInfo,
+  type ThreatFeed,
+  type IOC,
+  type IOCType,
+  type ThreatActor,
+  type ThreatReport,
+  type VulnThreatContext,
+  type ThreatIntelStats,
+} from "./threat-intel.js";
+
+// Natural Language Query
+export {
+  // Client management
+  initNLQueryClient,
+  // Query processing
+  processNLQuery,
+  executeStructuredQuery,
+  // Suggestions
+  getQuerySuggestions,
+  // Conversation
+  createConversationSession,
+  sendConversationMessage,
+  // Types
+  type NLQueryConfig,
+  type NLQueryContext,
+  type NLQueryResult,
+  type QueryIntent,
+  type StructuredQuery,
+  type QueryResultData,
+  type VulnSummary,
+  type PackageSummary,
+  type TimelineEntry,
+  type ComplianceStatus as NLComplianceStatus,
+  type QuerySuggestion,
+  type ConversationMessage,
+  type ConversationSession,
+} from "./nl-query.js";

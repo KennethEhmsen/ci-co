@@ -5892,6 +5892,728 @@ export const toolDefinitions: ToolDefinition[] = [
       },
     },
   },
+  // ==========================================================================
+  // Kubernetes Security (v1.28.0)
+  // ==========================================================================
+  {
+    name: "k8s_scan_cluster",
+    description:
+      "Scan a Kubernetes cluster for security misconfigurations. Analyzes pods, deployments, services, and RBAC.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        clusterName: {
+          type: "string",
+          description: "Name of the cluster to scan (used for tracking).",
+        },
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional, uses default if not provided).",
+        },
+        namespaces: {
+          type: "array",
+          items: { type: "string" },
+          description: "Specific namespaces to scan (optional, scans all if not provided).",
+        },
+      },
+      required: ["clusterName"],
+    },
+  },
+  {
+    name: "k8s_scan_namespace",
+    description: "Scan a specific Kubernetes namespace for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: {
+          type: "string",
+          description: "Namespace to scan.",
+        },
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional).",
+        },
+      },
+      required: ["namespace"],
+    },
+  },
+  {
+    name: "k8s_audit_rbac",
+    description: "Audit Kubernetes RBAC configuration for overly permissive roles and bindings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: {
+          type: "string",
+          description: "Namespace to audit (optional, audits cluster-wide if not provided).",
+        },
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional).",
+        },
+      },
+    },
+  },
+  {
+    name: "k8s_analyze_network_policies",
+    description: "Analyze Kubernetes NetworkPolicies for gaps and missing coverage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: {
+          type: "string",
+          description: "Namespace to analyze (optional, analyzes all if not provided).",
+        },
+        kubeconfig: {
+          type: "string",
+          description: "Path to kubeconfig file (optional).",
+        },
+      },
+    },
+  },
+  // ==========================================================================
+  // Container Runtime Security (v1.28.0)
+  // ==========================================================================
+  {
+    name: "runtime_scan_container",
+    description:
+      "Scan a running container for security issues including processes, network connections, and file access.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Container ID or name to scan.",
+        },
+        deep: {
+          type: "boolean",
+          description: "Perform deep scan including process tree and network connections.",
+        },
+      },
+      required: ["containerId"],
+    },
+  },
+  {
+    name: "runtime_detect_anomalies",
+    description: "Detect anomalies in a running container by comparing to its baseline.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Container ID or name to check.",
+        },
+        baselineId: {
+          type: "string",
+          description:
+            "Baseline ID to compare against (optional, uses image-based baseline if not provided).",
+        },
+      },
+      required: ["containerId"],
+    },
+  },
+  {
+    name: "runtime_create_baseline",
+    description: "Create a security baseline for a container image.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image to create baseline for.",
+        },
+        name: {
+          type: "string",
+          description: "Name for the baseline.",
+        },
+        duration: {
+          type: "number",
+          description: "Duration in seconds to observe container behavior (default: 60).",
+        },
+      },
+      required: ["image", "name"],
+    },
+  },
+  {
+    name: "runtime_generate_profile",
+    description: "Generate a security profile (AppArmor or Seccomp) for a container.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        containerId: {
+          type: "string",
+          description: "Container ID to generate profile for.",
+        },
+        type: {
+          type: "string",
+          enum: ["apparmor", "seccomp"],
+          description: "Profile type to generate.",
+        },
+        baselineId: {
+          type: "string",
+          description: "Baseline ID to use (optional).",
+        },
+      },
+      required: ["containerId", "type"],
+    },
+  },
+  // ==========================================================================
+  // Image Signing & Verification (v1.28.0)
+  // ==========================================================================
+  {
+    name: "signing_cosign_verify",
+    description: "Verify a container image signature using Cosign (sigstore).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image reference to verify.",
+        },
+        keyPath: {
+          type: "string",
+          description: "Path to public key (optional for keyless verification).",
+        },
+        keylessEnabled: {
+          type: "boolean",
+          description: "Enable keyless verification using Fulcio and Rekor.",
+        },
+        certIdentity: {
+          type: "string",
+          description: "Expected certificate identity for keyless verification.",
+        },
+        certOidcIssuer: {
+          type: "string",
+          description: "Expected OIDC issuer for keyless verification.",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "signing_notary_verify",
+    description: "Verify a container image using Notary v2.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image reference to verify.",
+        },
+        trustPolicy: {
+          type: "string",
+          description: "Path to Notary trust policy file.",
+        },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "signing_create_policy",
+    description: "Create a signing policy to enforce image signature requirements.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Policy name.",
+        },
+        description: {
+          type: "string",
+          description: "Policy description.",
+        },
+        rules: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              registry: { type: "string" },
+              requireSigned: { type: "boolean" },
+              trustedKeys: { type: "array", items: { type: "string" } },
+            },
+          },
+          description: "Policy rules.",
+        },
+      },
+      required: ["name", "rules"],
+    },
+  },
+  {
+    name: "signing_check_policy",
+    description: "Check if an image complies with a signing policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: {
+          type: "string",
+          description: "Container image reference to check.",
+        },
+        policyName: {
+          type: "string",
+          description: "Policy name to check against.",
+        },
+      },
+      required: ["image", "policyName"],
+    },
+  },
+  // ==========================================================================
+  // Supply Chain Security (v1.28.0)
+  // ==========================================================================
+  {
+    name: "supply_chain_verify_slsa",
+    description: "Verify SLSA provenance of an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: {
+          type: "string",
+          description: "Path to artifact or container image reference.",
+        },
+        provenancePath: {
+          type: "string",
+          description: "Path to provenance file (optional).",
+        },
+        sourceUri: {
+          type: "string",
+          description: "Expected source repository URI.",
+        },
+        builderUri: {
+          type: "string",
+          description: "Expected builder URI.",
+        },
+        minLevel: {
+          type: "number",
+          enum: [0, 1, 2, 3, 4],
+          description: "Minimum required SLSA level.",
+        },
+      },
+      required: ["artifact"],
+    },
+  },
+  {
+    name: "supply_chain_verify_intoto",
+    description: "Verify in-toto attestation layout for an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: {
+          type: "string",
+          description: "Path to artifact to verify.",
+        },
+        layoutPath: {
+          type: "string",
+          description: "Path to in-toto layout file.",
+        },
+        linkDir: {
+          type: "string",
+          description: "Directory containing link metadata (optional).",
+        },
+        keyPaths: {
+          type: "array",
+          items: { type: "string" },
+          description: "Paths to public keys for verification.",
+        },
+      },
+      required: ["artifact", "layoutPath"],
+    },
+  },
+  {
+    name: "supply_chain_verify_sbom",
+    description: "Verify SBOM attestation for an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: {
+          type: "string",
+          description: "Artifact or container image reference.",
+        },
+        attestationPath: {
+          type: "string",
+          description: "Path to SBOM attestation file.",
+        },
+        expectedFormat: {
+          type: "string",
+          enum: ["spdx", "cyclonedx"],
+          description: "Expected SBOM format.",
+        },
+        verifySignature: {
+          type: "boolean",
+          description: "Verify the attestation signature.",
+        },
+        keyPath: {
+          type: "string",
+          description: "Path to public key for signature verification.",
+        },
+      },
+      required: ["artifact"],
+    },
+  },
+  {
+    name: "supply_chain_create_policy",
+    description: "Create a supply chain security policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Policy name.",
+        },
+        description: {
+          type: "string",
+          description: "Policy description.",
+        },
+        rules: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: [
+                  "slsa_level",
+                  "builder",
+                  "source",
+                  "materials",
+                  "sbom",
+                  "signature",
+                  "custom",
+                ],
+              },
+              condition: { type: "string" },
+              value: {},
+              action: { type: "string", enum: ["require", "deny", "warn"] },
+            },
+          },
+          description: "Policy rules.",
+        },
+      },
+      required: ["name", "rules"],
+    },
+  },
+  {
+    name: "supply_chain_evaluate_policy",
+    description: "Evaluate a supply chain policy against an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyName: {
+          type: "string",
+          description: "Policy name to evaluate.",
+        },
+        artifact: {
+          type: "string",
+          description: "Artifact or image reference.",
+        },
+        slsaProvenancePath: {
+          type: "string",
+          description: "Path to SLSA provenance (optional).",
+        },
+        sbomPath: {
+          type: "string",
+          description: "Path to SBOM attestation (optional).",
+        },
+      },
+      required: ["policyName", "artifact"],
+    },
+  },
+  {
+    name: "supply_chain_add_trusted_builder",
+    description: "Add a trusted builder to the supply chain policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Builder name.",
+        },
+        uri: {
+          type: "string",
+          description: "Builder URI (e.g., GitHub Actions workflow).",
+        },
+        publicKey: {
+          type: "string",
+          description: "Public key for builder verification (optional).",
+        },
+        minSlsaLevel: {
+          type: "number",
+          enum: [0, 1, 2, 3, 4],
+          description: "Minimum SLSA level expected from this builder.",
+        },
+      },
+      required: ["name", "uri"],
+    },
+  },
+  {
+    name: "supply_chain_get_summary",
+    description: "Get a summary of supply chain verification statistics.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  // =========================================================================
+  // AI-Powered Security Tools (v1.29.0)
+  // =========================================================================
+  {
+    name: "ai_analyze_vulnerability",
+    description:
+      "Use AI to analyze a vulnerability and provide detailed impact assessment, " +
+      "exploitability analysis, and prioritized remediation recommendations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vulnId: { type: "string", description: "Vulnerability ID (e.g., CVE-2024-1234)" },
+        package: { type: "string", description: "Affected package name" },
+        version: { type: "string", description: "Affected version" },
+        fixVersion: { type: "string", description: "Fixed version (if available)" },
+        severity: { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+        title: { type: "string", description: "Vulnerability title" },
+        description: { type: "string", description: "Vulnerability description" },
+        packageManager: { type: "string", description: "Package manager (npm, pip, etc.)" },
+        runtime: { type: "string", description: "Runtime environment" },
+        application: { type: "string", description: "Application context" },
+      },
+      required: ["vulnId", "package", "version", "severity"],
+    },
+  },
+  {
+    name: "ai_analyze_code_security",
+    description:
+      "Use AI to analyze code for security vulnerabilities including SQL injection, XSS, " +
+      "command injection, and other OWASP Top 10 issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Source code to analyze" },
+        filename: { type: "string", description: "Filename for language detection" },
+        language: {
+          type: "string",
+          description: "Programming language (auto-detected if not specified)",
+        },
+        context: { type: "string", description: "Additional context about the code" },
+      },
+      required: ["code"],
+    },
+  },
+  {
+    name: "ai_generate_remediation",
+    description:
+      "Use AI to generate a detailed remediation plan for a specific vulnerability " +
+      "with step-by-step instructions and verification steps.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vulnId: { type: "string", description: "Vulnerability ID" },
+        package: { type: "string", description: "Package name" },
+        version: { type: "string", description: "Current version" },
+        fixVersion: { type: "string", description: "Fixed version" },
+        severity: { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+        packageManager: { type: "string", description: "Package manager" },
+        lockfile: { type: "string", description: "Lockfile name" },
+      },
+      required: ["vulnId", "package", "version", "severity"],
+    },
+  },
+  {
+    name: "ai_generate_threat_model",
+    description:
+      "Use AI to generate a threat model for a target using STRIDE methodology, " +
+      "identifying threats, attack surfaces, and mitigation recommendations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        target: { type: "string", description: "Target to analyze" },
+        type: { type: "string", enum: ["container", "application", "infrastructure", "api"] },
+        technologies: {
+          type: "array",
+          items: { type: "string" },
+          description: "Technologies in use",
+        },
+        exposures: {
+          type: "array",
+          items: { type: "string" },
+          description: "Known exposures",
+        },
+      },
+      required: ["target", "type"],
+    },
+  },
+  // =========================================================================
+  // Threat Intelligence Tools (v1.29.0)
+  // =========================================================================
+  {
+    name: "threat_intel_init",
+    description: "Initialize the threat intelligence database for CVE enrichment and IOC tracking.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dbPath: { type: "string", description: "Custom database path" },
+      },
+    },
+  },
+  {
+    name: "threat_intel_enrich_cve",
+    description:
+      "Get enriched threat intelligence for a CVE including EPSS score, KEV status, " +
+      "known exploits, and threat actor associations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cveId: { type: "string", description: "CVE ID to look up" },
+      },
+      required: ["cveId"],
+    },
+  },
+  {
+    name: "threat_intel_get_context",
+    description:
+      "Get threat context for a vulnerability including risk level, exploit availability, " +
+      "and prioritization recommendation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cveId: { type: "string", description: "CVE ID" },
+      },
+      required: ["cveId"],
+    },
+  },
+  {
+    name: "threat_intel_list_feeds",
+    description: "List configured threat intelligence feeds and their sync status.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "threat_intel_search_iocs",
+    description: "Search for indicators of compromise (IOCs) in the threat intelligence database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: [
+            "ip",
+            "domain",
+            "url",
+            "hash_md5",
+            "hash_sha1",
+            "hash_sha256",
+            "email",
+            "file_name",
+          ],
+          description: "IOC type",
+        },
+        value: { type: "string", description: "Value to search for" },
+        minConfidence: { type: "number", description: "Minimum confidence score (0-100)" },
+        severity: { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+        limit: { type: "number", description: "Maximum results" },
+      },
+    },
+  },
+  {
+    name: "threat_intel_check_ioc",
+    description: "Check if a specific value matches any known IOC.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["ip", "domain", "url", "hash_md5", "hash_sha1", "hash_sha256"],
+          description: "IOC type",
+        },
+        value: { type: "string", description: "Value to check" },
+      },
+      required: ["type", "value"],
+    },
+  },
+  {
+    name: "threat_intel_get_actor",
+    description:
+      "Get information about a threat actor including TTPs, targets, and associated CVEs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Threat actor name or ID" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "threat_intel_search_actors",
+    description: "Search for threat actors by various criteria.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Actor name to search" },
+        technique: { type: "string", description: "MITRE ATT&CK technique ID" },
+        cve: { type: "string", description: "Associated CVE" },
+        sector: { type: "string", description: "Targeted sector" },
+        limit: { type: "number", description: "Maximum results" },
+      },
+    },
+  },
+  {
+    name: "threat_intel_stats",
+    description: "Get threat intelligence database statistics.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  // =========================================================================
+  // Natural Language Query Tools (v1.29.0)
+  // =========================================================================
+  {
+    name: "nl_query",
+    description:
+      "Query security data using natural language. Ask questions like " +
+      "'What are the critical vulnerabilities?' or 'Which packages have the most issues?'",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Natural language question" },
+        image: { type: "string", description: "Image to include in context" },
+        path: { type: "string", description: "Path to include in context" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "nl_query_suggestions",
+    description: "Get suggested queries based on available security data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: { type: "string", description: "Image for context" },
+        path: { type: "string", description: "Path for context" },
+      },
+    },
+  },
+  {
+    name: "nl_conversation_start",
+    description: "Start a conversational session for interactive security queries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: { type: "string", description: "Image for context" },
+        path: { type: "string", description: "Path for context" },
+      },
+    },
+  },
+  {
+    name: "nl_conversation_message",
+    description: "Send a message in an existing conversation session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Conversation session ID" },
+        message: { type: "string", description: "Message to send" },
+      },
+      required: ["sessionId", "message"],
+    },
+  },
 ];
 // =============================================================================
 // Resource Definitions (exported for testing)
@@ -10199,6 +10921,590 @@ const assetInventoryHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// Kubernetes Security Handlers (v1.28.0)
+// =============================================================================
+const k8sSecurityHandlers: Record<string, ToolHandler> = {
+  k8s_scan_cluster: async (args) => {
+    try {
+      const { scanK8sCluster } = await import("@cicd/shared");
+      return scanK8sCluster({
+        kubeconfig: args?.kubeconfig as string | undefined,
+        namespace: args?.namespaces ? (args.namespaces as string[])[0] : undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_scan_namespace: async (args) => {
+    try {
+      const { scanK8sNamespace } = await import("@cicd/shared");
+      return scanK8sNamespace(args?.namespace as string, {
+        kubeconfig: args?.kubeconfig as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_audit_rbac: async (args) => {
+    try {
+      const { auditRbac } = await import("@cicd/shared");
+      return auditRbac({
+        namespace: args?.namespace as string | undefined,
+        kubeconfig: args?.kubeconfig as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_analyze_network_policies: async (args) => {
+    try {
+      const { analyzeNetworkPolicies } = await import("@cicd/shared");
+      return analyzeNetworkPolicies((args?.namespace as string) || "default", {
+        kubeconfig: args?.kubeconfig as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Container Runtime Security Handlers (v1.28.0)
+// =============================================================================
+const runtimeSecurityHandlers: Record<string, ToolHandler> = {
+  runtime_scan_container: async (args) => {
+    try {
+      const { initRuntimeDatabase, scanRunningContainer } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      return scanRunningContainer(args?.containerId as string, {
+        includeBaseImage: args?.deep as boolean | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_detect_anomalies: async (args) => {
+    try {
+      const { initRuntimeDatabase, detectAnomalies } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      return detectAnomalies(args?.containerId as string, {
+        baselineId: args?.baselineId as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_create_baseline: async (args) => {
+    try {
+      const { initRuntimeDatabase, createContainerBaseline } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      // Note: createContainerBaseline takes only containerId, ignoring name/duration for now
+      return createContainerBaseline((args?.containerId as string) || (args?.image as string));
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  runtime_generate_profile: async (args) => {
+    try {
+      const { initRuntimeDatabase, generateSecurityProfile } = await import("@cicd/shared");
+      initRuntimeDatabase("./runtime-security.db");
+      return generateSecurityProfile(args?.containerId as string, {
+        profileType: args?.type as "apparmor" | "seccomp",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Image Signing Handlers (v1.28.0)
+// =============================================================================
+const imageSigningHandlers: Record<string, ToolHandler> = {
+  signing_cosign_verify: async (args) => {
+    try {
+      const { initSigningDatabase, cosignVerify } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return cosignVerify(args?.image as string, {
+        keyPath: args?.keyPath as string | undefined,
+        keylessEnabled: args?.keylessEnabled as boolean | undefined,
+        certIdentity: args?.certIdentity as string | undefined,
+        certOidcIssuer: args?.certOidcIssuer as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_notary_verify: async (args) => {
+    try {
+      const { initSigningDatabase, notaryVerify } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return notaryVerify(args?.image as string, args?.trustPolicy as string | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_create_policy: async (args) => {
+    try {
+      const { initSigningDatabase, createSigningPolicy } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return createSigningPolicy({
+        name: args?.name as string,
+        description: (args?.description as string) || "",
+        requiredSignatures: 1,
+        trustedKeys: (args?.trustedKeys as string[]) || [],
+        trustedIssuers: [],
+        requiredAttestations: [],
+        enabled: true,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  signing_check_policy: async (args) => {
+    try {
+      const { initSigningDatabase, checkPolicy } = await import("@cicd/shared");
+      initSigningDatabase("./image-signing.db");
+      return checkPolicy(args?.image as string, args?.policyName as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Supply Chain Security Handlers (v1.28.0)
+// =============================================================================
+const supplyChainHandlers: Record<string, ToolHandler> = {
+  supply_chain_verify_slsa: async (args) => {
+    try {
+      const { initSupplyChainDb, verifySlsaProvenance } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return verifySlsaProvenance(args?.artifact as string, {
+        provenancePath: args?.provenancePath as string | undefined,
+        sourceUri: args?.sourceUri as string | undefined,
+        builderUri: args?.builderUri as string | undefined,
+        minLevel: args?.minLevel as 0 | 1 | 2 | 3 | 4 | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_verify_intoto: async (args) => {
+    try {
+      const { initSupplyChainDb, verifyInToto } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return verifyInToto(args?.artifact as string, args?.layoutPath as string, {
+        linkDir: args?.linkDir as string | undefined,
+        keyPaths: args?.keyPaths as string[] | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_verify_sbom: async (args) => {
+    try {
+      const { initSupplyChainDb, verifySbomAttestation } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return verifySbomAttestation(args?.artifact as string, {
+        attestationPath: args?.attestationPath as string | undefined,
+        expectedFormat: args?.expectedFormat as "spdx" | "cyclonedx" | undefined,
+        verifySignature: args?.verifySignature as boolean | undefined,
+        keyPath: args?.keyPath as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_create_policy: async (args) => {
+    try {
+      const { initSupplyChainDb, createSupplyChainPolicy } = await import("@cicd/shared");
+      const { randomUUID } = await import("crypto");
+      initSupplyChainDb("./supply-chain.db");
+
+      // Ensure each rule has an ID
+      const inputRules =
+        (args?.rules as Array<{
+          id?: string;
+          type: "slsa_level" | "builder" | "source" | "materials" | "sbom" | "signature" | "custom";
+          condition: string;
+          value: string | number | string[];
+          action: "require" | "deny" | "warn";
+        }>) || [];
+
+      const rules = inputRules.map((rule) => ({
+        ...rule,
+        id: rule.id || randomUUID(),
+      }));
+
+      return createSupplyChainPolicy(
+        args?.name as string,
+        (args?.description as string) || "",
+        rules
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_evaluate_policy: async (args) => {
+    try {
+      const {
+        initSupplyChainDb,
+        evaluateSupplyChainPolicy,
+        verifySlsaProvenance,
+        verifySbomAttestation,
+      } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+
+      // Optionally gather context from verification results
+      const context: {
+        slsaResult?: Awaited<ReturnType<typeof verifySlsaProvenance>>;
+        sbomResult?: Awaited<ReturnType<typeof verifySbomAttestation>>;
+      } = {};
+
+      if (args?.slsaProvenancePath) {
+        context.slsaResult = await verifySlsaProvenance(args.artifact as string, {
+          provenancePath: args.slsaProvenancePath as string,
+        });
+      }
+
+      if (args?.sbomPath) {
+        context.sbomResult = await verifySbomAttestation(args.artifact as string, {
+          attestationPath: args.sbomPath as string,
+        });
+      }
+
+      return evaluateSupplyChainPolicy(
+        args?.policyName as string,
+        args?.artifact as string,
+        context
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_add_trusted_builder: async (args) => {
+    try {
+      const { initSupplyChainDb, addTrustedBuilder } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return addTrustedBuilder(args?.name as string, args?.uri as string, {
+        publicKey: args?.publicKey as string | undefined,
+        minSlsaLevel: args?.minSlsaLevel as 0 | 1 | 2 | 3 | 4 | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  supply_chain_get_summary: async () => {
+    try {
+      const { initSupplyChainDb, getSupplyChainSummary } = await import("@cicd/shared");
+      initSupplyChainDb("./supply-chain.db");
+      return getSupplyChainSummary();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// AI-Powered Security Handlers (v1.29.0)
+// =============================================================================
+const aiSecurityHandlers: Record<string, ToolHandler> = {
+  ai_analyze_vulnerability: async (args) => {
+    try {
+      const { analyzeVulnerability } = await import("@cicd/shared");
+      type TrivySeverity = "UNKNOWN" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      const vuln = {
+        VulnerabilityID: args?.vulnId as string,
+        PkgName: args?.package as string,
+        InstalledVersion: args?.version as string,
+        FixedVersion: args?.fixVersion as string | undefined,
+        Severity: (args?.severity as TrivySeverity) || "MEDIUM",
+        Title: args?.title as string | undefined,
+        Description: args?.description as string | undefined,
+      };
+      return analyzeVulnerability(vuln, {
+        packageManager: args?.packageManager as string | undefined,
+        runtime: args?.runtime as string | undefined,
+        application: args?.application as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_analyze_code_security: async (args) => {
+    try {
+      const { analyzeCodeSecurity } = await import("@cicd/shared");
+      return analyzeCodeSecurity(args?.code as string, {
+        filename: args?.filename as string | undefined,
+        language: args?.language as string | undefined,
+        context: args?.context as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_generate_remediation: async (args) => {
+    try {
+      const { generateRemediationPlan } = await import("@cicd/shared");
+      type TrivySeverity = "UNKNOWN" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      const vuln = {
+        VulnerabilityID: args?.vulnId as string,
+        PkgName: args?.package as string,
+        InstalledVersion: args?.version as string,
+        FixedVersion: args?.fixVersion as string | undefined,
+        Severity: (args?.severity as TrivySeverity) || "MEDIUM",
+      };
+      return generateRemediationPlan(vuln, {
+        packageManager: args?.packageManager as string | undefined,
+        lockfile: args?.lockfile as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ai_generate_threat_model: async (args) => {
+    try {
+      const { generateThreatModel } = await import("@cicd/shared");
+      return generateThreatModel(args?.target as string, {
+        type: args?.type as "container" | "application" | "infrastructure" | "api",
+        technologies: args?.technologies as string[] | undefined,
+        exposures: args?.exposures as string[] | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Threat Intelligence Handlers (v1.29.0)
+// =============================================================================
+const threatIntelHandlers: Record<string, ToolHandler> = {
+  threat_intel_init: async (args) => {
+    try {
+      const { initThreatIntelDb } = await import("@cicd/shared");
+      return initThreatIntelDb({
+        dbPath: args?.dbPath as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_enrich_cve: async (args) => {
+    try {
+      const { initThreatIntelDb, getCveEnrichment } = await import("@cicd/shared");
+      initThreatIntelDb();
+      const enrichment = getCveEnrichment(args?.cveId as string);
+      return enrichment || { message: "No enrichment data found for this CVE" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_get_context: async (args) => {
+    try {
+      const { initThreatIntelDb, getVulnThreatContext } = await import("@cicd/shared");
+      initThreatIntelDb();
+      const context = getVulnThreatContext(args?.cveId as string);
+      return context || { message: "No threat context found for this CVE" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_list_feeds: async () => {
+    try {
+      const { initThreatIntelDb, listThreatFeeds } = await import("@cicd/shared");
+      initThreatIntelDb();
+      return listThreatFeeds();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_search_iocs: async (args) => {
+    try {
+      const { initThreatIntelDb, searchIOCs } = await import("@cicd/shared");
+      initThreatIntelDb();
+      return searchIOCs({
+        type: args?.type as
+          | "ip"
+          | "domain"
+          | "url"
+          | "hash_md5"
+          | "hash_sha1"
+          | "hash_sha256"
+          | "email"
+          | "file_name"
+          | undefined,
+        value: args?.value as string | undefined,
+        minConfidence: args?.minConfidence as number | undefined,
+        severity: args?.severity as "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_check_ioc: async (args) => {
+    try {
+      const { initThreatIntelDb, checkIOC } = await import("@cicd/shared");
+      initThreatIntelDb();
+      const result = checkIOC(
+        args?.type as "ip" | "domain" | "url" | "hash_md5" | "hash_sha1" | "hash_sha256",
+        args?.value as string
+      );
+      return result || { matched: false, message: "No matching IOC found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_get_actor: async (args) => {
+    try {
+      const { initThreatIntelDb, getThreatActor } = await import("@cicd/shared");
+      initThreatIntelDb();
+      const actor = getThreatActor(args?.name as string);
+      return actor || { message: "Threat actor not found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_search_actors: async (args) => {
+    try {
+      const { initThreatIntelDb, searchThreatActors } = await import("@cicd/shared");
+      initThreatIntelDb();
+      return searchThreatActors({
+        name: args?.name as string | undefined,
+        technique: args?.technique as string | undefined,
+        cve: args?.cve as string | undefined,
+        sector: args?.sector as string | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  threat_intel_stats: async () => {
+    try {
+      const { initThreatIntelDb, getThreatIntelStats } = await import("@cicd/shared");
+      initThreatIntelDb();
+      return getThreatIntelStats();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// =============================================================================
+// Natural Language Query Handlers (v1.29.0)
+// =============================================================================
+// Store conversation sessions in memory
+const nlConversationSessions = new Map<string, unknown>();
+
+const nlQueryHandlers: Record<string, ToolHandler> = {
+  nl_query: async (args) => {
+    try {
+      const { processNLQuery, trivyScanImage, trivyScanPath } = await import("@cicd/shared");
+
+      // Build context from available sources
+      let trivyResults;
+      if (args?.image) {
+        const result = await trivyScanImage(args.image as string);
+        // Only use result if it's a valid scan result (has Results property)
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      } else if (args?.path) {
+        const result = await trivyScanPath(args.path as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      }
+
+      const context = {
+        trivyResults,
+        target: (args?.image || args?.path) as string | undefined,
+      };
+
+      return processNLQuery(args?.query as string, context);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  nl_query_suggestions: async (args) => {
+    try {
+      const { getQuerySuggestions, trivyScanImage, trivyScanPath } = await import("@cicd/shared");
+
+      let trivyResults;
+      if (args?.image) {
+        const result = await trivyScanImage(args.image as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      } else if (args?.path) {
+        const result = await trivyScanPath(args.path as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      }
+
+      return getQuerySuggestions({
+        trivyResults,
+        target: (args?.image || args?.path) as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  nl_conversation_start: async (args) => {
+    try {
+      const { createConversationSession, trivyScanImage, trivyScanPath } =
+        await import("@cicd/shared");
+
+      let trivyResults;
+      if (args?.image) {
+        const result = await trivyScanImage(args.image as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      } else if (args?.path) {
+        const result = await trivyScanPath(args.path as string);
+        if (result && "Results" in result) {
+          trivyResults = result;
+        }
+      }
+
+      const session = createConversationSession({
+        trivyResults,
+        target: (args?.image || args?.path) as string | undefined,
+      });
+
+      nlConversationSessions.set(session.id, session);
+      return { sessionId: session.id, created: session.created };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  nl_conversation_message: async (args) => {
+    try {
+      const { sendConversationMessage } = await import("@cicd/shared");
+
+      const session = nlConversationSessions.get(args?.sessionId as string);
+      if (!session) {
+        return { error: "Session not found. Start a new conversation with nl_conversation_start." };
+      }
+
+      const result = await sendConversationMessage(
+        session as Parameters<typeof sendConversationMessage>[0],
+        args?.message as string
+      );
+      nlConversationSessions.set(args?.sessionId as string, result.session);
+      return result.response;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -10241,6 +11547,15 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...securityMetricsHandlers,
   ...integrationWebhooksHandlers,
   ...assetInventoryHandlers,
+  // v1.28.0 Container Security Deep Dive
+  ...k8sSecurityHandlers,
+  ...runtimeSecurityHandlers,
+  ...imageSigningHandlers,
+  ...supplyChainHandlers,
+  // v1.29.0 AI-Powered Security
+  ...aiSecurityHandlers,
+  ...threatIntelHandlers,
+  ...nlQueryHandlers,
 };
 
 export async function handleCallTool(
