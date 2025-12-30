@@ -1629,3 +1629,52 @@ export {
   type DeliveryHistoryOptions,
   type WebhookStats,
 } from "./integration-webhooks.js";
+
+// =============================================================================
+// Asset Inventory (v1.28.0)
+// =============================================================================
+
+export {
+  // Database lifecycle
+  initAssetDatabase,
+  closeAssetDatabase,
+  getAssetDatabase,
+  // Asset CRUD
+  registerAsset,
+  getAsset,
+  getAssetByIdentifier,
+  listAssets,
+  updateAssetMetadata,
+  deleteAsset,
+  // Posture tracking
+  recordAssetPosture,
+  getAssetPosture,
+  getAssetPostureHistory,
+  // Stale detection
+  findStaleAssets,
+  getAssetScanAge,
+  // Statistics
+  getAssetSummary,
+  // Bulk operations
+  bulkRegisterAssets,
+  bulkUpdateCriticality,
+  getOrCreateAsset,
+  linkScanToAsset,
+  // Audit
+  getAssetAuditLog,
+  // Types
+  type AssetType,
+  type AssetCriticality as AssetInventoryCriticality,
+  type ComplianceStatus as AssetComplianceStatus,
+  type Asset,
+  type AssetPosture,
+  type SecurityFinding,
+  type RegisterAssetOptions,
+  type UpdateAssetMetadataOptions,
+  type AssetListOptions,
+  type RecordPostureOptions,
+  type StaleAssetOptions,
+  type AssetSummary,
+  type AssetDbInitResult,
+  type AssetAuditEntry,
+} from "./asset-inventory.js";

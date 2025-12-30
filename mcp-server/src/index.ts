@@ -5719,8 +5719,180 @@ export const toolDefinitions: ToolDefinition[] = [
       },
     },
   },
+  // =============================================================================
+  // Asset Inventory Tools (v1.28.0)
+  // =============================================================================
+  {
+    name: "asset_register",
+    description:
+      "Register a new asset (container image, repository, project, filesystem, or SBOM) in the inventory.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["container_image", "repository", "project", "filesystem", "sbom"],
+          description: "Type of asset.",
+        },
+        identifier: {
+          type: "string",
+          description: "Unique identifier (e.g., 'nginx:1.25', 'org/repo', 'project-name').",
+        },
+        name: {
+          type: "string",
+          description: "Human-readable name for the asset.",
+        },
+        description: {
+          type: "string",
+          description: "Optional description of the asset.",
+        },
+        criticality: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Asset criticality level (default: medium).",
+        },
+        owner: {
+          type: "string",
+          description: "Owner of the asset.",
+        },
+        team: {
+          type: "string",
+          description: "Team responsible for the asset.",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tags for categorization.",
+        },
+      },
+      required: ["type", "identifier", "name"],
+    },
+  },
+  {
+    name: "asset_list",
+    description: "List assets in the inventory with optional filtering.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        type: {
+          type: "string",
+          enum: ["container_image", "repository", "project", "filesystem", "sbom"],
+          description: "Filter by asset type.",
+        },
+        criticality: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Filter by criticality.",
+        },
+        owner: {
+          type: "string",
+          description: "Filter by owner.",
+        },
+        team: {
+          type: "string",
+          description: "Filter by team.",
+        },
+        tag: {
+          type: "string",
+          description: "Filter by tag.",
+        },
+        search: {
+          type: "string",
+          description: "Search in name, identifier, or description.",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum results to return.",
+        },
+      },
+    },
+  },
+  {
+    name: "asset_get_posture",
+    description: "Get the security posture (vulnerability counts, compliance status) for an asset.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        assetId: {
+          type: "string",
+          description: "Asset ID.",
+        },
+        includeHistory: {
+          type: "boolean",
+          description: "Include posture history (default: false).",
+        },
+        historyLimit: {
+          type: "number",
+          description: "Number of historical records (default: 30).",
+        },
+      },
+      required: ["assetId"],
+    },
+  },
+  {
+    name: "asset_set_metadata",
+    description: "Update asset metadata (name, description, criticality, owner, team, tags).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        assetId: {
+          type: "string",
+          description: "Asset ID to update.",
+        },
+        name: {
+          type: "string",
+          description: "New name.",
+        },
+        description: {
+          type: "string",
+          description: "New description.",
+        },
+        criticality: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "New criticality level.",
+        },
+        owner: {
+          type: "string",
+          description: "New owner.",
+        },
+        team: {
+          type: "string",
+          description: "New team.",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "New tags.",
+        },
+      },
+      required: ["assetId"],
+    },
+  },
+  {
+    name: "asset_find_stale",
+    description: "Find assets that haven't been scanned recently.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        staleDays: {
+          type: "number",
+          description: "Days without scan to be considered stale (default: 7).",
+        },
+        type: {
+          type: "string",
+          enum: ["container_image", "repository", "project", "filesystem", "sbom"],
+          description: "Filter by asset type.",
+        },
+        criticality: {
+          type: "string",
+          enum: ["critical", "high", "medium", "low"],
+          description: "Filter by criticality.",
+        },
+      },
+    },
+  },
 ];
-
 // =============================================================================
 // Resource Definitions (exported for testing)
 // =============================================================================
@@ -9919,6 +10091,114 @@ const integrationWebhooksHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Asset Inventory handlers (v1.28.0)
+const assetInventoryHandlers: Record<string, ToolHandler> = {
+  asset_register: async (args) => {
+    try {
+      const { initAssetDatabase, registerAsset } = await import("./handlers.js");
+      initAssetDatabase();
+      return registerAsset({
+        type: args?.type as "container_image" | "repository" | "project" | "filesystem" | "sbom",
+        identifier: args?.identifier as string,
+        name: args?.name as string,
+        description: args?.description as string | undefined,
+        criticality: args?.criticality as "critical" | "high" | "medium" | "low" | undefined,
+        owner: args?.owner as string | undefined,
+        team: args?.team as string | undefined,
+        tags: args?.tags as string[] | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  asset_list: async (args) => {
+    try {
+      const { initAssetDatabase, listAssets, getAssetSummary } = await import("./handlers.js");
+      initAssetDatabase();
+      const assets = listAssets({
+        type: args?.type as
+          | "container_image"
+          | "repository"
+          | "project"
+          | "filesystem"
+          | "sbom"
+          | undefined,
+        criticality: args?.criticality as "critical" | "high" | "medium" | "low" | undefined,
+        owner: args?.owner as string | undefined,
+        team: args?.team as string | undefined,
+        tag: args?.tag as string | undefined,
+        search: args?.search as string | undefined,
+        limit: args?.limit as number | undefined,
+      });
+      const summary = getAssetSummary();
+      return { assets, summary };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  asset_get_posture: async (args) => {
+    try {
+      const { initAssetDatabase, getAsset, getAssetPosture, getAssetPostureHistory } =
+        await import("./handlers.js");
+      initAssetDatabase();
+      const asset = getAsset(args?.assetId as string);
+      if (!asset) {
+        return { error: "Asset not found" };
+      }
+      const posture = getAssetPosture(args?.assetId as string);
+      const result: Record<string, unknown> = { asset, posture };
+      if (args?.includeHistory) {
+        result.history = getAssetPostureHistory(
+          args?.assetId as string,
+          args?.historyLimit as number | undefined
+        );
+      }
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  asset_set_metadata: async (args) => {
+    try {
+      const { initAssetDatabase, updateAssetMetadata } = await import("./handlers.js");
+      initAssetDatabase();
+      const updated = updateAssetMetadata(args?.assetId as string, {
+        name: args?.name as string | undefined,
+        description: args?.description as string | undefined,
+        criticality: args?.criticality as "critical" | "high" | "medium" | "low" | undefined,
+        owner: args?.owner as string | undefined,
+        team: args?.team as string | undefined,
+        tags: args?.tags as string[] | undefined,
+      });
+      if (!updated) {
+        return { error: "Asset not found" };
+      }
+      return updated;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  asset_find_stale: async (args) => {
+    try {
+      const { initAssetDatabase, findStaleAssets } = await import("./handlers.js");
+      initAssetDatabase();
+      return findStaleAssets({
+        staleDays: args?.staleDays as number | undefined,
+        type: args?.type as
+          | "container_image"
+          | "repository"
+          | "project"
+          | "filesystem"
+          | "sbom"
+          | undefined,
+        criticality: args?.criticality as "critical" | "high" | "medium" | "low" | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -9960,6 +10240,7 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...escalationHandlers,
   ...securityMetricsHandlers,
   ...integrationWebhooksHandlers,
+  ...assetInventoryHandlers,
 };
 
 export async function handleCallTool(
