@@ -257,6 +257,57 @@ import {
   compareTeams,
   compareToBaseline,
   type EntityMetrics,
+  // Multi-Cloud Security (v1.30.0)
+  initMultiCloudDb,
+  saveCloudCredentials,
+  listCloudCredentials,
+  scanAwsEcr,
+  scanAwsEcs,
+  scanAwsLambda,
+  getAwsSecurityHubFindings,
+  scanAzureAcr,
+  scanAzureAks,
+  getAzureDefenderAlerts,
+  scanGcpGcr,
+  scanGcpGke,
+  getGcpSccFindings,
+  compareCloudPosture,
+  getMultiCloudDashboard,
+  // High Availability (v1.30.0)
+  initHaDb,
+  getClusterStatus,
+  listNodes,
+  registerNode,
+  promoteNode,
+  demoteNode,
+  getReplicationStatus,
+  setFailoverConfig,
+  testFailover,
+  detectSplitBrain,
+  // Backup & DR (v1.30.0)
+  initBackupDb,
+  createBackup,
+  listBackups,
+  restoreBackup,
+  verifyBackup,
+  createBackupSchedule,
+  listBackupSchedules,
+  exportBackupOffsite,
+  // Resource Quotas (v1.30.0)
+  initQuotasDb,
+  setQuota,
+  getQuota,
+  getQuotaUsage,
+  listBreaches,
+  getQuotaSummary,
+  // Performance Optimization (v1.30.0)
+  initPerformanceDb,
+  getPerfMetrics,
+  getAggregatedMetrics,
+  analyzeSlowQueries,
+  suggestIndexes,
+  warmupCache,
+  getPerformanceSummary,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -7392,6 +7443,495 @@ export const toolDefinitions: ToolDefinition[] = [
       required: ["intent", "target"],
     },
   },
+  // ===========================================================================
+  // v1.30.0 - Enterprise Scale & Multi-Cloud Security
+  // ===========================================================================
+  // Multi-Cloud Security Tools
+  {
+    name: "cloud_init_db",
+    description: "Initialize the multi-cloud security database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "cloud_save_credentials",
+    description: "Save cloud provider credentials.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        provider: { type: "string", enum: ["aws", "azure", "gcp"], description: "Cloud provider." },
+        name: { type: "string", description: "Credential name." },
+        region: { type: "string", description: "Default region." },
+      },
+      required: ["provider", "name"],
+    },
+  },
+  {
+    name: "cloud_list_credentials",
+    description: "List saved cloud credentials.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "cloud_scan_aws_ecr",
+    description: "Scan AWS ECR repository for vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string", description: "Credentials to use." },
+        repository: { type: "string", description: "ECR repository name." },
+        tag: { type: "string", description: "Image tag (default: latest)." },
+        region: { type: "string", description: "AWS region." },
+      },
+      required: ["credentialsName", "repository"],
+    },
+  },
+  {
+    name: "cloud_scan_aws_ecs",
+    description: "Scan AWS ECS cluster for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string", description: "Credentials to use." },
+        cluster: { type: "string", description: "ECS cluster name." },
+        service: { type: "string", description: "Service name (optional)." },
+      },
+      required: ["credentialsName", "cluster"],
+    },
+  },
+  {
+    name: "cloud_scan_aws_lambda",
+    description: "Scan AWS Lambda function for vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string", description: "Credentials to use." },
+        functionName: { type: "string", description: "Lambda function name." },
+      },
+      required: ["credentialsName", "functionName"],
+    },
+  },
+  {
+    name: "cloud_get_aws_findings",
+    description: "Get AWS Security Hub findings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string", description: "Credentials to use." },
+        severity: { type: "array", items: { type: "string" }, description: "Filter by severity." },
+        limit: { type: "number", description: "Max results." },
+      },
+      required: ["credentialsName"],
+    },
+  },
+  {
+    name: "cloud_scan_azure_acr",
+    description: "Scan Azure Container Registry.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string" },
+        registry: { type: "string", description: "ACR registry name." },
+        repository: { type: "string", description: "Repository name." },
+        tag: { type: "string" },
+      },
+      required: ["credentialsName", "registry", "repository"],
+    },
+  },
+  {
+    name: "cloud_scan_azure_aks",
+    description: "Scan Azure AKS cluster.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string" },
+        cluster: { type: "string", description: "AKS cluster name." },
+        resourceGroup: { type: "string", description: "Resource group." },
+      },
+      required: ["credentialsName", "cluster", "resourceGroup"],
+    },
+  },
+  {
+    name: "cloud_get_azure_alerts",
+    description: "Get Azure Defender alerts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string" },
+        severity: { type: "array", items: { type: "string" } },
+        limit: { type: "number" },
+      },
+      required: ["credentialsName"],
+    },
+  },
+  {
+    name: "cloud_scan_gcp_gcr",
+    description: "Scan Google Container Registry.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string" },
+        project: { type: "string", description: "GCP project ID." },
+        image: { type: "string", description: "Image name." },
+        tag: { type: "string" },
+      },
+      required: ["credentialsName", "project", "image"],
+    },
+  },
+  {
+    name: "cloud_scan_gcp_gke",
+    description: "Scan Google GKE cluster.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string" },
+        cluster: { type: "string" },
+        project: { type: "string" },
+        location: { type: "string" },
+      },
+      required: ["credentialsName", "cluster", "project", "location"],
+    },
+  },
+  {
+    name: "cloud_get_gcp_findings",
+    description: "Get GCP Security Command Center findings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialsName: { type: "string" },
+        project: { type: "string" },
+        severity: { type: "array", items: { type: "string" } },
+        limit: { type: "number" },
+      },
+      required: ["credentialsName", "project"],
+    },
+  },
+  {
+    name: "cloud_compare_posture",
+    description: "Compare security posture across cloud providers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        providers: {
+          type: "array",
+          items: { type: "string" },
+          description: "Providers to compare.",
+        },
+      },
+    },
+  },
+  {
+    name: "cloud_get_dashboard",
+    description: "Get unified multi-cloud security dashboard.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  // High Availability Tools
+  {
+    name: "ha_init_db",
+    description: "Initialize the HA cluster database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "ha_get_cluster_status",
+    description: "Get HA cluster health and status.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "ha_list_nodes",
+    description: "List all cluster nodes and their roles.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "ha_register_node",
+    description: "Register a new cluster node.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Node ID." },
+        hostname: { type: "string" },
+        address: { type: "string" },
+        port: { type: "number" },
+        role: { type: "string", enum: ["primary", "standby", "arbiter"] },
+      },
+      required: ["id", "hostname", "address", "port", "role"],
+    },
+  },
+  {
+    name: "ha_promote_node",
+    description: "Promote a standby node to primary.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nodeId: { type: "string", description: "Node to promote." },
+        reason: { type: "string", description: "Reason for promotion." },
+      },
+      required: ["nodeId"],
+    },
+  },
+  {
+    name: "ha_demote_node",
+    description: "Demote a primary node to standby.",
+    inputSchema: {
+      type: "object",
+      properties: { nodeId: { type: "string" } },
+      required: ["nodeId"],
+    },
+  },
+  {
+    name: "ha_get_replication_lag",
+    description: "Get replication lag metrics for standby nodes.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "ha_configure_failover",
+    description: "Configure automatic failover settings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean" },
+        mode: { type: "string", enum: ["automatic", "manual"] },
+        healthCheckInterval: { type: "number" },
+        failoverTimeout: { type: "number" },
+        maxReplicationLag: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "ha_test_failover",
+    description: "Test failover process (dry run).",
+    inputSchema: {
+      type: "object",
+      properties: { targetNodeId: { type: "string" } },
+    },
+  },
+  {
+    name: "ha_get_split_brain_status",
+    description: "Detect split-brain scenarios.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  // Backup & DR Tools
+  {
+    name: "backup_init_db",
+    description: "Initialize the backup database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "backup_create",
+    description: "Create a platform backup.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Backup name." },
+        type: { type: "string", enum: ["full", "incremental", "differential"] },
+        databases: { type: "array", items: { type: "string" } },
+        retentionDays: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "backup_list",
+    description: "List available backups.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["pending", "completed", "failed", "verified"] },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "backup_restore",
+    description: "Restore from a backup.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        backupId: { type: "string", description: "Backup ID to restore." },
+        dryRun: { type: "boolean", description: "Preview without restoring." },
+      },
+      required: ["backupId"],
+    },
+  },
+  {
+    name: "backup_verify",
+    description: "Verify backup integrity.",
+    inputSchema: {
+      type: "object",
+      properties: { backupId: { type: "string" } },
+      required: ["backupId"],
+    },
+  },
+  {
+    name: "backup_schedule_create",
+    description: "Create a backup schedule.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        cronExpression: { type: "string", description: "Cron expression." },
+        type: { type: "string", enum: ["full", "incremental"] },
+        retentionDays: { type: "number" },
+        storageProvider: { type: "string", enum: ["local", "s3", "azure", "gcs"] },
+        storagePath: { type: "string" },
+        enabled: { type: "boolean" },
+      },
+      required: ["name", "cronExpression"],
+    },
+  },
+  {
+    name: "backup_schedule_list",
+    description: "List backup schedules.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "backup_export_offsite",
+    description: "Export backup to offsite storage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        backupId: { type: "string" },
+        provider: { type: "string", enum: ["s3", "azure", "gcs"] },
+        destination: { type: "string" },
+      },
+      required: ["backupId", "provider", "destination"],
+    },
+  },
+  // Resource Quotas Tools
+  {
+    name: "quota_init_db",
+    description: "Initialize the quotas database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "quota_set",
+    description: "Set a resource quota.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["team", "project", "user", "global"] },
+        scopeId: { type: "string", description: "Team/project/user ID." },
+        quotaType: {
+          type: "string",
+          enum: [
+            "scans_per_day",
+            "scans_per_month",
+            "storage_mb",
+            "api_requests_per_hour",
+            "concurrent_scans",
+            "reports_per_day",
+          ],
+        },
+        limit: { type: "number" },
+        warningThreshold: { type: "number" },
+        enabled: { type: "boolean" },
+      },
+      required: ["scope", "scopeId", "quotaType", "limit", "warningThreshold"],
+    },
+  },
+  {
+    name: "quota_get",
+    description: "Get quota configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["team", "project", "user", "global"] },
+        scopeId: { type: "string" },
+        quotaType: { type: "string" },
+      },
+      required: ["scope", "scopeId", "quotaType"],
+    },
+  },
+  {
+    name: "quota_get_usage",
+    description: "Get current quota usage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["team", "project", "user", "global"] },
+        scopeId: { type: "string" },
+        quotaType: { type: "string" },
+      },
+      required: ["scope", "scopeId", "quotaType"],
+    },
+  },
+  {
+    name: "quota_list_breaches",
+    description: "List quota breaches.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: { type: "string" },
+        resolved: { type: "boolean" },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "quota_get_summary",
+    description: "Get quota summary for a scope.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["team", "project", "user", "global"] },
+        scopeId: { type: "string" },
+      },
+      required: ["scope", "scopeId"],
+    },
+  },
+  // Performance Tools
+  {
+    name: "perf_init_db",
+    description: "Initialize the performance database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "perf_get_metrics",
+    description: "Get performance metrics.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        hours: { type: "number", description: "Hours of history (default: 24)." },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "perf_get_aggregated",
+    description: "Get aggregated performance metrics with trends.",
+    inputSchema: {
+      type: "object",
+      properties: { hours: { type: "number" } },
+    },
+  },
+  {
+    name: "perf_analyze_slow_queries",
+    description: "Analyze slow database queries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        threshold: { type: "number", description: "Min duration in ms." },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "perf_suggest_indexes",
+    description: "Get index optimization suggestions.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "perf_cache_warmup",
+    description: "Warm up caches for common queries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targets: { type: "array", items: { type: "string" }, description: "Cache targets." },
+      },
+      required: ["targets"],
+    },
+  },
+  {
+    name: "perf_get_summary",
+    description: "Get overall performance health summary.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 // =============================================================================
 // Resource Definitions (exported for testing)
@@ -12879,6 +13419,534 @@ const nlQueryHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Multi-Cloud Security handlers (v1.30.0)
+const multiCloudHandlers: Record<string, ToolHandler> = {
+  cloud_init_db: async () => {
+    try {
+      return initMultiCloudDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_save_credentials: async (args) => {
+    try {
+      initMultiCloudDb();
+      return saveCloudCredentials({
+        name: args?.name as string,
+        provider: args?.provider as "aws" | "azure" | "gcp",
+        region: args?.region as string | undefined,
+        accessKeyId: args?.accessKeyId as string | undefined,
+        secretAccessKey: args?.secretAccessKey as string | undefined,
+        tenantId: args?.tenantId as string | undefined,
+        clientId: args?.clientId as string | undefined,
+        clientSecret: args?.clientSecret as string | undefined,
+        projectId: args?.projectId as string | undefined,
+        keyFile: args?.keyFile as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_list_credentials: async () => {
+    try {
+      initMultiCloudDb();
+      return listCloudCredentials();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_aws_ecr: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanAwsEcr({
+        credentialsName: args?.credentialsName as string,
+        repository: args?.repository as string,
+        region: args?.region as string,
+        tag: args?.tag as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_aws_ecs: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanAwsEcs({
+        credentialsName: args?.credentialsName as string,
+        cluster: args?.cluster as string,
+        region: args?.region as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_aws_lambda: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanAwsLambda({
+        credentialsName: args?.credentialsName as string,
+        functionName: args?.functionName as string,
+        region: args?.region as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_get_aws_findings: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await getAwsSecurityHubFindings({
+        credentialsName: args?.credentialsName as string,
+        region: args?.region as string,
+        severity: args?.severity as string[] | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_azure_acr: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanAzureAcr({
+        credentialsName: args?.credentialsName as string,
+        registry: args?.registry as string,
+        repository: args?.repository as string,
+        tag: args?.tag as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_azure_aks: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanAzureAks({
+        credentialsName: args?.credentialsName as string,
+        cluster: args?.cluster as string,
+        resourceGroup: args?.resourceGroup as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_get_azure_alerts: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await getAzureDefenderAlerts({
+        credentialsName: args?.credentialsName as string,
+        subscriptionId: args?.subscriptionId as string,
+        severity: args?.severity as string[] | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_gcp_gcr: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanGcpGcr({
+        credentialsName: args?.credentialsName as string,
+        project: args?.project as string,
+        image: args?.image as string,
+        tag: args?.tag as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_scan_gcp_gke: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await scanGcpGke({
+        credentialsName: args?.credentialsName as string,
+        cluster: args?.cluster as string,
+        project: args?.project as string,
+        location: args?.location as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_get_gcp_findings: async (args) => {
+    try {
+      initMultiCloudDb();
+      return await getGcpSccFindings({
+        credentialsName: args?.credentialsName as string,
+        project: args?.project as string,
+        severity: args?.severity as string[] | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_compare_posture: async (args) => {
+    try {
+      initMultiCloudDb();
+      return compareCloudPosture(args?.providers as ("aws" | "azure" | "gcp")[] | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  cloud_get_dashboard: async () => {
+    try {
+      initMultiCloudDb();
+      return getMultiCloudDashboard();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// High Availability handlers (v1.30.0)
+const haHandlers: Record<string, ToolHandler> = {
+  ha_init_db: async () => {
+    try {
+      return initHaDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_get_cluster_status: async () => {
+    try {
+      initHaDb();
+      return getClusterStatus();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_list_nodes: async () => {
+    try {
+      initHaDb();
+      return listNodes();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_register_node: async (args) => {
+    try {
+      initHaDb();
+      return registerNode({
+        id: args?.nodeId as string,
+        hostname: (args?.hostname as string) || "localhost",
+        address: (args?.address as string) || "127.0.0.1",
+        port: (args?.port as number) || 5432,
+        role: (args?.role as "primary" | "standby" | "arbiter") || "standby",
+        status: (args?.status as "online" | "offline" | "degraded" | "syncing") || "online",
+        version: (args?.version as string) || "1.0.0",
+        startedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_promote_node: async (args) => {
+    try {
+      initHaDb();
+      return promoteNode(args?.nodeId as string, args?.reason as string | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_demote_node: async (args) => {
+    try {
+      initHaDb();
+      return demoteNode(args?.nodeId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_get_replication_lag: async () => {
+    try {
+      initHaDb();
+      return getReplicationStatus();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_configure_failover: async (args) => {
+    try {
+      initHaDb();
+      return setFailoverConfig({
+        enabled: args?.enabled as boolean | undefined,
+        mode: args?.mode as "automatic" | "manual" | undefined,
+        failoverTimeout: args?.failoverTimeout as number | undefined,
+        minStandbyNodes: args?.minStandbyNodes as number | undefined,
+        healthCheckInterval: args?.healthCheckInterval as number | undefined,
+        maxReplicationLag: args?.maxReplicationLag as number | undefined,
+        webhookUrl: args?.webhookUrl as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_test_failover: async (args) => {
+    try {
+      initHaDb();
+      return testFailover(args?.targetNode as string | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  ha_get_split_brain_status: async () => {
+    try {
+      initHaDb();
+      return detectSplitBrain();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// Backup & DR handlers (v1.30.0)
+const backupHandlers: Record<string, ToolHandler> = {
+  backup_init_db: async () => {
+    try {
+      return initBackupDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_create: async (args) => {
+    try {
+      initBackupDb();
+      return createBackup({
+        type: args?.type as "full" | "incremental" | "differential" | undefined,
+        name: args?.name as string | undefined,
+        databases: args?.databases as string[] | undefined,
+        retentionDays: args?.retentionDays as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_list: async (args) => {
+    try {
+      initBackupDb();
+      return listBackups({
+        status: args?.status as "pending" | "completed" | "failed" | "verified" | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_restore: async (args) => {
+    try {
+      initBackupDb();
+      return restoreBackup({
+        backupId: args?.backupId as string,
+        dryRun: args?.dryRun as boolean | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_verify: async (args) => {
+    try {
+      initBackupDb();
+      return verifyBackup(args?.backupId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_schedule_create: async (args) => {
+    try {
+      initBackupDb();
+      return createBackupSchedule({
+        name: args?.name as string,
+        enabled: (args?.enabled as boolean | undefined) ?? true,
+        cronExpression: args?.cronExpression as string,
+        type: args?.type as "full" | "incremental" | "differential",
+        retentionDays: (args?.retentionDays as number | undefined) ?? 30,
+        storageProvider:
+          (args?.storageProvider as "local" | "s3" | "azure" | "gcs" | undefined) ?? "local",
+        storagePath: (args?.storagePath as string | undefined) ?? "./backups",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_schedule_list: async () => {
+    try {
+      initBackupDb();
+      return listBackupSchedules();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  backup_export_offsite: async (args) => {
+    try {
+      initBackupDb();
+      return exportBackupOffsite({
+        backupId: args?.backupId as string,
+        provider: args?.provider as "local" | "s3" | "azure" | "gcs",
+        destination: args?.destination as string,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// Resource Quotas handlers (v1.30.0)
+const quotaHandlers: Record<string, ToolHandler> = {
+  quota_init_db: async () => {
+    try {
+      return initQuotasDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  quota_set: async (args) => {
+    try {
+      initQuotasDb();
+      return setQuota({
+        scope: args?.scope as "team" | "project" | "user" | "global",
+        scopeId: args?.scopeId as string,
+        quotaType: args?.quotaType as
+          | "scans_per_day"
+          | "scans_per_month"
+          | "storage_mb"
+          | "api_requests_per_hour"
+          | "concurrent_scans"
+          | "reports_per_day",
+        limit: args?.limit as number,
+        warningThreshold: args?.warningThreshold as number,
+        enabled: args?.enabled !== false,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  quota_get: async (args) => {
+    try {
+      initQuotasDb();
+      return getQuota(
+        args?.scope as "team" | "project" | "user" | "global",
+        args?.scopeId as string,
+        args?.quotaType as
+          | "scans_per_day"
+          | "scans_per_month"
+          | "storage_mb"
+          | "api_requests_per_hour"
+          | "concurrent_scans"
+          | "reports_per_day"
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  quota_get_usage: async (args) => {
+    try {
+      initQuotasDb();
+      return getQuotaUsage(
+        args?.scope as "team" | "project" | "user" | "global",
+        args?.scopeId as string,
+        args?.quotaType as
+          | "scans_per_day"
+          | "scans_per_month"
+          | "storage_mb"
+          | "api_requests_per_hour"
+          | "concurrent_scans"
+          | "reports_per_day"
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  quota_list_breaches: async (args) => {
+    try {
+      initQuotasDb();
+      return listBreaches({
+        scope: args?.scope as "team" | "project" | "user" | "global" | undefined,
+        resolved: args?.resolved as boolean | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  quota_get_summary: async (args) => {
+    try {
+      initQuotasDb();
+      return getQuotaSummary(
+        args?.scope as "team" | "project" | "user" | "global",
+        args?.scopeId as string
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// Performance Optimization handlers (v1.30.0)
+const perfHandlers: Record<string, ToolHandler> = {
+  perf_init_db: async () => {
+    try {
+      return initPerformanceDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  perf_get_metrics: async (args) => {
+    try {
+      initPerformanceDb();
+      return getPerfMetrics({
+        hours: args?.hours as number | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  perf_get_aggregated: async (args) => {
+    try {
+      initPerformanceDb();
+      return getAggregatedMetrics(args?.hours as number | undefined);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  perf_analyze_slow_queries: async (args) => {
+    try {
+      initPerformanceDb();
+      return analyzeSlowQueries({
+        threshold: args?.threshold as number | undefined,
+        limit: args?.limit as number | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  perf_suggest_indexes: async () => {
+    try {
+      initPerformanceDb();
+      return suggestIndexes();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  perf_cache_warmup: async (args) => {
+    try {
+      initPerformanceDb();
+      return warmupCache(args?.targets as string[]);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  perf_get_summary: async () => {
+    try {
+      initPerformanceDb();
+      return getPerformanceSummary();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -12930,6 +13998,12 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...aiSecurityHandlers,
   ...threatIntelHandlers,
   ...nlQueryHandlers,
+  // v1.30.0 Enterprise Scale & Multi-Cloud
+  ...multiCloudHandlers,
+  ...haHandlers,
+  ...backupHandlers,
+  ...quotaHandlers,
+  ...perfHandlers,
 };
 
 export async function handleCallTool(
