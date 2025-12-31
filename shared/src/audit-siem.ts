@@ -142,7 +142,7 @@ function getDb(): Database.Database {
 export function createSiemConfig(
   config: Omit<SiemConfig, "id" | "createdAt" | "updatedAt">
 ): SiemConfig {
-  const id = `siem-${Date.now()}`;
+  const id = `siem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
 
   const record: SiemConfig = { ...config, id, createdAt: now, updatedAt: now };

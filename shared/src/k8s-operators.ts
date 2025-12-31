@@ -186,7 +186,7 @@ function getDb(): Database.Database {
 export function registerOperator(
   operator: Omit<OperatorInfo, "id" | "registeredAt" | "status">
 ): OperatorInfo {
-  const id = `op-${Date.now()}`;
+  const id = `op-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
 
   const record: OperatorInfo = { ...operator, id, registeredAt: now, status: "unknown" };
@@ -342,7 +342,7 @@ export function scanOperator(operatorId: string): OperatorScanResult {
 
 // CRD Management
 export function registerCrd(crd: Omit<CrdDefinition, "id" | "registeredAt">): CrdDefinition {
-  const id = `crd-${Date.now()}`;
+  const id = `crd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
 
   const record: CrdDefinition = { ...crd, id, registeredAt: now };
@@ -544,7 +544,7 @@ export function checkOperatorCompatibility(
 
 // Webhook Management
 export function registerWebhook(webhook: Omit<WebhookConfig, "id">): WebhookConfig {
-  const id = `wh-${Date.now()}`;
+  const id = `wh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const record: WebhookConfig = { ...webhook, id };
 
   getDb()

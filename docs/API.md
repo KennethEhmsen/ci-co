@@ -2,7 +2,7 @@
 
 This document provides a complete reference for all tools and handlers available in the CI/CD Security Platform.
 
-**Version:** 1.30.0 | **Total Tools:** 342
+**Version:** 1.31.0 | **Total Tools:** 406
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ This document provides a complete reference for all tools and handlers available
 
 ## Overview
 
-The CI/CD Security Platform provides **342 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
+The CI/CD Security Platform provides **406 tools** for security scanning, compliance reporting, and DevOps automation. These tools are available through:
 
 1. **MCP Server** - For Claude Code integration via Model Context Protocol
 2. **CI/CD Agent** - Standalone CLI with Anthropic SDK integration

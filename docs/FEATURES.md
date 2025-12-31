@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **342 MCP tools** across **52 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, policy enforcement, AI-powered analysis, container security, multi-cloud security, and distributed caching into a unified security automation framework.
+The CI/CD Security Scanning Platform is a comprehensive enterprise security solution providing **406 MCP tools** across **58 functional categories**. This platform integrates vulnerability scanning, code quality analysis, software composition analysis, compliance reporting, policy enforcement, AI-powered analysis, container security, multi-cloud security, GitOps integration, and zero-trust security into a unified security automation framework.
 
-**Platform Version:** 1.30.0
+**Platform Version:** 1.31.0
 
 ### Key Capabilities
 
@@ -22,8 +22,9 @@ The CI/CD Security Scanning Platform is a comprehensive enterprise security solu
 | **Infrastructure** | 22 | Cache, metrics, scan history, assets |
 | **Multi-Cloud Security** | 16 | AWS, Azure, GCP scanning |
 | **Enterprise Scale** | 30 | HA, backup, quotas, performance |
+| **GitOps & Zero-Trust** | 64 | GitOps, Zero-Trust, Service Mesh, API Security, K8s Operators, SIEM |
 
-**Total: 342 MCP Tools**
+**Total: 406 MCP Tools**
 
 ### Platform Highlights
 
@@ -38,6 +39,12 @@ The CI/CD Security Scanning Platform is a comprehensive enterprise security solu
 - **Backup & DR**: Automated backups, scheduling, offsite export (v1.30.0)
 - **Resource Quotas**: Usage limits, breach tracking, alerts (v1.30.0)
 - **Performance Optimization**: Metrics, slow query analysis, index suggestions (v1.30.0)
+- **GitOps Integration**: ArgoCD/Flux security gates, drift detection (v1.31.0)
+- **Zero-Trust Security**: Sigstore/cosign, SLSA provenance, attestations (v1.31.0)
+- **Service Mesh Security**: Istio/Linkerd/Cilium mTLS, authorization policies (v1.31.0)
+- **API Security Gateway**: OpenAPI/GraphQL scanning, OWASP API Top 10 (v1.31.0)
+- **K8s Operators Security**: CRD validation, RBAC analysis, webhook auditing (v1.31.0)
+- **Audit/SIEM Integration**: Splunk, Elasticsearch, Azure Sentinel forwarding (v1.31.0)
 
 ---
 
