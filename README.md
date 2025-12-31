@@ -294,7 +294,33 @@ The installer will:
 
 ### Available Tools in Claude Code
 
-After installation, restart Claude Code and these tools become available (41 total):
+After installation, restart Claude Code and these tools become available (**406 total** as of v1.31.0):
+
+> **Note:** The platform has grown significantly from the initial 41 tools to 406 enterprise-grade security tools. See [docs/API.md](docs/API.md) for the complete tool reference and [docs/FEATURES.md](docs/FEATURES.md) for the full feature overview.
+
+### Tool Categories Overview (406 Tools)
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| Vulnerability Scanning | 11 | Trivy container/dependency scanning |
+| Code Quality | 5 | SonarQube SAST |
+| Software Composition | 5 | Dependency-Track SCA/SBOM |
+| Source Control | 12 | Gitea repository management |
+| CI/CD Automation | 5 | Drone CI pipelines |
+| SSO Integration | 20 | SAML/OIDC enterprise auth |
+| RBAC System | 12 | Role-based access control |
+| API Key Management | 8 | Scoped keys with rotation |
+| Team Management | 15 | Organizations and teams |
+| Audit Trail | 20 | Comprehensive audit logging |
+| Executive Dashboard | 10 | Security KPIs |
+| Compliance Reporting | 12 | SOC2, HIPAA, PCI-DSS, CIS |
+| K8s Security | 15 | Kubernetes cluster scanning |
+| GitOps Integration | 12 | ArgoCD/Flux security gates |
+| Zero-Trust Security | 12 | Sigstore verification |
+| SIEM Integration | 14 | Splunk/Elastic/Sentinel |
+| + 34 more categories | 218+ | See docs/API.md |
+
+### Core Security Tools (Sample)
 
 #### Trivy Security Scanning (11 tools)
 
@@ -524,7 +550,7 @@ If your commit is rejected, check the error message and fix the format.
 
 | Document | Description |
 |----------|-------------|
-| [docs/API.md](docs/API.md) | Complete API reference (41 tools) |
+| [docs/API.md](docs/API.md) | Complete API reference (406 tools) |
 | [docs/CLI.md](docs/CLI.md) | CI/CD Agent CLI reference |
 | [docs/DEVELOPER.md](docs/DEVELOPER.md) | Developer guide & extension |
 | [docs/ADMIN.md](docs/ADMIN.md) | Administrator operations guide |
