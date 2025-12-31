@@ -197,13 +197,16 @@ describe("COMPLIANCE_CONTROLS", () => {
 // =============================================================================
 
 describe("getComplianceFrameworks", () => {
-  it("should return all four frameworks as strings", () => {
+  it("should return all seven frameworks as strings", () => {
     const frameworks = getComplianceFrameworks();
-    expect(frameworks).toHaveLength(4);
+    expect(frameworks).toHaveLength(7);
     expect(frameworks).toContain("SOC2");
     expect(frameworks).toContain("HIPAA");
     expect(frameworks).toContain("PCI-DSS");
     expect(frameworks).toContain("CIS");
+    expect(frameworks).toContain("NIST-CSF");
+    expect(frameworks).toContain("ISO-27001");
+    expect(frameworks).toContain("FEDRAMP");
   });
 });
 
@@ -234,6 +237,24 @@ describe("getComplianceControls", () => {
     const controls = getComplianceControls("CIS");
     expect(controls.length).toBeGreaterThan(0);
     expect(controls.every((c) => c.framework === "CIS")).toBe(true);
+  });
+
+  it("should return all controls for NIST-CSF", () => {
+    const controls = getComplianceControls("NIST-CSF");
+    expect(controls.length).toBeGreaterThan(0);
+    expect(controls.every((c) => c.framework === "NIST-CSF")).toBe(true);
+  });
+
+  it("should return all controls for ISO-27001", () => {
+    const controls = getComplianceControls("ISO-27001");
+    expect(controls.length).toBeGreaterThan(0);
+    expect(controls.every((c) => c.framework === "ISO-27001")).toBe(true);
+  });
+
+  it("should return all controls for FEDRAMP", () => {
+    const controls = getComplianceControls("FEDRAMP");
+    expect(controls.length).toBeGreaterThan(0);
+    expect(controls.every((c) => c.framework === "FEDRAMP")).toBe(true);
   });
 });
 
@@ -313,7 +334,7 @@ describe("generateComplianceReport", () => {
 
     expect(report.generatedAt).toBeDefined();
     expect(report.scanTarget).toBeDefined();
-    expect(report.frameworks).toHaveLength(4);
+    expect(report.frameworks).toHaveLength(7);
     expect(report.summary).toBeDefined();
     expect(report.byFramework).toBeDefined();
     expect(report.bySeverity).toBeDefined();
@@ -445,7 +466,7 @@ describe("Trend Tracking", () => {
 
       expect(entry.timestamp).toBeDefined();
       expect(entry.target).toBe("test-target");
-      expect(entry.frameworks).toHaveLength(4);
+      expect(entry.frameworks).toHaveLength(7);
       expect(entry.summary).toBeDefined();
     });
 
