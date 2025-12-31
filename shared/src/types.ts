@@ -2460,7 +2460,14 @@ export interface RemediationPRResult {
 /**
  * Supported compliance frameworks
  */
-export type ComplianceFramework = "SOC2" | "HIPAA" | "PCI-DSS" | "CIS";
+export type ComplianceFramework =
+  | "SOC2"
+  | "HIPAA"
+  | "PCI-DSS"
+  | "CIS"
+  | "NIST-CSF"
+  | "ISO-27001"
+  | "FEDRAMP";
 
 /**
  * Vulnerability types for compliance mapping

@@ -274,6 +274,292 @@ export const COMPLIANCE_CONTROLS: Record<ComplianceFramework, ComplianceControl[
       remediationSLA: { critical: "7d", high: "14d", medium: "30d", low: "90d" },
     },
   ],
+
+  "NIST-CSF": [
+    {
+      id: "ID.RA-1",
+      framework: "NIST-CSF",
+      name: "Asset Vulnerabilities Identified",
+      description: "Asset vulnerabilities are identified and documented.",
+      category: "Identify - Risk Assessment",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "ID.RA-2",
+      framework: "NIST-CSF",
+      name: "Cyber Threat Intelligence",
+      description:
+        "Cyber threat intelligence is received from information sharing forums and sources.",
+      category: "Identify - Risk Assessment",
+      severityMapping: { critical: true, high: true, medium: false, low: false },
+      vulnerabilityTypes: ["cve"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "PR.DS-1",
+      framework: "NIST-CSF",
+      name: "Data-at-Rest Protection",
+      description: "Data-at-rest is protected using cryptographic mechanisms.",
+      category: "Protect - Data Security",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["secret", "misconfig"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "PR.DS-2",
+      framework: "NIST-CSF",
+      name: "Data-in-Transit Protection",
+      description: "Data-in-transit is protected using cryptographic mechanisms.",
+      category: "Protect - Data Security",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["secret", "misconfig"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "PR.IP-12",
+      framework: "NIST-CSF",
+      name: "Vulnerability Management Plan",
+      description: "A vulnerability management plan is developed and implemented.",
+      category: "Protect - Information Protection",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "misconfig", "license"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "DE.CM-4",
+      framework: "NIST-CSF",
+      name: "Malicious Code Detection",
+      description: "Malicious code is detected and contained.",
+      category: "Detect - Continuous Monitoring",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["cve", "secret"],
+      remediationSLA: { critical: "immediate", high: "24h", medium: "7d", low: "30d" },
+    },
+    {
+      id: "DE.CM-8",
+      framework: "NIST-CSF",
+      name: "Vulnerability Scans",
+      description: "Vulnerability scans are performed on systems and applications.",
+      category: "Detect - Continuous Monitoring",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "RS.MI-3",
+      framework: "NIST-CSF",
+      name: "Newly Identified Vulnerabilities Mitigated",
+      description:
+        "Newly identified vulnerabilities are mitigated or documented as accepted risks.",
+      category: "Respond - Mitigation",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "secret", "misconfig"],
+      remediationSLA: { critical: "24h", high: "7d", medium: "30d", low: "90d" },
+    },
+  ],
+
+  "ISO-27001": [
+    {
+      id: "A.8.8",
+      framework: "ISO-27001",
+      name: "Management of Technical Vulnerabilities",
+      description:
+        "Information about technical vulnerabilities of information systems being used shall be obtained in a timely fashion, the organization's exposure to such vulnerabilities evaluated and appropriate measures taken.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.9",
+      framework: "ISO-27001",
+      name: "Configuration Management",
+      description:
+        "Configurations, including security configurations, of hardware, software, services and networks shall be established, documented, implemented, monitored and reviewed.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["misconfig"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.20",
+      framework: "ISO-27001",
+      name: "Networks Security",
+      description:
+        "Networks and network devices shall be secured, managed and controlled to protect information in systems and applications.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.24",
+      framework: "ISO-27001",
+      name: "Use of Cryptography",
+      description:
+        "Rules for the effective use of cryptography, including cryptographic key management, shall be defined and implemented.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: false, low: false },
+      vulnerabilityTypes: ["secret", "misconfig"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.25",
+      framework: "ISO-27001",
+      name: "Secure Development Lifecycle",
+      description:
+        "Rules for the secure development of software and systems shall be established and applied.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "secret", "misconfig", "license"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.26",
+      framework: "ISO-27001",
+      name: "Application Security Requirements",
+      description:
+        "Information security requirements shall be identified, specified and approved when developing or acquiring applications.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.28",
+      framework: "ISO-27001",
+      name: "Secure Coding",
+      description: "Secure coding principles shall be applied to software development.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "secret"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+    {
+      id: "A.8.31",
+      framework: "ISO-27001",
+      name: "Separation of Development, Test and Production",
+      description:
+        "Development, testing and production environments shall be separated and secured.",
+      category: "Technology Controls",
+      severityMapping: { critical: true, high: true, medium: false, low: false },
+      vulnerabilityTypes: ["misconfig", "secret"],
+      remediationSLA: { critical: "24h", high: "14d", medium: "30d", low: "90d" },
+    },
+  ],
+
+  FEDRAMP: [
+    {
+      id: "RA-5",
+      framework: "FEDRAMP",
+      name: "Vulnerability Monitoring and Scanning",
+      description:
+        "Scan for vulnerabilities in the system and hosted applications and remediate discovered vulnerabilities.",
+      category: "Risk Assessment",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "RA-5(2)",
+      framework: "FEDRAMP",
+      name: "Update Vulnerabilities to Be Scanned",
+      description:
+        "Update the system vulnerabilities to be scanned prior to a new scan or when new vulnerabilities are identified and reported.",
+      category: "Risk Assessment",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "RA-5(5)",
+      framework: "FEDRAMP",
+      name: "Privileged Access Authorization",
+      description:
+        "Implement privileged access authorization to selected system components for vulnerability scanning activities.",
+      category: "Risk Assessment",
+      severityMapping: { critical: true, high: true, medium: false, low: false },
+      vulnerabilityTypes: ["misconfig"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "SC-8",
+      framework: "FEDRAMP",
+      name: "Transmission Confidentiality and Integrity",
+      description: "Protect the confidentiality and integrity of transmitted information.",
+      category: "System and Communications Protection",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["secret", "misconfig"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "SC-12",
+      framework: "FEDRAMP",
+      name: "Cryptographic Key Establishment and Management",
+      description:
+        "Establish and manage cryptographic keys when cryptography is employed within the system.",
+      category: "System and Communications Protection",
+      severityMapping: { critical: true, high: true, medium: false, low: false },
+      vulnerabilityTypes: ["secret"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "SC-28",
+      framework: "FEDRAMP",
+      name: "Protection of Information at Rest",
+      description: "Protect the confidentiality and integrity of information at rest.",
+      category: "System and Communications Protection",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["secret", "misconfig"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "SI-2",
+      framework: "FEDRAMP",
+      name: "Flaw Remediation",
+      description:
+        "Identify, report, and correct system flaws; test software and firmware updates before installation; install security-relevant updates within defined time periods.",
+      category: "System and Information Integrity",
+      severityMapping: { critical: true, high: true, medium: true, low: true },
+      vulnerabilityTypes: ["cve"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "SI-3",
+      framework: "FEDRAMP",
+      name: "Malicious Code Protection",
+      description:
+        "Implement malicious code protection at system entry and exit points and at workstations, servers, or mobile computing devices.",
+      category: "System and Information Integrity",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["cve", "secret"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "SI-7",
+      framework: "FEDRAMP",
+      name: "Software, Firmware, and Information Integrity",
+      description:
+        "Employ integrity verification tools to detect unauthorized changes to software, firmware, and information.",
+      category: "System and Information Integrity",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["cve", "misconfig"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+    {
+      id: "CM-6",
+      framework: "FEDRAMP",
+      name: "Configuration Settings",
+      description:
+        "Establish and document configuration settings for system components that reflect the most restrictive mode consistent with operational requirements.",
+      category: "Configuration Management",
+      severityMapping: { critical: true, high: true, medium: true, low: false },
+      vulnerabilityTypes: ["misconfig"],
+      remediationSLA: { critical: "30d", high: "30d", medium: "90d", low: "180d" },
+    },
+  ],
 };
 
 // =============================================================================
@@ -284,7 +570,7 @@ export const COMPLIANCE_CONTROLS: Record<ComplianceFramework, ComplianceControl[
  * Get list of all supported compliance frameworks.
  */
 export function getComplianceFrameworks(): ComplianceFramework[] {
-  return ["SOC2", "HIPAA", "PCI-DSS", "CIS"];
+  return ["SOC2", "HIPAA", "PCI-DSS", "CIS", "NIST-CSF", "ISO-27001", "FEDRAMP"];
 }
 
 /**
