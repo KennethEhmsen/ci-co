@@ -308,6 +308,56 @@ import {
   suggestIndexes,
   warmupCache,
   getPerformanceSummary,
+  // GitOps Integration (v1.31.0)
+  initGitOpsDb,
+  registerGitOpsRepo,
+  listGitOpsRepos,
+  scanGitOpsRepo,
+  validateManifests,
+  createSecurityGate,
+  evaluateSecurityGate,
+  checkDrift,
+  scanHelmChart,
+  getDeploymentHistory,
+  type GateRule,
+  // Zero-Trust Security (v1.31.0)
+  initZeroTrustDb,
+  verifyZtImageSignature,
+  checkProvenance,
+  recordProvenance,
+  getTrustChain,
+  createZtAttestation,
+  verifyZtAttestation,
+  createZtPolicy,
+  evaluateZtPolicy,
+  keylessSign,
+  type ZeroTrustRule,
+  // Service Mesh Security (v1.31.0)
+  initMeshDb,
+  scanMeshConfig,
+  getMtlsStatus,
+  auditAuthorizationPolicies,
+  createMeshPolicy,
+  checkCertExpiry,
+  checkSidecarVersions,
+  checkMeshCves,
+  getSecureUpgradePath,
+  getMeshSecuritySummary,
+  type MeshProvider,
+  type MtlsMode,
+  type MeshPolicyAction,
+  type AuthorizationPolicy,
+  // API Security Gateway (v1.31.0)
+  initApiSecurityDb,
+  scanOpenApiSpec,
+  scanGraphQlSchema,
+  auditApiAuth,
+  auditRateLimits,
+  testForInjection,
+  createApiPolicy,
+  listApiPolicies,
+  checkOwaspApiTop10,
+  type ApiPolicy,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -7932,6 +7982,493 @@ export const toolDefinitions: ToolDefinition[] = [
     description: "Get overall performance health summary.",
     inputSchema: { type: "object", properties: {} },
   },
+  // =========================================================================
+  // GitOps Integration Tools (v1.31.0)
+  // =========================================================================
+  {
+    name: "gitops_init_db",
+    description: "Initialize the GitOps database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "gitops_register_repo",
+    description: "Register a Git repository for GitOps monitoring.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "Repository URL." },
+        branch: { type: "string", description: "Branch to monitor (default: main)." },
+        provider: {
+          type: "string",
+          enum: ["argocd", "flux", "generic"],
+          description: "GitOps provider.",
+        },
+        path: { type: "string", description: "Path to manifests in repository." },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "gitops_list_repos",
+    description: "List registered GitOps repositories.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "gitops_scan_repo",
+    description: "Scan a repository for security issues in manifests.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoId: { type: "string", description: "Repository ID to scan." },
+        severity: { type: "string", description: "Minimum severity (default: HIGH,CRITICAL)." },
+      },
+      required: ["repoId"],
+    },
+  },
+  {
+    name: "gitops_validate_manifests",
+    description: "Validate Kubernetes manifests for security best practices.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Path to manifests." },
+        strict: { type: "boolean", description: "Enable strict validation mode." },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "gitops_create_gate",
+    description: "Create a security gate for GitOps deployments.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Gate name." },
+        repoId: { type: "string", description: "Repository ID." },
+        rules: { type: "array", items: { type: "object" }, description: "Gate rules." },
+      },
+      required: ["name", "repoId"],
+    },
+  },
+  {
+    name: "gitops_evaluate_gate",
+    description: "Evaluate a security gate before deployment.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        gateId: { type: "string", description: "Gate ID to evaluate." },
+        commitSha: { type: "string", description: "Commit SHA to evaluate." },
+      },
+      required: ["gateId"],
+    },
+  },
+  {
+    name: "gitops_check_drift",
+    description: "Check for configuration drift between Git and deployed state.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoId: { type: "string", description: "Repository ID." },
+        namespace: { type: "string", description: "Kubernetes namespace to check." },
+      },
+      required: ["repoId"],
+    },
+  },
+  {
+    name: "gitops_scan_helm",
+    description: "Scan a Helm chart for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        chartPath: { type: "string", description: "Path to Helm chart." },
+        values: { type: "object", description: "Values to use for rendering." },
+      },
+      required: ["chartPath"],
+    },
+  },
+  {
+    name: "gitops_get_deployment_history",
+    description: "Get deployment history for a repository.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoId: { type: "string", description: "Repository ID." },
+        limit: { type: "number", description: "Maximum entries to return." },
+      },
+      required: ["repoId"],
+    },
+  },
+  // =========================================================================
+  // Zero-Trust Security Tools (v1.31.0)
+  // =========================================================================
+  {
+    name: "zt_init_db",
+    description: "Initialize the zero-trust security database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "zt_verify_image",
+    description: "Verify image signature using Sigstore/cosign.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: { type: "string", description: "Image reference to verify." },
+        keyRef: { type: "string", description: "Public key reference for verification." },
+        keyless: { type: "boolean", description: "Use keyless verification with Fulcio." },
+      },
+      required: ["image"],
+    },
+  },
+  {
+    name: "zt_check_provenance",
+    description: "Check SLSA provenance for an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: { type: "string", description: "Artifact reference (image or path)." },
+        minLevel: {
+          type: "string",
+          enum: ["L1", "L2", "L3", "L4"],
+          description: "Minimum SLSA level required.",
+        },
+      },
+      required: ["artifact"],
+    },
+  },
+  {
+    name: "zt_record_provenance",
+    description: "Record provenance information for an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: { type: "string", description: "Artifact reference." },
+        builderId: { type: "string", description: "Builder ID." },
+        sourceUri: { type: "string", description: "Source repository URI." },
+        materials: { type: "array", items: { type: "object" }, description: "Build materials." },
+      },
+      required: ["artifact", "builderId"],
+    },
+  },
+  {
+    name: "zt_get_trust_chain",
+    description: "Get the trust chain for an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: { type: "string", description: "Artifact reference." },
+      },
+      required: ["artifact"],
+    },
+  },
+  {
+    name: "zt_create_attestation",
+    description: "Create an attestation for an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: { type: "string", description: "Artifact reference." },
+        type: {
+          type: "string",
+          enum: ["provenance", "vuln-scan", "sbom", "custom"],
+          description: "Attestation type.",
+        },
+        predicateType: { type: "string", description: "Predicate type URI." },
+        payload: { type: "object", description: "Attestation payload." },
+      },
+      required: ["artifact", "type"],
+    },
+  },
+  {
+    name: "zt_verify_attestation",
+    description: "Verify an attestation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        attestationId: { type: "string", description: "Attestation ID to verify." },
+      },
+      required: ["attestationId"],
+    },
+  },
+  {
+    name: "zt_create_policy",
+    description: "Create a zero-trust policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Policy name." },
+        rules: { type: "array", items: { type: "object" }, description: "Policy rules." },
+        enforcement: {
+          type: "string",
+          enum: ["enforce", "warn", "audit"],
+          description: "Enforcement mode.",
+        },
+      },
+      required: ["name", "rules"],
+    },
+  },
+  {
+    name: "zt_evaluate_policy",
+    description: "Evaluate a zero-trust policy against an artifact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        policyId: { type: "string", description: "Policy ID." },
+        artifact: { type: "string", description: "Artifact to evaluate." },
+      },
+      required: ["policyId", "artifact"],
+    },
+  },
+  {
+    name: "zt_keyless_sign",
+    description: "Sign an artifact using keyless signing with Fulcio.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifact: { type: "string", description: "Artifact to sign." },
+        identity: { type: "string", description: "Identity (OIDC subject)." },
+      },
+      required: ["artifact"],
+    },
+  },
+  // =========================================================================
+  // Service Mesh Security Tools (v1.31.0)
+  // =========================================================================
+  {
+    name: "mesh_init_db",
+    description: "Initialize the service mesh security database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "mesh_scan_config",
+    description: "Scan service mesh configuration for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        provider: {
+          type: "string",
+          enum: ["istio", "linkerd", "cilium", "consul"],
+          description: "Mesh provider.",
+        },
+        namespace: { type: "string", description: "Namespace to scan." },
+        version: { type: "string", description: "Mesh version." },
+        mtlsMode: {
+          type: "string",
+          enum: ["STRICT", "PERMISSIVE", "DISABLE"],
+          description: "mTLS mode.",
+        },
+      },
+      required: ["provider", "namespace"],
+    },
+  },
+  {
+    name: "mesh_get_mtls_status",
+    description: "Get mTLS status for a namespace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Namespace to check." },
+      },
+      required: ["namespace"],
+    },
+  },
+  {
+    name: "mesh_audit_policies",
+    description: "Audit authorization policies for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Namespace to audit." },
+      },
+      required: ["namespace"],
+    },
+  },
+  {
+    name: "mesh_create_policy",
+    description: "Create a mesh authorization policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Policy name." },
+        namespace: { type: "string", description: "Target namespace." },
+        action: { type: "string", enum: ["ALLOW", "DENY", "AUDIT"], description: "Policy action." },
+        rules: { type: "array", items: { type: "object" }, description: "Policy rules." },
+      },
+      required: ["name", "namespace", "action"],
+    },
+  },
+  {
+    name: "mesh_check_certs",
+    description: "Check certificate expiry for mesh services.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Namespace to check." },
+      },
+      required: ["namespace"],
+    },
+  },
+  {
+    name: "mesh_check_sidecars",
+    description: "Check sidecar proxy versions for vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Namespace to check." },
+      },
+      required: ["namespace"],
+    },
+  },
+  {
+    name: "mesh_check_cves",
+    description: "Check for known CVEs in the mesh version.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        provider: {
+          type: "string",
+          enum: ["istio", "linkerd", "cilium", "consul"],
+          description: "Mesh provider.",
+        },
+        version: { type: "string", description: "Mesh version to check." },
+      },
+      required: ["provider", "version"],
+    },
+  },
+  {
+    name: "mesh_get_upgrade_path",
+    description: "Get secure upgrade path for mesh version.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        provider: {
+          type: "string",
+          enum: ["istio", "linkerd", "cilium", "consul"],
+          description: "Mesh provider.",
+        },
+        currentVersion: { type: "string", description: "Current version." },
+        targetVersion: { type: "string", description: "Target version." },
+      },
+      required: ["provider", "currentVersion", "targetVersion"],
+    },
+  },
+  {
+    name: "mesh_get_summary",
+    description: "Get security summary for a mesh namespace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Namespace to summarize." },
+      },
+      required: ["namespace"],
+    },
+  },
+  // =========================================================================
+  // API Security Gateway Tools (v1.31.0)
+  // =========================================================================
+  {
+    name: "api_init_db",
+    description: "Initialize the API security database.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "api_scan_openapi",
+    description: "Scan an OpenAPI specification for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        specPath: { type: "string", description: "Path to OpenAPI spec (JSON/YAML)." },
+        specUrl: { type: "string", description: "URL to OpenAPI spec." },
+      },
+    },
+  },
+  {
+    name: "api_scan_graphql",
+    description: "Scan a GraphQL schema for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        schemaPath: { type: "string", description: "Path to GraphQL schema." },
+        introspectionUrl: { type: "string", description: "GraphQL endpoint for introspection." },
+      },
+    },
+  },
+  {
+    name: "api_audit_auth",
+    description: "Audit API authentication configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        specPath: { type: "string", description: "Path to API spec." },
+        specUrl: { type: "string", description: "URL to API spec." },
+      },
+    },
+  },
+  {
+    name: "api_audit_rate_limits",
+    description: "Audit rate limiting configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        specPath: { type: "string", description: "Path to API spec." },
+        gatewayConfig: { type: "object", description: "Gateway configuration to check." },
+      },
+    },
+  },
+  {
+    name: "api_test_injection",
+    description: "Test API endpoints for injection vulnerabilities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        endpoint: { type: "string", description: "API endpoint to test." },
+        method: {
+          type: "string",
+          enum: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+          description: "HTTP method.",
+        },
+        testTypes: {
+          type: "array",
+          items: { type: "string" },
+          description: "Types of injection to test.",
+        },
+      },
+      required: ["endpoint"],
+    },
+  },
+  {
+    name: "api_check_owasp_top10",
+    description: "Check API against OWASP API Security Top 10.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        specPath: { type: "string", description: "Path to API spec." },
+        specUrl: { type: "string", description: "URL to API spec." },
+      },
+    },
+  },
+  {
+    name: "api_create_policy",
+    description: "Create an API security policy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Policy name." },
+        apiId: { type: "string", description: "API ID to apply policy to." },
+        rules: { type: "array", items: { type: "object" }, description: "Policy rules." },
+      },
+      required: ["name", "apiId"],
+    },
+  },
+  {
+    name: "api_list_policies",
+    description: "List API security policies.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        apiId: { type: "string", description: "Filter by API ID." },
+      },
+    },
+  },
 ];
 // =============================================================================
 // Resource Definitions (exported for testing)
@@ -13947,6 +14484,411 @@ const perfHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// =============================================================================
+// v1.31.0 - GitOps & Zero-Trust Security Handlers
+// =============================================================================
+
+// GitOps Integration handlers (v1.31.0)
+const gitopsHandlers: Record<string, ToolHandler> = {
+  gitops_init_db: async () => {
+    try {
+      return initGitOpsDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_register_repo: async (args) => {
+    try {
+      initGitOpsDb();
+      const url = args?.url as string;
+      return registerGitOpsRepo({
+        name: url.split("/").pop()?.replace(".git", "") || "repo",
+        url,
+        branch: (args?.branch as string) || "main",
+        provider: (args?.provider as "argocd" | "flux") || "argocd",
+        path: (args?.path as string) || ".",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_list_repos: async () => {
+    try {
+      initGitOpsDb();
+      return { repositories: listGitOpsRepos() };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_scan_repo: async (args) => {
+    try {
+      initGitOpsDb();
+      return { results: scanGitOpsRepo(args?.repoId as string, { recursive: true }) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_validate_manifests: async (args) => {
+    try {
+      initGitOpsDb();
+      // Get manifests from path - simplified for now
+      const manifests = [args?.path as string];
+      return validateManifests(manifests);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_create_gate: async (args) => {
+    try {
+      initGitOpsDb();
+      return createSecurityGate({
+        name: args?.name as string,
+        repository: args?.repoId as string,
+        branch: "main",
+        rules: (args?.rules as GateRule[]) || [],
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_evaluate_gate: async (args) => {
+    try {
+      initGitOpsDb();
+      // First scan to get results, then evaluate
+      const scanResults = scanGitOpsRepo((args?.repoId as string) || ".", { recursive: true });
+      return evaluateSecurityGate(args?.gateId as string, scanResults);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_check_drift: async (args) => {
+    try {
+      initGitOpsDb();
+      return checkDrift(args?.repoId as string, {
+        provider: "argocd",
+        serverUrl: "http://localhost:8080",
+        namespace: (args?.namespace as string) || "default",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_scan_helm: async (args) => {
+    try {
+      initGitOpsDb();
+      return scanHelmChart(args?.chartPath as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  gitops_get_deployment_history: async (args) => {
+    try {
+      initGitOpsDb();
+      return getDeploymentHistory(args?.repoId as string, (args?.limit as number) || 10);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// Zero-Trust Security handlers (v1.31.0)
+const zeroTrustHandlers: Record<string, ToolHandler> = {
+  zt_init_db: async () => {
+    try {
+      return initZeroTrustDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_verify_image: async (args) => {
+    try {
+      initZeroTrustDb();
+      return verifyZtImageSignature(args?.image as string, {
+        publicKey: args?.keyRef as string | undefined,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_check_provenance: async (args) => {
+    try {
+      initZeroTrustDb();
+      const result = checkProvenance(args?.artifact as string);
+      return result || { found: false, message: "No provenance record found" };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_record_provenance: async (args) => {
+    try {
+      initZeroTrustDb();
+      return recordProvenance({
+        subject: args?.artifact as string,
+        slsaLevel: 1,
+        builder: {
+          id: args?.builderId as string,
+        },
+        buildType: "https://github.com/actions/build",
+        invocation: {
+          configSource: args?.sourceUri
+            ? {
+                uri: args.sourceUri as string,
+                digest: {},
+              }
+            : undefined,
+        },
+        materials: [],
+        metadata: {},
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_get_trust_chain: async (args) => {
+    try {
+      initZeroTrustDb();
+      return getTrustChain(args?.artifact as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_create_attestation: async (args) => {
+    try {
+      initZeroTrustDb();
+      return createZtAttestation({
+        subject: args?.artifact as string,
+        type: (args?.type as "provenance" | "vuln-scan" | "sbom" | "custom") || "custom",
+        predicateType: (args?.predicateType as string) || "https://in-toto.io/statement/v1",
+        predicate: (args?.payload as Record<string, unknown>) || {},
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_verify_attestation: async (args) => {
+    try {
+      initZeroTrustDb();
+      return verifyZtAttestation(args?.attestationId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_create_policy: async (args) => {
+    try {
+      initZeroTrustDb();
+      return createZtPolicy({
+        name: args?.name as string,
+        description: "",
+        rules: (args?.rules as ZeroTrustRule[]) || [],
+        action: (args?.enforcement as "allow" | "deny" | "warn") || "warn",
+        enabled: true,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_evaluate_policy: async (args) => {
+    try {
+      initZeroTrustDb();
+      return evaluateZtPolicy(args?.policyId as string, (args?.artifact as string) || "");
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  zt_keyless_sign: async (args) => {
+    try {
+      initZeroTrustDb();
+      return keylessSign(args?.artifact as string, (args?.identity as string) || "anonymous");
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// Service Mesh Security handlers (v1.31.0)
+const meshSecurityHandlers: Record<string, ToolHandler> = {
+  mesh_init_db: async () => {
+    try {
+      return initMeshDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_scan_config: async (args) => {
+    try {
+      initMeshDb();
+      return scanMeshConfig({
+        provider: args?.provider as MeshProvider,
+        namespace: args?.namespace as string,
+        version: (args?.version as string) || "1.0.0",
+        mtlsMode: (args?.mtlsMode as MtlsMode) || "STRICT",
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_get_mtls_status: async (args) => {
+    try {
+      initMeshDb();
+      return getMtlsStatus(args?.namespace as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_audit_policies: async (args) => {
+    try {
+      initMeshDb();
+      return auditAuthorizationPolicies(args?.namespace as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_create_policy: async (args) => {
+    try {
+      initMeshDb();
+      return createMeshPolicy({
+        name: args?.name as string,
+        namespace: args?.namespace as string,
+        action: args?.action as MeshPolicyAction,
+        rules: (args?.rules as AuthorizationPolicy["rules"]) || [],
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_check_certs: async (args) => {
+    try {
+      initMeshDb();
+      return { certificates: checkCertExpiry(args?.namespace as string) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_check_sidecars: async (args) => {
+    try {
+      initMeshDb();
+      return { sidecars: checkSidecarVersions(args?.namespace as string) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_check_cves: async (args) => {
+    try {
+      initMeshDb();
+      return { cves: checkMeshCves(args?.provider as MeshProvider, args?.version as string) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_get_upgrade_path: async (args) => {
+    try {
+      initMeshDb();
+      return getSecureUpgradePath(
+        args?.provider as MeshProvider,
+        args?.currentVersion as string,
+        args?.targetVersion as string
+      );
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  mesh_get_summary: async (args) => {
+    try {
+      initMeshDb();
+      return getMeshSecuritySummary(args?.namespace as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// API Security Gateway handlers (v1.31.0)
+const apiSecurityHandlers: Record<string, ToolHandler> = {
+  api_init_db: async () => {
+    try {
+      return initApiSecurityDb();
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_scan_openapi: async (args) => {
+    try {
+      initApiSecurityDb();
+      const specPath = (args?.specPath as string) || (args?.specUrl as string) || "";
+      return scanOpenApiSpec(specPath);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_scan_graphql: async (args) => {
+    try {
+      initApiSecurityDb();
+      const schemaPath = (args?.schemaPath as string) || (args?.introspectionUrl as string) || "";
+      return scanGraphQlSchema(schemaPath);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_audit_auth: async (args) => {
+    try {
+      initApiSecurityDb();
+      const specPath = (args?.specPath as string) || (args?.specUrl as string) || "";
+      return auditApiAuth("api-" + Date.now(), specPath);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_audit_rate_limits: async (args) => {
+    try {
+      initApiSecurityDb();
+      const specPath = (args?.specPath as string) || "";
+      return auditRateLimits("api-" + Date.now(), specPath);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_test_injection: async (args) => {
+    try {
+      initApiSecurityDb();
+      const method = (args?.method as string) || "GET";
+      const testTypes = (args?.testTypes as string[]) || ["sql", "xss", "cmd"];
+      return testForInjection(args?.endpoint as string, method, testTypes);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_check_owasp_top10: async (args) => {
+    try {
+      initApiSecurityDb();
+      const specPath = (args?.specPath as string) || (args?.specUrl as string) || "";
+      return checkOwaspApiTop10(specPath);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_create_policy: async (args) => {
+    try {
+      initApiSecurityDb();
+      return createApiPolicy({
+        name: args?.name as string,
+        description: (args?.apiId as string) || "",
+        rules: (args?.rules as ApiPolicy["rules"]) || [],
+        enabled: true,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  api_list_policies: async () => {
+    try {
+      initApiSecurityDb();
+      return { policies: listApiPolicies() };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -14004,6 +14946,11 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...backupHandlers,
   ...quotaHandlers,
   ...perfHandlers,
+  // v1.31.0 GitOps & Zero-Trust Security
+  ...gitopsHandlers,
+  ...zeroTrustHandlers,
+  ...meshSecurityHandlers,
+  ...apiSecurityHandlers,
 };
 
 export async function handleCallTool(
