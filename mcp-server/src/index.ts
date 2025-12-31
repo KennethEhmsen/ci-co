@@ -358,6 +358,40 @@ import {
   listApiPolicies,
   checkOwaspApiTop10,
   type ApiPolicy,
+  // Kubernetes Operators Security (v1.31.0)
+  initOperatorsDb,
+  registerOperator,
+  listOperators,
+  getOperator,
+  scanOperator,
+  registerCrd,
+  listCrds,
+  validateCrd,
+  analyzeOperatorRbac,
+  checkOperatorCompatibility,
+  registerWebhook,
+  auditWebhooks,
+  getOperatorSecuritySummary,
+  type OperatorType,
+  type CrdValidationLevel,
+  // Audit/SIEM Integration (v1.31.0)
+  initAuditSiemDb,
+  createSiemConfig,
+  listSiemConfigs,
+  updateSiemConfig,
+  deleteSiemConfig,
+  logSecurityEvent,
+  queryAuditLogs,
+  getAuditLogStats,
+  forwardToSiem,
+  getForwardQueue,
+  retryFailedEvents,
+  testSiemConnection,
+  type SiemProvider,
+  type AuditEventSeverity,
+  type AuditEventCategory,
+  type SiemConfig,
+  type AuditLogQuery,
 } from "./handlers.js";
 
 // Re-export for backwards compatibility
@@ -8469,6 +8503,392 @@ export const toolDefinitions: ToolDefinition[] = [
       },
     },
   },
+  // =========================================================================
+  // Kubernetes Operators Security (v1.31.0)
+  // =========================================================================
+  {
+    name: "k8s_operators_init",
+    description: "Initialize the Kubernetes operators security database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dbPath: { type: "string", description: "Custom database path." },
+      },
+    },
+  },
+  {
+    name: "k8s_operators_register",
+    description: "Register a Kubernetes operator for security scanning.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Operator name." },
+        namespace: { type: "string", description: "Kubernetes namespace." },
+        version: { type: "string", description: "Operator version." },
+        type: {
+          type: "string",
+          enum: ["helm", "ansible", "go", "java", "unknown"],
+          description: "Operator type.",
+        },
+        crdCount: { type: "number", description: "Number of CRDs managed." },
+        permissions: {
+          type: "array",
+          items: { type: "string" },
+          description: "RBAC permissions list.",
+        },
+      },
+      required: ["name", "namespace", "version"],
+    },
+  },
+  {
+    name: "k8s_operators_list",
+    description: "List registered Kubernetes operators.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Filter by namespace." },
+      },
+    },
+  },
+  {
+    name: "k8s_operators_get",
+    description: "Get a specific Kubernetes operator by ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Operator ID." },
+      },
+      required: ["operatorId"],
+    },
+  },
+  {
+    name: "k8s_operators_scan",
+    description: "Scan a Kubernetes operator for security issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Operator ID to scan." },
+      },
+      required: ["operatorId"],
+    },
+  },
+  {
+    name: "k8s_crd_register",
+    description: "Register a Custom Resource Definition (CRD) for an operator.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "CRD name." },
+        group: { type: "string", description: "API group." },
+        version: { type: "string", description: "API version." },
+        kind: { type: "string", description: "Resource kind." },
+        scope: {
+          type: "string",
+          enum: ["Namespaced", "Cluster"],
+          description: "CRD scope.",
+        },
+        operatorId: { type: "string", description: "Owning operator ID." },
+        schema: { type: "object", description: "OpenAPI v3 schema." },
+      },
+      required: ["name", "group", "version", "kind", "scope", "operatorId"],
+    },
+  },
+  {
+    name: "k8s_crd_list",
+    description: "List registered CRDs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Filter by operator ID." },
+      },
+    },
+  },
+  {
+    name: "k8s_crd_validate",
+    description: "Validate a CRD for security and schema issues.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        crdId: { type: "string", description: "CRD ID to validate." },
+        level: {
+          type: "string",
+          enum: ["strict", "warn", "permissive"],
+          description: "Validation strictness level.",
+        },
+      },
+      required: ["crdId"],
+    },
+  },
+  {
+    name: "k8s_operators_rbac_analyze",
+    description: "Analyze RBAC permissions for an operator.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Operator ID." },
+      },
+      required: ["operatorId"],
+    },
+  },
+  {
+    name: "k8s_operators_compatibility",
+    description: "Check operator compatibility with Kubernetes versions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Operator ID." },
+        k8sVersion: {
+          type: "string",
+          description: "Target Kubernetes version (e.g., v1.28).",
+        },
+      },
+      required: ["operatorId", "k8sVersion"],
+    },
+  },
+  {
+    name: "k8s_webhook_register",
+    description: "Register an admission webhook for security auditing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Owning operator ID." },
+        name: { type: "string", description: "Webhook name." },
+        type: {
+          type: "string",
+          enum: ["validating", "mutating"],
+          description: "Webhook type.",
+        },
+        failurePolicy: {
+          type: "string",
+          enum: ["Fail", "Ignore"],
+          description: "Failure policy.",
+        },
+        timeoutSeconds: { type: "number", description: "Webhook timeout." },
+        rules: {
+          type: "array",
+          items: { type: "object" },
+          description: "Webhook rules.",
+        },
+      },
+      required: ["operatorId", "name", "type"],
+    },
+  },
+  {
+    name: "k8s_webhook_audit",
+    description: "Audit admission webhooks for an operator.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        operatorId: { type: "string", description: "Operator ID." },
+      },
+      required: ["operatorId"],
+    },
+  },
+  {
+    name: "k8s_operators_summary",
+    description: "Get security summary for all operators.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", description: "Filter by namespace." },
+      },
+    },
+  },
+  // =========================================================================
+  // Audit/SIEM Integration (v1.31.0)
+  // =========================================================================
+  {
+    name: "siem_init",
+    description: "Initialize the Audit/SIEM integration database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dbPath: { type: "string", description: "Custom database path." },
+      },
+    },
+  },
+  {
+    name: "siem_create_config",
+    description: "Create a SIEM configuration for forwarding audit logs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Configuration name." },
+        provider: {
+          type: "string",
+          enum: ["splunk", "elasticsearch", "azure_sentinel", "syslog", "file"],
+          description: "SIEM provider type.",
+        },
+        endpoint: { type: "string", description: "SIEM endpoint URL or file path." },
+        apiKey: { type: "string", description: "API key for authentication." },
+        index: { type: "string", description: "Index name (for Elasticsearch)." },
+        enabled: { type: "boolean", description: "Enable forwarding." },
+        batchSize: { type: "number", description: "Events per batch." },
+        retryCount: { type: "number", description: "Max retry attempts." },
+      },
+      required: ["name", "provider", "endpoint"],
+    },
+  },
+  {
+    name: "siem_list_configs",
+    description: "List SIEM configurations.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        provider: {
+          type: "string",
+          enum: ["splunk", "elasticsearch", "azure_sentinel", "syslog", "file"],
+          description: "Filter by provider.",
+        },
+      },
+    },
+  },
+  {
+    name: "siem_update_config",
+    description: "Update a SIEM configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        configId: { type: "string", description: "Configuration ID." },
+        name: { type: "string", description: "New name." },
+        endpoint: { type: "string", description: "New endpoint." },
+        enabled: { type: "boolean", description: "Enable/disable." },
+      },
+      required: ["configId"],
+    },
+  },
+  {
+    name: "siem_delete_config",
+    description: "Delete a SIEM configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        configId: { type: "string", description: "Configuration ID." },
+      },
+      required: ["configId"],
+    },
+  },
+  {
+    name: "siem_log_event",
+    description: "Log a security audit event.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        severity: {
+          type: "string",
+          enum: ["info", "low", "medium", "high", "critical"],
+          description: "Event severity.",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "authentication",
+            "authorization",
+            "data_access",
+            "config_change",
+            "security_scan",
+            "policy_violation",
+            "system",
+          ],
+          description: "Event category.",
+        },
+        action: { type: "string", description: "Action performed." },
+        actor: { type: "string", description: "Actor (user/service)." },
+        actorType: {
+          type: "string",
+          enum: ["user", "service", "system"],
+          description: "Actor type.",
+        },
+        resource: { type: "string", description: "Resource affected." },
+        resourceType: { type: "string", description: "Type of resource." },
+        outcome: {
+          type: "string",
+          enum: ["success", "failure", "error"],
+          description: "Outcome of action.",
+        },
+        details: { type: "object", description: "Additional details." },
+      },
+      required: ["severity", "category", "action", "actor", "resource", "outcome"],
+    },
+  },
+  {
+    name: "siem_query_logs",
+    description: "Query audit logs with filters.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startTime: { type: "string", description: "Start time (ISO)." },
+        endTime: { type: "string", description: "End time (ISO)." },
+        severity: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by severity.",
+        },
+        category: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by category.",
+        },
+        actor: { type: "string", description: "Filter by actor." },
+        outcome: { type: "string", description: "Filter by outcome." },
+        limit: { type: "number", description: "Max results." },
+      },
+    },
+  },
+  {
+    name: "siem_get_stats",
+    description: "Get audit log statistics.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startTime: { type: "string", description: "Start time (ISO)." },
+        endTime: { type: "string", description: "End time (ISO)." },
+      },
+    },
+  },
+  {
+    name: "siem_forward",
+    description: "Forward pending events to a SIEM.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        configId: { type: "string", description: "SIEM configuration ID." },
+      },
+      required: ["configId"],
+    },
+  },
+  {
+    name: "siem_get_queue",
+    description: "Get forward queue status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        configId: { type: "string", description: "SIEM configuration ID." },
+      },
+    },
+  },
+  {
+    name: "siem_retry_failed",
+    description: "Retry failed forward attempts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        configId: { type: "string", description: "SIEM configuration ID." },
+      },
+      required: ["configId"],
+    },
+  },
+  {
+    name: "siem_test_connection",
+    description: "Test SIEM connection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        configId: { type: "string", description: "SIEM configuration ID." },
+      },
+      required: ["configId"],
+    },
+  },
 ];
 // =============================================================================
 // Resource Definitions (exported for testing)
@@ -14889,6 +15309,278 @@ const apiSecurityHandlers: Record<string, ToolHandler> = {
   },
 };
 
+// Kubernetes Operators Security handlers (v1.31.0)
+const k8sOperatorsHandlers: Record<string, ToolHandler> = {
+  k8s_operators_init: async (args) => {
+    try {
+      return initOperatorsDb(args?.dbPath as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_register: async (args) => {
+    try {
+      initOperatorsDb();
+      return registerOperator({
+        name: args?.name as string,
+        namespace: args?.namespace as string,
+        version: args?.version as string,
+        type: (args?.type as OperatorType) || "unknown",
+        crdCount: (args?.crdCount as number) || 0,
+        permissions: (args?.permissions as string[]) || [],
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_list: async (args) => {
+    try {
+      initOperatorsDb();
+      return { operators: listOperators(args?.namespace as string) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_get: async (args) => {
+    try {
+      initOperatorsDb();
+      const operator = getOperator(args?.operatorId as string);
+      if (!operator) return { error: "Operator not found" };
+      return operator;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_scan: async (args) => {
+    try {
+      initOperatorsDb();
+      return scanOperator(args?.operatorId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_crd_register: async (args) => {
+    try {
+      initOperatorsDb();
+      return registerCrd({
+        name: args?.name as string,
+        group: args?.group as string,
+        version: args?.version as string,
+        kind: args?.kind as string,
+        scope: args?.scope as "Namespaced" | "Cluster",
+        operatorId: args?.operatorId as string,
+        schema: args?.schema as Record<string, unknown>,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_crd_list: async (args) => {
+    try {
+      initOperatorsDb();
+      return { crds: listCrds(args?.operatorId as string) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_crd_validate: async (args) => {
+    try {
+      initOperatorsDb();
+      return validateCrd(args?.crdId as string, args?.level as CrdValidationLevel);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_rbac_analyze: async (args) => {
+    try {
+      initOperatorsDb();
+      return analyzeOperatorRbac(args?.operatorId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_compatibility: async (args) => {
+    try {
+      initOperatorsDb();
+      return checkOperatorCompatibility(args?.operatorId as string, args?.k8sVersion as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_webhook_register: async (args) => {
+    try {
+      initOperatorsDb();
+      return registerWebhook({
+        operatorId: args?.operatorId as string,
+        name: args?.name as string,
+        type: args?.type as "validating" | "mutating",
+        failurePolicy: (args?.failurePolicy as "Fail" | "Ignore") || "Fail",
+        timeoutSeconds: (args?.timeoutSeconds as number) || 10,
+        rules:
+          (args?.rules as Array<{
+            operations: string[];
+            apiGroups: string[];
+            apiVersions: string[];
+            resources: string[];
+          }>) || [],
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_webhook_audit: async (args) => {
+    try {
+      initOperatorsDb();
+      return auditWebhooks(args?.operatorId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  k8s_operators_summary: async (args) => {
+    try {
+      initOperatorsDb();
+      return getOperatorSecuritySummary(args?.namespace as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
+// Audit/SIEM Integration handlers (v1.31.0)
+const auditSiemHandlers: Record<string, ToolHandler> = {
+  siem_init: async (args) => {
+    try {
+      return initAuditSiemDb(args?.dbPath as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_create_config: async (args) => {
+    try {
+      initAuditSiemDb();
+      return createSiemConfig({
+        name: args?.name as string,
+        provider: args?.provider as SiemProvider,
+        endpoint: args?.endpoint as string,
+        apiKey: args?.apiKey as string,
+        index: args?.index as string,
+        enabled: (args?.enabled as boolean) ?? true,
+        retryCount: (args?.retryCount as number) || 3,
+        batchSize: (args?.batchSize as number) || 100,
+        flushIntervalMs: 30000,
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_list_configs: async (args) => {
+    try {
+      initAuditSiemDb();
+      return { configs: listSiemConfigs(args?.provider as SiemProvider) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_update_config: async (args) => {
+    try {
+      initAuditSiemDb();
+      const updates: Partial<SiemConfig> = {};
+      if (args?.name) updates.name = args.name as string;
+      if (args?.endpoint) updates.endpoint = args.endpoint as string;
+      if (args?.enabled !== undefined) updates.enabled = args.enabled as boolean;
+      const result = updateSiemConfig(args?.configId as string, updates);
+      if (!result) return { error: "Config not found" };
+      return result;
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_delete_config: async (args) => {
+    try {
+      initAuditSiemDb();
+      const deleted = deleteSiemConfig(args?.configId as string);
+      return { deleted };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_log_event: async (args) => {
+    try {
+      initAuditSiemDb();
+      return logSecurityEvent({
+        severity: args?.severity as AuditEventSeverity,
+        category: args?.category as AuditEventCategory,
+        action: args?.action as string,
+        actor: args?.actor as string,
+        actorType: (args?.actorType as "user" | "service" | "system") || "user",
+        resource: args?.resource as string,
+        resourceType: (args?.resourceType as string) || "unknown",
+        outcome: args?.outcome as "success" | "failure" | "error",
+        details: (args?.details as Record<string, unknown>) || {},
+      });
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_query_logs: async (args) => {
+    try {
+      initAuditSiemDb();
+      const query: AuditLogQuery = {};
+      if (args?.startTime) query.startTime = args.startTime as string;
+      if (args?.endTime) query.endTime = args.endTime as string;
+      if (args?.severity) query.severity = args.severity as AuditEventSeverity[];
+      if (args?.category) query.category = args.category as AuditEventCategory[];
+      if (args?.actor) query.actor = args.actor as string;
+      if (args?.outcome) query.outcome = args.outcome as "success" | "failure" | "error";
+      if (args?.limit) query.limit = args.limit as number;
+      return { events: queryAuditLogs(query) };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_get_stats: async (args) => {
+    try {
+      initAuditSiemDb();
+      return getAuditLogStats(args?.startTime as string, args?.endTime as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_forward: async (args) => {
+    try {
+      initAuditSiemDb();
+      return await forwardToSiem(args?.configId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_get_queue: async (args) => {
+    try {
+      initAuditSiemDb();
+      return getForwardQueue(args?.configId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_retry_failed: async (args) => {
+    try {
+      initAuditSiemDb();
+      const retried = retryFailedEvents(args?.configId as string);
+      return { retriedCount: retried };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+  siem_test_connection: async (args) => {
+    try {
+      initAuditSiemDb();
+      return await testSiemConnection(args?.configId as string);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  },
+};
+
 // Combined handler map
 const toolHandlers: Record<string, ToolHandler> = {
   ...trivyHandlers,
@@ -14951,6 +15643,8 @@ const toolHandlers: Record<string, ToolHandler> = {
   ...zeroTrustHandlers,
   ...meshSecurityHandlers,
   ...apiSecurityHandlers,
+  ...k8sOperatorsHandlers,
+  ...auditSiemHandlers,
 };
 
 export async function handleCallTool(

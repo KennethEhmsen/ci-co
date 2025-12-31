@@ -2247,3 +2247,62 @@ export {
   type ApiPolicy,
   type OwaspApiTop10Check,
 } from "./api-security.js";
+
+// Kubernetes Operators Security
+export {
+  k8sOperators,
+  initOperatorsDb,
+  registerOperator,
+  listOperators,
+  getOperator,
+  scanOperator,
+  registerCrd,
+  listCrds,
+  validateCrd,
+  analyzeOperatorRbac,
+  checkOperatorCompatibility,
+  registerWebhook,
+  auditWebhooks,
+  getOperatorSecuritySummary,
+  // Types
+  type OperatorType,
+  type CrdValidationLevel,
+  type OperatorInfo,
+  type CrdDefinition,
+  type OperatorScanResult,
+  type OperatorIssue,
+  type CrdValidationResult,
+  type RbacAnalysis,
+  type OperatorCompatibility,
+  type WebhookConfig as OperatorWebhookConfig,
+  type WebhookAudit,
+} from "./k8s-operators.js";
+
+// Audit/SIEM Integration
+export {
+  auditSiem,
+  initAuditSiemDb,
+  createSiemConfig,
+  getSiemConfig,
+  listSiemConfigs,
+  updateSiemConfig,
+  deleteSiemConfig,
+  logSecurityEvent,
+  queryAuditLogs,
+  getAuditLogStats,
+  forwardToSiem,
+  getForwardQueue,
+  retryFailedEvents,
+  clearForwardQueue,
+  testSiemConnection,
+  // Types
+  type SiemProvider,
+  type AuditEventSeverity,
+  type AuditEventCategory,
+  type SiemConfig,
+  type SecurityAuditEvent,
+  type SiemForwardResult,
+  type AuditLogQuery,
+  type AuditLogStats,
+  type ForwardQueue,
+} from "./audit-siem.js";
