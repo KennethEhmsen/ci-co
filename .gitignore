@@ -39,6 +39,11 @@ coverage/
 # Test repositories
 test-repo/
 
+# Test database files (created by unit tests)
+.test-*.db
+.test-*.db-shm
+.test-*.db-wal
+
 # Generated SBOM files
 sbom.json
 sbom-*.json

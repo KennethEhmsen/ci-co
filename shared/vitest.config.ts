@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Run test files sequentially to avoid shared module state conflicts
+    // (e.g., SQLite database connections in audit-trail, report-templates)
+    fileParallelism: false,
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html"],

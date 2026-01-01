@@ -93,11 +93,14 @@ CREATE TABLE IF NOT EXISTS audit_siem_queue (
 // =============================================================================
 
 let db: Database.Database | null = null;
-let config: AuditConfig = {
+// Default configuration (reset to this on each init)
+const DEFAULT_AUDIT_CONFIG: AuditConfig = {
   retentionDays: 90,
   tamperProof: true,
   realTimeStreaming: false,
 };
+
+let config: AuditConfig = { ...DEFAULT_AUDIT_CONFIG };
 
 // Event listeners for real-time streaming
 type AuditEventListener = (event: AuditEvent) => void;
@@ -136,10 +139,8 @@ export function initAuditDatabase(
     db.pragma("journal_mode = WAL");
     db.exec(SCHEMA);
 
-    // Apply initial config
-    if (initialConfig) {
-      config = { ...config, ...initialConfig };
-    }
+    // Reset config to defaults, then apply any initial config
+    config = { ...DEFAULT_AUDIT_CONFIG, ...initialConfig };
 
     // Store config in database
     const upsertConfig = db.prepare(

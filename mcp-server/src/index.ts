@@ -187,6 +187,7 @@ import {
   listUserPermissions,
   // API Key Management
   VALID_SCOPES,
+  ApiKeyScope,
   initApiKeyDatabase,
   isApiKeyDbInitialized,
   createApiKey,
@@ -10896,7 +10897,7 @@ const apiKeyHandlers: Record<string, ToolHandler> = {
 
     // Validate scopes
     for (const scope of scopes) {
-      if (!VALID_SCOPES.includes(scope as any)) {
+      if (!(VALID_SCOPES as readonly string[]).includes(scope)) {
         return { error: `Invalid scope: ${scope}. Valid scopes: ${VALID_SCOPES.join(", ")}` };
       }
     }
@@ -10905,7 +10906,7 @@ const apiKeyHandlers: Record<string, ToolHandler> = {
       const result = createApiKey({
         name,
         description: args?.description as string | undefined,
-        scopes: scopes as any,
+        scopes: scopes as ApiKeyScope[],
         expiresInDays: args?.expiresInDays as number | undefined,
         createdBy,
         rateLimit: args?.rateLimit as number | undefined,

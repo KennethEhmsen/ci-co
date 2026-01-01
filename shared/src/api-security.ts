@@ -10,6 +10,50 @@ import Database from "better-sqlite3";
 
 export type ApiType = "openapi" | "graphql" | "grpc" | "rest";
 export type AuthMethod = "none" | "apikey" | "basic" | "bearer" | "oauth2" | "mtls";
+
+// OpenAPI spec types for parsing
+interface OpenApiSecurityScheme {
+  type: string;
+  scheme?: string;
+  name?: string;
+  in?: string;
+}
+
+interface OpenApiParameter {
+  name: string;
+  in: string;
+  schema?: { type?: string; pattern?: string };
+}
+
+interface OpenApiResponse {
+  headers?: Record<string, unknown>;
+}
+
+interface OpenApiOperation {
+  security?: Array<Record<string, string[]>>;
+  parameters?: OpenApiParameter[];
+  responses?: Record<string, OpenApiResponse>;
+  "x-ratelimit-limit"?: number;
+}
+
+interface OpenApiPathItem {
+  get?: OpenApiOperation;
+  post?: OpenApiOperation;
+  put?: OpenApiOperation;
+  patch?: OpenApiOperation;
+  delete?: OpenApiOperation;
+}
+
+interface OpenApiSpec {
+  openapi?: string;
+  swagger?: string;
+  security?: Array<Record<string, string[]>>;
+  components?: {
+    securitySchemes?: Record<string, OpenApiSecurityScheme>;
+  };
+  securityDefinitions?: Record<string, OpenApiSecurityScheme>;
+  paths?: Record<string, OpenApiPathItem>;
+}
 export type OwaspCategory =
   | "broken-object-level-auth"
   | "broken-authentication"
@@ -178,7 +222,7 @@ function getDb(): Database.Database {
 // OpenAPI Scanning
 export function scanOpenApiSpec(specPath: string): ApiScanResult {
   const findings: ApiFinding[] = [];
-  let spec: any = {};
+  let spec: OpenApiSpec = {};
 
   try {
     const content = fs.readFileSync(specPath, "utf-8");
@@ -227,8 +271,8 @@ export function scanOpenApiSpec(specPath: string): ApiScanResult {
   // Check paths for security issues
   const paths = spec.paths || {};
   for (const [pathStr, pathItem] of Object.entries(paths)) {
-    for (const method of ["get", "post", "put", "patch", "delete"]) {
-      const operation = (pathItem as any)[method];
+    for (const method of ["get", "post", "put", "patch", "delete"] as const) {
+      const operation = pathItem[method];
       if (!operation) continue;
 
       // Check for missing security on sensitive endpoints
@@ -399,7 +443,7 @@ export function scanGraphQlSchema(schemaPath: string): ApiScanResult {
 // Auth Audit
 export function auditApiAuth(specId: string, specPath: string): AuthAuditResult {
   const endpoints: AuthAuditResult["endpoints"] = [];
-  let spec: any = {};
+  let spec: OpenApiSpec = {};
 
   try {
     const content = fs.readFileSync(specPath, "utf-8");
@@ -413,8 +457,8 @@ export function auditApiAuth(specId: string, specPath: string): AuthAuditResult 
 
   const paths = spec.paths || {};
   for (const [pathStr, pathItem] of Object.entries(paths)) {
-    for (const method of ["get", "post", "put", "patch", "delete"]) {
-      const operation = (pathItem as any)[method];
+    for (const method of ["get", "post", "put", "patch", "delete"] as const) {
+      const operation = pathItem[method];
       if (!operation) continue;
 
       const opSecurity = operation.security || globalSecurity;
@@ -474,7 +518,7 @@ export function auditApiAuth(specId: string, specPath: string): AuthAuditResult 
 export function auditRateLimits(specId: string, specPath: string): RateLimitAudit {
   const endpoints: RateLimitAudit["endpoints"] = [];
   const recommendations: string[] = [];
-  let spec: any = {};
+  let spec: OpenApiSpec = {};
 
   try {
     const content = fs.readFileSync(specPath, "utf-8");
@@ -485,15 +529,16 @@ export function auditRateLimits(specId: string, specPath: string): RateLimitAudi
 
   const paths = spec.paths || {};
   for (const [pathStr, pathItem] of Object.entries(paths)) {
-    for (const method of ["get", "post", "put", "patch", "delete"]) {
-      const operation = (pathItem as any)[method];
+    for (const method of ["get", "post", "put", "patch", "delete"] as const) {
+      const operation = pathItem[method];
       if (!operation) continue;
 
       // Check for rate limit headers in responses
       const hasRateLimit =
-        operation["x-ratelimit-limit"] ||
+        !!operation["x-ratelimit-limit"] ||
         Object.values(operation.responses || {}).some(
-          (r: any) => r.headers?.["X-RateLimit-Limit"] || r.headers?.["x-ratelimit-limit"]
+          (r: OpenApiResponse) =>
+            !!r.headers?.["X-RateLimit-Limit"] || !!r.headers?.["x-ratelimit-limit"]
         );
 
       endpoints.push({

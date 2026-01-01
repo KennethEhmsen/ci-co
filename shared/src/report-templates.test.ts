@@ -25,21 +25,26 @@ import {
   cleanupReportHistory,
 } from "./report-templates.js";
 
-describe("Report Templates", () => {
-  const testDbPath = path.join(process.cwd(), ".test-data", "report-test.db");
+// Use unique DB path per test run to avoid locking issues in CI
+const getTestDbPath = () =>
+  path.join(process.cwd(), `.test-report-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+let testDbPath: string;
 
+describe("Report Templates", () => {
   beforeEach(() => {
+    testDbPath = getTestDbPath();
     // Clean up before each test
     closeReportDatabase();
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
   });
 
   afterEach(() => {
     closeReportDatabase();
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
+    try {
+      if (fs.existsSync(testDbPath)) {
+        fs.unlinkSync(testDbPath);
+      }
+    } catch {
+      // Ignore cleanup errors on Windows
     }
   });
 
@@ -322,8 +327,13 @@ describe("Report Templates", () => {
     it("should cleanup old history entries", () => {
       generateReport({ templateId: "builtin-executive-summary" });
 
-      // Cleanup with 0 days retention should delete everything
-      const deleted = cleanupReportHistory(0);
+      // Verify history entry was created
+      const beforeCleanup = getReportHistory();
+      expect(beforeCleanup.length).toBe(1);
+
+      // Cleanup with -1 days retention sets cutoff to future, deleting everything
+      // (Using -1 instead of 0 to avoid timing edge cases where generated_at = cutoff)
+      const deleted = cleanupReportHistory(-1);
       expect(deleted).toBe(1);
 
       const history = getReportHistory();
