@@ -20,7 +20,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
+    "@anthropic-ai/sdk": "^0.71.2",
     "@node-saml/node-saml": "^5.0.1",
     "better-sqlite3": "^12.5.0",
     "exceljs": "^4.4.0",
