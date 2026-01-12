@@ -37,7 +37,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/jsonwebtoken": "^9.0.7",
-    "@types/node": "^20.19.27",
+    "@types/node": "^25.0.6",
     "@vitest/coverage-v8": "^4.0.16",
     "ioredis": "^5.4.2",
     "rimraf": "^6.0.1",
