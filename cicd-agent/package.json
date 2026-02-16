@@ -32,7 +32,7 @@
     "@cicd/shared": "file:../shared",
     "chalk": "^5.3.0",
     "commander": "^14.0.2",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.3.1",
     "ora": "^9.0.0"
   },
   "devDependencies": {
